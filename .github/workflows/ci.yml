@@ -22,7 +22,10 @@ jobs:
           pytest -q -rf --tb=short 2>&1 | tee pytest.log
           status=${PIPESTATUS[0]}
           # failures as annotations too, so they show up without opening the log
-          grep -E "^(FAILED|E  )" pytest.log | head -30 | sed 's/^/::error::/' || true
+          if [ "$status" != 0 ]; then
+            { grep -E "^(FAILED|ERROR|E  )" pytest.log | head -30; tail -n 12 pytest.log; } \
+              | sed 's/^/::error::/' || true
+          fi
           exit $status
 
   docker:
