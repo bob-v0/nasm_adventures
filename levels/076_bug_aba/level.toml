@@ -1,0 +1,22 @@
+level = 76
+slug = "bug_aba"
+title = "ABA"
+arc = "VIII"
+bug = 4
+mode = "program"
+witness = true
+concepts = ["compare-and-swap compares values, not histories", "A -> B -> A: the pointer is equal, the world isn't", "reused nodes", "tagged pointers / version counters", "cmpxchg16b"]
+introduces = ["the ABA problem", "tagged pointers"]
+
+hints = [
+  "pop reads top (A) and A.next (B), then CASes top from A to B. What if, between the read and the CAS, others pop A, pop B, and push A back? top is A again, so the CAS succeeds and B becomes the top, while someone else owns B.",
+  "The CAS asks 'is top still A?', but the question that matters is 'has top changed since I read it?'. A pointer can't tell; a counter can.",
+  "Make the stack's head 16 bytes, { top, version }, and change both at once with lock cmpxchg16b (rdx:rax = what you read, rcx:rbx = { new top, version + 1 }). Every push and pop bumps the version. Save rbx (it's callee-saved)!",
+]
+
+[constraints]
+max_changed_lines = 24
+max_steps = 600000
+
+[random]
+count = 1
