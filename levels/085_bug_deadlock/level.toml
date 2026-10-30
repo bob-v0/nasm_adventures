@@ -1,0 +1,22 @@
+level = 85
+slug = "bug_deadlock"
+title = "Deadlock"
+arc = "VIII"
+bug = 2
+mode = "program"
+witness = true
+concepts = ["deadlock: a cycle of threads, each waiting for a lock another holds", "the wait-for graph", "the four Coffman conditions", "lock ordering breaks the cycle"]
+introduces = ["deadlock", "lock ordering"]
+
+hints = [
+  "Thread 0 holds account 0 and waits for 1; thread 1 holds 1 and waits for 2; thread 2 holds 2 and waits for 0. Nobody can go on. The game's report lists each thread and the lock (futex) it sleeps on.",
+  "A deadlock needs a cycle in the 'waits for' graph. Here each thread takes its two locks in a different order (0-1, 1-2, 2-0), and that circle is the cycle.",
+  "Give the locks a global order and always take them in that order: the lower-numbered account first, whichever way the money goes. Unlocking order doesn't matter.",
+]
+
+[constraints]
+max_changed_lines = 10
+max_steps = 600000
+
+[random]
+count = 1
