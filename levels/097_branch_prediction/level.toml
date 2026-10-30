@@ -1,0 +1,21 @@
+level = 97
+slug = "branch_prediction"
+title = "Branch Prediction"
+arc = "VII"
+mode = "function"
+entry = "ring_sum_big"
+perf = true
+concepts = ["the front end guesses branches long before they execute", "a wrong guess throws work away", "predictable vs random branches", "branchless code: cmov, setcc, masks", "data-dependent branches vs loop branches"]
+introduces = ["branch prediction", "misprediction penalty", "cmov", "branchless code"]
+
+hints = [
+  "On random bytes, `jb .skip` goes one way or the other at random: the predictor is right half the time, and each wrong guess costs 15 cycles. The report counts the mispredictions.",
+  "Don't decide, compute: always add something, either the byte or 0. cmovb ecx, edx (with edx = 0) replaces the byte by 0 when it's below 128. cmov has no immediate form, so keep the 0 in a register.",
+  "Other branchless tricks: setae dl / neg edx makes a mask of all ones or all zeros, then and ecx, edx. Either way the only branch left is the loop's, which is predictable.",
+]
+
+[constraints]
+max_steps = 200000
+
+[random]
+count = 2

@@ -162,6 +162,8 @@ class CostModel:
         self.tsc_fix: tuple[int, int] | None = None  # (rdtsc value, 1 if rdtscp)
         self.read_reg = None                         # set by the Machine
         self.store_buffer: deque[float] = deque()    # when each pending store leaves it
+        self.cp_ready: dict[str, float] = {}         # for the critical path
+        self.critical = 0.0
         self.last_commit = 0.0
         self.noise = None                            # "interrupts": a deterministic rng
         if noise is not None:
@@ -327,16 +329,17 @@ class CostModel:
         data = start
         loads = [(a, s) for k, a, s in accesses if k == "r"]
         stores = [(a, s) for k, a, s in accesses if k == "w"]
+        load_lat = 0.0
         for a, s in loads:
             t = self._unit("load", max(start, addr_ready))
-            data = max(data, t + self._load_latency(info, a, s, t))
+            lat = self._load_latency(info, a, s, t)
+            load_lat = max(load_lat, lat)
+            data = max(data, t + lat)
         if info.mnemonic.startswith("prefetch") and info.mem and self.read_reg:
             ea = self._address(info)
             self._tlb(info, ea)
             self._line_latency(info, ea // LINE, self._unit("load", max(start, addr_ready)))
         begin = max(start, src, data if loads else start)
-        if src > start and src >= data and not info.cond_branch:
-            self._lose(info, "dependency chains (waiting for an earlier result)", src - start)
         begin = self._unit(info.unit, begin)
         done = begin + (0 if info.zero_idiom else info.latency)
         if info.fp_dest and not self.mxcsr() & 0x8040 and self._denormal(info):
@@ -346,6 +349,19 @@ class CostModel:
         for a, s in stores:
             st = self._unit("store", max(start, addr_ready, src))
             self._store(info, a, s, st)
+        # the critical path: the same dataflow with unlimited units and a perfect front end
+        cp = self.cp_ready
+        values = (info.reads - info.addr_regs) | info.partial
+        cp_src = 0.0 if info.zero_idiom else max(
+            (cp.get(r, 0.0) for r in values if r != "rsp"), default=0.0)
+        if loads:     # a load waits for its address, not for the value chain
+            cp_addr = max((cp.get(r, 0.0) for r in info.addr_regs if r != "rsp"), default=0.0)
+            cp_src = max(cp_src, cp_addr + load_lat)
+        cp_done = cp_src + (0 if info.zero_idiom else info.latency)
+        for r in info.writes:
+            if r != "rip":
+                cp[r] = cp_done
+        self.critical = max(self.critical, cp_done)
         for r in info.writes:
             if r not in ("rip",):
                 rd[r] = done
@@ -537,10 +553,9 @@ class CostModel:
         c = self.counts
         lines = [f"{self.cycles} cycles, {c['instructions']} instructions "
                  f"({c['instructions'] / max(self.cycles, 1):.2f} per cycle)"]
-        chain = self.lost.get("dependency chains (waiting for an earlier result)", 0)
-        if chain >= 0.5 * self.cycles and self.counts["instructions"] / max(self.cycles, 1) < 2:
-            lines.append("  most instructions wait for the result of an earlier one: a "
-                         "dependency chain sets the pace")
+        if self.critical >= 0.7 * self.cycles:
+            lines.append(f"  a dependency chain sets the pace: its instructions, one waiting for "
+                         f"the other, take ~{int(self.critical)} of the {self.cycles} cycles")
         events = [("branch mispredictions", "branch mispredictions"),
                   ("L2 misses", "cache misses to memory"), ("L1 misses", "L1 cache misses"),
                   ("interrupts", "interrupts"),
