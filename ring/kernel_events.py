@@ -13,7 +13,8 @@ A peer is a client script from the test, e.g.
     {"connect": 7000, "at": 1000, "steps": [{"send": "hi\\n"}, {"expect": "hi\\n"}, {"close": true}]}
 Steps: send / send_hex, expect (wait for exactly these bytes; optionally "after" / "within":
 µs since the step began, for things that must happen at the right time), drain (take what's there),
-sleep (µs), shutdown (stop sending: the server reads EOF), close (stop sending and
+sleep (µs), until (µs since the start: wait until then), shutdown (stop sending: the
+server reads EOF), close (stop sending and
 receiving), expect_eof (wait until the server closes the connection).
 """
 
@@ -83,6 +84,7 @@ class EventsMixin:
         self.listeners: dict[tuple, list[int]] = {}       # address -> backlog of conn ids
         self.timers: dict[int, Timer] = {}
         self.epolls: dict[int, dict[int, list[int]]] = {}   # id -> fd -> [events, data]
+        self.t0 = self.time_ns
         self.peers = [Peer(p, i, wake=p.get("at", 0) * US + self.time_ns)
                       for i, p in enumerate(peers)]
         self.next_obj = 1
@@ -219,6 +221,10 @@ class EventsMixin:
             if p.waiting_since is None:
                 p.waiting_since = self.time_ns         # (marks the sleep as started)
                 p.wake = self.time_ns + s["sleep"] * US
+                return False
+        elif "until" in s:
+            if self.time_ns < self.t0 + s["until"] * US:
+                p.wake = self.t0 + s["until"] * US
                 return False
         elif "shutdown" in s:
             c.client_sending = False

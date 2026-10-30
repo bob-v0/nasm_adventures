@@ -34,6 +34,12 @@ MAX_MEMBERS equ 64
 
 section .text
 _start:
+    mov eax, 13                 ; rt_sigaction(SIGPIPE, {SIG_IGN}, 0, 8): a client that
+    mov edi, 13                 ; hangs up mid-write makes write() fail with -EPIPE
+    lea rsi, [ignore]           ; instead of killing the whole server
+    xor edx, edx
+    mov r10d, 8
+    syscall
     lea rdi, [acceptor]
     xor esi, esi
     call rt_spawn
@@ -149,6 +155,7 @@ room:
     ret
 
 section .data
+ignore: dq 1, 0, 0, 0           ; struct sigaction: handler = SIG_IGN
 addr: dw 2
       db 7000 >> 8, 7000 & 0xFF
       db 127, 0, 0, 1

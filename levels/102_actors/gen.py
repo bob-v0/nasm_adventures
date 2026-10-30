@@ -8,19 +8,13 @@ def chat(clients, hidden=False, name="chat"):
         events += [(t, "expect", text) for t, other, text in said
                    if other != who and join < t < leave]
         events.sort(key=lambda e: e[0])
-        steps, now = [], join
+        steps = []
         for t, kind, text in events:
             if kind == "send":
-                if t > now:
-                    steps.append({"sleep": (t - now) * 1000})
-                    now = t
-                steps.append({"send": text})
+                steps += [{"until": t * 1000}, {"send": text}]
             else:
                 steps.append({"expect": text})
-                now = max(now, t)
-        if leave > now:
-            steps.append({"sleep": (leave - now) * 1000})
-        steps.append({"close": True})
+        steps += [{"until": leave * 1000}, {"close": True}]
         peers.append({"name": who, "connect": 7000, "at": join * 1000, "steps": steps})
     return {"name": name, "hidden": hidden, "inject": {"peers": peers},
             "expect": {"check": True}}

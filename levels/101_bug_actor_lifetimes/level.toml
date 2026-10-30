@@ -1,0 +1,23 @@
+level = 101
+slug = "bug_actor_lifetimes"
+title = "Actor Lifetimes"
+arc = "VI"
+bug = 3
+mode = "program"
+runtime = ["rt"]
+witness = true
+concepts = ["an actor's lifetime vs the messages still addressed to it", "who may end an actor: the last one who can send to it", "FIFO mailboxes make the last message a safe place to stop", "generation-checked handles as the alternative"]
+introduces = ["actor lifetimes", "generation handles"]
+
+hints = [
+  "Who can still send to a session after the reader posts K_STOP? The room: it only learns about the departure when it gets to K_LEAVE, and messages queued before that still produce K_DELIVERs for the session.",
+  "When the writer runs before the room gets to the K_LEAVE, it frees the session; the room's next mb_send into that session's mailbox writes into freed memory. Witness: try schedules 1, 2, 3... (the report names the failing ones).",
+  "Let the room end the session: the reader only posts K_LEAVE; the room, after removing the member, posts K_STOP to the session's mailbox (post uses rbx as M_FROM: save and set it). FIFO: K_STOP is the last message the writer gets, and nobody can send after it.",
+]
+
+[constraints]
+max_changed_lines = 10
+max_steps = 4000000
+
+[random]
+count = 2
