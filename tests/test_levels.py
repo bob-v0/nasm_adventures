@@ -15,8 +15,17 @@ LEVELS = all_levels()
 CTX = Context(seed=1234)
 
 
-def test_levels_are_contiguous_from_184():
-    assert sorted(LEVELS) == list(range(min(LEVELS), 185))
+def test_levels_match_the_curriculum():
+    """Every implemented level sits in the directory and number the curriculum gives it."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    planned = set(subprocess.check_output([sys.executable, str(root / "tools" / "gen_curriculum.py"),
+                                           "--dirs"], text=True).split())
+    implemented = {lv.path.name for lv in LEVELS.values()}
+    assert implemented <= planned, implemented - planned
+    assert 184 in LEVELS and all(lv.path.name.startswith(f"{n:03d}_") for n, lv in LEVELS.items())
 
 
 @pytest.mark.parametrize("ring", sorted(LEVELS, reverse=True))
