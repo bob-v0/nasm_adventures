@@ -241,8 +241,10 @@ def _cancel_sweep(level: Level, build: Build, test: TestCase):
             continue
         r, mm = _run_one(level, build, _without(test, "cancel_sweep", cancel_at=k))
         if not r.passed:
-            r.problems.insert(0, f"with task {task} cancelled at await #{k} (its "
-                                 f"{awaits[:k].count(task)}. await):")
+            nth = awaits[:k].count(task)
+            suffix = "th" if 10 <= nth % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(nth % 10, "th")
+            r.problems.insert(0, f"with task {task} cancelled at its {nth}{suffix} await "
+                                 f"(await #{k} of the run):")
             return r, mm
     return TestResult(test.name, test.hidden, True, [], m.steps), m
 

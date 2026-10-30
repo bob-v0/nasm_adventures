@@ -1,0 +1,22 @@
+level = 103
+slug = "bug_cancellation_leak"
+title = "Cancellation Leak"
+arc = "VI"
+bug = 3
+mode = "program"
+runtime = ["rt"]
+concepts = ["cancellation arrives at an await, in the middle of your code", "every exit path must release what's held", "a cancelled lock wait means you DON'T hold the lock", "leaked locks freeze everyone else"]
+introduces = ["cancellation", "ECANCELED (125)", "cleanup paths"]
+
+hints = [
+  "List what a worker holds at each await: at rt_lock, the buffer; at rt_sleep, the buffer AND the lock. `.cancelled` releases neither.",
+  "A task cancelled while holding db_lock returns without rt_unlock: every other worker then waits for that lock forever, and the runtime reports them stuck. Its buffer is never freed either.",
+  "Two exit labels: after a cancelled rt_sleep (lock held) unlock, then fall through to the path after a cancelled rt_lock (lock NOT held: rt_lock returned -125 without taking it), which frees the buffer. Each is a few lines.",
+]
+
+[constraints]
+max_changed_lines = 8
+max_steps = 300000
+
+[random]
+count = 3

@@ -48,3 +48,10 @@ def test_address_in_a_small_register_is_explained(tmp_path):
     assert msg.startswith("s.asm:2:") and "R_X86_64_8" in msg
     assert "`mov bl, greeting+7` uses a label's ADDRESS as an 8-bit number" in msg
     assert "_start" not in msg and "ring_generated" not in msg
+
+
+def test_a_name_that_is_an_instruction():
+    why = explain("comma, colon, decorator or end of line expected after operand", "LEAVE equ 3")
+    assert why and "`LEAVE` is the name of an instruction" in why
+    why = explain("parser: instruction expected", "lock: resq 3")
+    assert why and "`lock` is the name of an instruction" in why

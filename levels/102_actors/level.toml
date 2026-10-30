@@ -1,0 +1,21 @@
+level = 102
+slug = "actors"
+title = "Actors"
+arc = "VI"
+mode = "program"
+runtime = ["rt"]
+concepts = ["actors: private state, a mailbox, one message at a time", "ownership moves with the message", "one owner per resource: the room owns the sockets", "single-consumer mailboxes"]
+introduces = ["actors", "mailboxes", "message ownership"]
+
+hints = [
+  "mb_send: append the message (M_NEXT = 0, link it after the tail or make it the head), then if the mailbox has a parked receiver, clear MB_WAITER and rt_unpark it. mb_recv: while the mailbox is empty, store rt_current() in MB_WAITER and rt_park(); then unlink the head and return it.",
+  "room: forever: msg = mb_recv(&room_mb). JOIN adds msg->from to members[]; SAY writes msg->text (msg->len bytes) to every member whose fd isn't msg->from; LEAVE removes the fd from members[] and closes it. Then rt_free(msg): you own it.",
+  "Only the room touches members[] and writes to sockets, so no lock is needed anywhere: that's the point of actors. The reader never closes its fd: after JOIN the socket belongs to the room.",
+]
+
+[constraints]
+max_instructions = 200
+max_steps = 4000000
+
+[random]
+count = 4

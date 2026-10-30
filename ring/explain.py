@@ -29,11 +29,28 @@ def _operands(line: str) -> tuple[str, list[str]]:
     return parts[0].lower(), ops
 
 
+# Instruction and prefix names that are easy to pick as a label or constant by accident.
+_RESERVED = {"lock", "leave", "loop", "call", "ret", "push", "pop", "add", "sub", "and", "or",
+             "xor", "not", "neg", "inc", "dec", "test", "cmp", "mov", "rep", "in", "out", "int",
+             "str", "div", "mul", "enter", "wait", "hlt", "nop", "jmp", "lea", "shl", "shr",
+             "bt", "bts", "sar", "rol", "ror", "stc", "clc", "cld", "std", "ins", "outs", "lods",
+             "stos", "movs", "cmps", "scas", "xchg", "cpuid", "pause", "sti", "cli", "iret",
+             "syscall", "sysret", "ud2", "fence", "mfence", "lfence", "sfence", "seg", "abs",
+             "rel", "byte", "word", "dword", "qword", "times", "align", "section", "global",
+             "extern"}
+
+
 def explain(message: str, line: str) -> str | None:
     mnemonic, ops = _operands(line)
     sizes = [_reg_size(o) for o in ops]
     m = message.lower()
 
+    name = re.match(r"\s*([A-Za-z_][\w]*)\s*(:|\bequ\b|\b(?:d[bwdq]|res[bwdq])\b)", line, re.I)
+    if name and name.group(1).lower() in _RESERVED and (
+            "expected" in m or "invalid combination" in m or "label" in m):
+        return (f"`{name.group(1)}` is the name of an instruction (or prefix), so NASM reads this "
+                "line as that instruction, not as your name. Pick another name, e.g. "
+                f"`{name.group(1)}_` or `my_{name.group(1)}`.")
     if "invalid combination of opcode and operands" in m:
         if mnemonic == "movzx" and len(ops) == 2 and sizes[1] == 32:
             return ("movzx only takes an 8- or 16-bit source. To zero-extend 32 bits, use a plain "

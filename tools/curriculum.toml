@@ -125,8 +125,8 @@ levels = [
   { title = "Channels", dir = "channels", concepts = "bounded queues, backpressure, wakers", gate = "Producer/consumer tasks with a bounded channel" },
   { title = "Reentrancy at Await Points", dir = "bug_await_reentrancy", bug = 3, concepts = "state read before an await is stale after it; invariants across suspension", gate = "A bank of tasks loses money only under certain interleavings; the grader explores task schedules" },
   { title = "Lost Wakeup", dir = "bug_lost_wakeup", bug = 3, concepts = "a waker registered after the event already fired; check-then-wait", gate = "Fix a channel whose consumers sometimes sleep forever" },
-  { title = "Cancellation Leak", bug = 3, concepts = "a task cancelled at an await while holding a lock or buffer", gate = "Make cancellation release everything; the grader cancels at every await" },
-  { title = "Actors", concepts = "actors with mailboxes, message ownership", gate = "An actor-based chat room" },
+  { title = "Cancellation Leak", dir = "bug_cancellation_leak", bug = 3, concepts = "a task cancelled at an await while holding a lock or buffer", gate = "Make cancellation release everything; the grader cancels at every await" },
+  { title = "Actors", dir = "actors", concepts = "actors with mailboxes, message ownership", gate = "An actor-based chat room" },
   { title = "Actor Lifetimes", bug = 3, concepts = "lifetime across actors: an actor freed while messages addressed to it (or borrowed from it) are in flight", gate = "Fix with ownership transfer and generation-checked handles" },
   { title = "Async Chat Server", boss = true, concepts = "everything in the arc", gate = "Chat server that survives schedule exploration, cancellation and slow clients" },
 ]
