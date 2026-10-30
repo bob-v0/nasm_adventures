@@ -115,7 +115,7 @@ class TSO:
     def commit_weak(self, tid: int, rng) -> None:
         """Non-temporal stores commit in any order, independently of ordinary ones."""
         b = self.buffer(tid)
-        if b.weak and rng.random() < 0.5:
+        if b.weak and rng.random() < 0.03:         # write-combining buffers flush lazily
             addr, data = b.weak.pop(rng.randrange(len(b.weak)))
             self._commit_one(tid, addr, data)
             if tid == self.running:

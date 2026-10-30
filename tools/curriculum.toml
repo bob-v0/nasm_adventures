@@ -161,7 +161,7 @@ levels = [
   { title = "Livelock & Starvation", dir = "bug_starvation", bug = 3, concepts = "unfair spinlocks, polite livelock", gate = "Replace with a ticket lock; bounded waiting is checked" },
   { title = "Memory Ordering", dir = "memory_ordering", concepts = "x86-TSO: store buffers, store→load reordering, `mfence`", gate = "Witness a store-buffer reordering in the TSO model; forbid it with fences" },
   { title = "Ordering Violation", dir = "bug_ordering_violation", bug = 3, concepts = "Dekker/Peterson broken by store→load reordering", gate = "Witness both threads entering the critical section; fix with the minimum fences" },
-  { title = "Weakly-Ordered Stores", bug = 3, concepts = "non-temporal stores (`movnti`) escape TSO; publishing a flag before the data", gate = "Fix a producer/consumer that publishes garbage; `sfence` placement" },
+  { title = "Weakly-Ordered Stores", dir = "bug_weak_stores", bug = 3, concepts = "non-temporal stores (`movnti`) escape TSO; publishing a flag before the data", gate = "Fix a producer/consumer that publishes garbage; `sfence` placement" },
   { title = "Condition Variables", concepts = "futex wait/wake, predicate loops", gate = "Bounded blocking queue" },
   { title = "Lost Wakeup II", bug = 3, concepts = "check-then-sleep without the futex value comparison", gate = "Consumers that hang once in 10⁵ runs; fix and prove with schedule search" },
   { title = "False Sharing", bug = 2, concepts = "performance bug: unrelated data on one cache line", gate = "Per-thread counters 10× slower than expected; fix with padding" },

@@ -1,0 +1,22 @@
+level = 81
+slug = "bug_weak_stores"
+title = "Weakly-Ordered Stores"
+arc = "VIII"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["non-temporal stores bypass the cache", "they are weakly ordered: TSO's guarantees don't cover them", "publishing a flag before the data", "sfence"]
+introduces = ["movnti", "non-temporal stores", "write-combining", "sfence"]
+
+hints = [
+  "TSO keeps ordinary stores in order: if the consumer sees `ready`, it would see everything stored before it. But movnti isn't an ordinary store.",
+  "Non-temporal stores go through write-combining buffers, not the store buffer, and may become visible after LATER ordinary stores. The flag can arrive before the data it announces.",
+  "sfence makes every earlier store, including the non-temporal ones, visible before any later store. Put one between the fill loop and the store to `ready`.",
+]
+
+[constraints]
+max_changed_lines = 1
+max_steps = 600000
+
+[random]
+count = 1
