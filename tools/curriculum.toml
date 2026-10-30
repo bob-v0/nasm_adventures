@@ -169,7 +169,7 @@ levels = [
   { title = "ABA", dir = "bug_aba", bug = 4, concepts = "a pointer compares equal but the node was freed and reused", gate = "Witness the ABA schedule; fix with tagged pointers and `cmpxchg16b`" },
   { title = "Memory Reclamation", dir = "bug_memory_reclamation", bug = 4, concepts = "freeing nodes other threads may still read; hazard pointers, epoch-based reclamation", gate = "Lock-free stack with hazard pointers; the checked allocator watches every access" },
   { title = "Actors Across Threads", dir = "actors_threads", concepts = "a multi-threaded actor runtime, MPSC mailboxes, work stealing", gate = "Mailboxes and scheduling for actors on several worker threads" },
-  { title = "Lifetimes Across Actors", bug = 4, concepts = "an actor released by one worker while another still dispatches to it; refcount release ordering", gate = "Fix with refcounts + acquire/release ordering or epochs" },
+  { title = "Lifetimes Across Actors", dir = "bug_actor_lifetimes_threads", bug = 4, concepts = "an actor released by one worker while another still dispatches to it; refcount release ordering", gate = "Fix the reference counts: atomic, with decrement-and-test as one step" },
   { title = "Lock-Free Actor Runtime", boss = true, concepts = "everything in the arc", gate = "Passes schedule exploration, the TSO model, the race detector and a native stress test" },
 ]
 

@@ -973,8 +973,13 @@ class Machine:
         self.uc.emu_stop()
 
     def caller_line(self) -> str:
-        """Where the game's malloc/free was called from (its return address)."""
+        """Where the game's malloc/free was called from: the call before the return
+        address on the stack, or, for a syscall made directly, its own line."""
         ret = int.from_bytes(self.read(self.reg("rsp"), 8), "little") if self.readable(self.reg("rsp"), 8) else 0
+        start, end = self.build.code_range
+        if not start <= ret <= end:
+            here = self.build.addr_to_line.get(self.pc)
+            return f"line {here}" if here else f"{self.pc:#x}"
         lines = [(a, ln) for a, ln in self.build.addr_to_line.items() if a < ret]
         return f"line {max(lines)[1]}" if lines else f"{ret:#x}"
 

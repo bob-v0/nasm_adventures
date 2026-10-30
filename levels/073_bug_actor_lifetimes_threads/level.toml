@@ -1,0 +1,22 @@
+level = 73
+slug = "bug_actor_lifetimes_threads"
+title = "Lifetimes Across Actors"
+arc = "VIII"
+bug = 4
+mode = "program"
+witness = true
+concepts = ["shared ownership across threads: reference counts", "the count must change atomically", "decrement-and-test as ONE step", "who frees: exactly the thread that drops the last reference"]
+introduces = ["reference counting", "atomic decrement-and-test"]
+
+hints = [
+  "Many threads hold references to the same actor at once: senders, the run queue's entry, the registry. They take and drop them concurrently, and inc / dec on a shared count are read-modify-writes (level 89).",
+  "Even with an atomic decrement, `dec` then `cmp [refs], 0` is two steps: two threads can both decrement and both see 0 (double free), or a third can take a reference in between. The decrement and the 'was I last?' question must be one instruction.",
+  "get_ref: lock inc. put_ref: mov rax, -1 / lock xadd [refs], rax: rax is the count BEFORE your decrement, so exactly one thread sees 1, and that thread frees. (C++'s shared_ptr does this: fetch_sub with acq_rel ordering, free when the old value was 1.)",
+]
+
+[constraints]
+max_changed_lines = 6
+max_steps = 1500000
+
+[random]
+count = 1
