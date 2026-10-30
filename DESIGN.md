@@ -362,7 +362,7 @@ Runner: emu: threads share one emulated CPU under the game's scheduler (numbered
 | 75 | **Bug:** Memory Reclamation ◆◆◆◆ | freeing nodes other threads may still read; hazard pointers, epoch-based reclamation | Lock-free stack with hazard pointers; the checked allocator watches every access |
 | 74 | Actors Across Threads | a multi-threaded actor runtime, MPSC mailboxes, work stealing | Mailboxes and scheduling for actors on several worker threads |
 | 73 | **Bug:** Lifetimes Across Actors ◆◆◆◆ | an actor released by one worker while another still dispatches to it; refcount release ordering | Fix the reference counts: atomic, with decrement-and-test as one step |
-| 72 | Lock-Free Actor Runtime ★ | everything in the arc | Passes schedule exploration, the TSO model, the race detector and a native stress test |
+| 72 | Lock-Free Actor Runtime ★ | everything in the arc | A complete actor runtime that passes schedule exploration under the TSO model and the checked allocator |
 
 ### Arc IX — Floating Point & SIMD (Levels 71–58)
 
@@ -842,15 +842,18 @@ the internet directly.
    which ready task runs next and whether to cancel at each await point, so the grader
    sweeps schedules (a failing schedule number is a witness) and cancels at every await.
    The checked allocator watches every message and session for leaks and use after free.
-   Arc VIII in progress (levels 91–84 done): threads share one Unicorn instance (each
-   with its own saved registers), `clone`/`futex`/thread exit and join, a thread
-   scheduler (plain round-robin, or numbered random interleavings with random slice
-   lengths, used for sweeps and witnesses), and x86-TSO store buffers (`ring/tso.py`:
+   Arc VIII done (levels 91–72): threads share one Unicorn instance (each with its own
+   saved registers), `clone`/`futex`/thread exit and join, a thread scheduler (plain
+   round-robin, or numbered random interleavings: mostly very short turns, sometimes a
+   long one; used for sweeps and witnesses), x86-TSO store buffers (`ring/tso.py`:
    per-thread pending stores overlaid on memory while the thread runs, commits at
    schedule-chosen points, drained by locked instructions, `xchg`, `mfence` and syscalls;
-   non-temporal stores weakly ordered until `sfence`). Deadlocks name the futexes each
-   thread sleeps on. Remaining: levels 83–72, a happens-before race detector, multi-core
-   costs (false sharing) in the CPU model.
+   non-temporal stores weakly ordered until `sfence`), a multi-core CPU model (a core per
+   thread, a coherence directory moving lines between cores) for false sharing, and the
+   checked allocator across threads (use after free, double free, leaks, with allocation
+   and free lines). Deadlocks name the futexes each thread sleeps on. Not built: a
+   happens-before race detector and native stress tests; the levels rely on schedule
+   exploration and visible outcomes instead.
 6. **M6 – Performance, SIMD, machine code:** Arc VII done (levels 99–92), graded on the
    game's deterministic CPU model (`ring/perf.py`) instead of wall-clock time, so
    results are identical on every host (Docker, CI, ARM, a browser): a 4-wide

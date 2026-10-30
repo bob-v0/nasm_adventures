@@ -1,0 +1,20 @@
+level = 72
+slug = "actor_runtime"
+title = "Lock-Free Actor Runtime"
+arc = "VIII"
+boss = true
+mode = "program"
+concepts = ["everything in the arc"]
+introduces = []
+
+hints = [
+  "Build it from your own levels: worker threads (91), a run queue with a mutex and futex sleeping (87, 80), MPSC mailboxes and the scheduled flag (74), reference counts with lock xadd (73).",
+  "Shutdown needs to know when the system is quiet: count messages in flight. Increment when sending (before the message becomes visible), decrement after its behavior returns; when it reaches 0, wake whoever waits in rt_shutdown (futex on the counter). Behaviors send messages too, so the count only reaches 0 when the whole ring is done.",
+  "Reference counts: the creator holds one; the run queue takes one when it queues an actor and its worker drops it after actor_run. actor_release drops the creator's. So the actor is freed only after the last worker has finished with it.",
+]
+
+[constraints]
+max_steps = 3000000
+
+[random]
+count = 1
