@@ -20,8 +20,8 @@ def case(name, lengths, rng, hidden=False, budget=None):
     nodes = sum(lengths)
     t = {"name": name, "hidden": hidden, "regs": {"rdi": "@heads", "rsi": len(lengths)},
          "mem": mem, "expect": {"regs": {"rax": total}, "per": [max(nodes, 1), "node"]}}
-    if budget:
-        t["expect"]["max_cycles"] = int(budget * nodes) + 3000
+    if budget:   # per node, or as long as the longest list alone takes (nothing overlaps it)
+        t["expect"]["max_cycles"] = max(int(budget * nodes), 230 * max(lengths)) + 3000
     return t
 
 

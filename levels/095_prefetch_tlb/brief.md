@@ -42,4 +42,6 @@ Measure; don't assume.
 `ring_sum_lists(heads, k)` returns the sum of the values in `k` (1–8) linked lists
 (`heads[i]` = the first node, 0 = empty; a node is `dq next, dq value`). The nodes are
 scattered over a 4 MiB pool. The starter walks the lists one by one: about 200 cycles
-per node. Get it under **45 cycles per node**.
+per node. Get it under **45 cycles per node** (when the lists differ a lot in length, the
+budget is what the longest list alone takes: once it's the only one left, nothing can
+overlap with it).
