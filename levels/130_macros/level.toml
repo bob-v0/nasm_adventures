@@ -1,0 +1,47 @@
+level = 130
+slug = "macros"
+title = "Macros"
+arc = "IV"
+mode = "program"
+concepts = ["the NASM preprocessor as a code generator", "macro parameters", "macro-local labels with %%", "switching sections inside a macro", "macro libraries with %include"]
+introduces = ["%macro", "%endmacro", "%1 %2 ...", "%%label", "%0"]
+
+hints = [
+  "`%macro sys_write 3` ... `%endmacro` defines a macro with 3 parameters, used as %1, %2, %3 inside. Its body is pasted wherever you write `sys_write 1, buf, rax`.",
+  "print \"text\": inside the macro, switch to `section .rodata`, define `%%str: db %1` and `%%len equ $ - %%str`, switch back to `section .text`, then expand sys_write 1, %%str, %%len. %% gives each expansion its own labels.",
+  "The program: read up to 256 bytes into a .bss buffer, `print \"you said: \"`, sys_write 1, buffer, rax (the count read), `print \"bye\", 10`, exit 0. Watch out: sys_write's own `mov eax, 1` destroys the count in rax unless you move it first (or load rdx before rax in the macro).",
+]
+
+[constraints]
+max_instructions = 60
+
+[[constraints.source_patterns]]
+label = "defines a macro `sys_write` with 3 parameters"
+pattern = '^\s*%macro\s+sys_write\s+3\b'
+
+[[constraints.source_patterns]]
+label = "defines a macro `print` with 1+ parameters"
+pattern = '^\s*%macro\s+print\s+1(-\*)?\b'
+
+[[constraints.source_patterns]]
+label = "defines a macro `exit` with 1 parameter"
+pattern = '^\s*%macro\s+exit\s+1\b'
+
+[[constraints.source_patterns]]
+label = "uses %% local labels"
+pattern = '%%[A-Za-z_]'
+
+[[constraints.source_patterns]]
+label = "uses `print` at least twice"
+pattern = '^\s*print\s'
+min = 2
+
+[random]
+count = 10
+
+[[tests]]
+name = "hello"
+stdin = "hello"
+[tests.expect]
+stdout = "you said: hello\nbye\n"
+exit = 0

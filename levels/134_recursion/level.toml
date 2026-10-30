@@ -1,0 +1,22 @@
+level = 134
+slug = "recursion"
+title = "Recursion"
+arc = "IV"
+mode = "function"
+entry = "hanoi"
+concepts = ["functions that call themselves", "each call has its own frame", "what must survive a recursive call", "stack depth"]
+introduces = ["recursion"]
+
+hints = [
+  "To move n disks from `from` to `to`: move n - 1 from `from` to `via`, move disk n from `from` to `to`, move n - 1 from `via` to `to`. If n = 0, do nothing.",
+  "After the first recursive call, you still need n, from, to and via, but the call destroyed the scratch registers. Keep them in callee-saved registers (pushed in your prologue), so each level of recursion saves its caller's copies.",
+  "hanoi returns the new end of the buffer: out = hanoi(n-1, from, via, to, out); store from and to at [out], out += 2; return hanoi(n-1, via, to, from, out). Count your pushes for alignment.",
+]
+
+[constraints]
+max_instructions = 40
+must_use = ["call"]
+max_steps = 300000
+
+[random]
+count = 12

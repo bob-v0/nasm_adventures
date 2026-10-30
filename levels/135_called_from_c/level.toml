@@ -1,0 +1,19 @@
+level = 135
+slug = "called_from_c"
+title = "Called from C"
+arc = "IV"
+mode = "native"
+concepts = ["writing functions C can call", "C types in registers: int64_t, size_t, int, pointers", "qsort comparators and the subtraction overflow trap", "C strings"]
+introduces = ["C prototypes", "callbacks from C"]
+
+hints = [
+  "Read each prototype as registers: dot(rdi = a, rsi = b, rdx = n) returns int64_t in rax; cmp_desc(rdi, rsi) gets POINTERS to two int64_t values and returns an int in eax; count_char(rdi = s, esi = c).",
+  "cmp_desc must return negative if *x should come first, i.e. if *x > *y for descending order. Don't return *y - *x: with -2^63 and 2^63-1 the subtraction overflows and qsort gets the wrong sign. Compare, then return -1, 0 or 1.",
+  "For count_char, compare bytes with `cmp byte [rdi], sil`, since c arrives as an int, but chars are bytes. All three functions are leaves (they call nothing), so they need no saved registers if you stick to scratch ones.",
+]
+
+[constraints]
+max_instructions = 50
+
+[random]
+count = 12

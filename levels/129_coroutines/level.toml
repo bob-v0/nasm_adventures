@@ -1,0 +1,22 @@
+level = 129
+slug = "coroutines"
+title = "Coroutines"
+arc = "IV"
+mode = "function"
+entry = "ring_fib"
+concepts = ["a call stack per coroutine", "context = stack pointer + callee-saved registers", "switching stacks", "why only callee-saved registers need saving"]
+introduces = ["context switch", "coroutines", "generators"]
+
+hints = [
+  "On entry to co_switch, [rsp] is the return address into the code that called it. Save rsp and the six callee-saved registers into *save, load all seven from *load, and `ret`: that pops the return address of the OTHER context.",
+  "Why only callee-saved registers? co_switch is called like a function, so its caller already assumes the scratch registers are destroyed. The rest of the state is on each context's own stack.",
+  "mov [rdi], rsp / mov [rdi+8], rbx / mov [rdi+16], rbp / mov [rdi+24], r12 ... r15, then mov rsp, [rsi] / mov rbx, [rsi+8] ... / ret. Seven stores, seven loads, one ret.",
+]
+
+[constraints]
+max_instructions = 20
+must_use = ["ret"]
+max_steps = 6000
+
+[random]
+count = 10

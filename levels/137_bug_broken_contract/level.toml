@@ -1,0 +1,22 @@
+level = 137
+slug = "bug_broken_contract"
+title = "Broken Contract"
+arc = "IV"
+bug = 2
+mode = "function"
+entry = "ring_app"
+concepts = ["callee-saved registers", "stack alignment at calls", "the direction flag at function boundaries", "bugs that only appear in a caller"]
+introduces = []
+
+hints = [
+  "Read the calling convention (level 140) line by line against this function: which registers does it change that its caller may rely on? What is rsp % 16 at `call ring_mix`? What is DF when it returns?",
+  "rbx is used as the checksum without being saved. Only two registers are pushed, so the stack is misaligned at every call. And `std` is never undone.",
+  "One `push rbx` at the start (with `pop rbx` before ret) fixes two bugs at once: it saves rbx and makes three pushes, which re-aligns the stack. Add `cld` after `rep movsb`.",
+]
+
+[constraints]
+max_changed_lines = 3
+max_steps = 4000
+
+[random]
+count = 30

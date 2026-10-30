@@ -466,7 +466,8 @@ async function debugCmd(cmd) {
 function showDebug(v) {
   S.debug = v;
   const status = {
-    ready: "paused", running: "paused", done: "reached the end of your code — use back to rewind",
+    ready: "paused", running: "paused",
+    done: (v.mode === "function" ? "your function returned" : "reached the end of your code") + " — use back to rewind",
     exited: `program exited with status ${v.exit_code} — use back to rewind`,
     fault: v.fault, limit: "step limit reached",
   }[v.state] || v.state;

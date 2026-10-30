@@ -212,6 +212,9 @@ def cmd_debug(args, prog: Progress) -> int:
         s = Session(b)
     else:
         lv = get_level(args.level, prog)
+        if lv.mode == "native":
+            raise CliError("this level runs natively with the C library, which `ring debug` can't "
+                           "emulate. Use gdb: `gdb ./solution` in the level folder (after `ring test`).")
         try:
             s = _session_for(lv, prog, args.test, Path(args.file) if args.file else None)
         except BuildError as e:

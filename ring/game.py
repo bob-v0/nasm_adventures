@@ -29,10 +29,11 @@ def setup_level(level: Level, prog: Progress, force: bool = False) -> list[str]:
     if force or not sol.exists():
         shutil.copy(level.starter, sol)
         log.append(f"created {sol}")
-    if level.include_dir:
-        for f in level.include_dir.iterdir():
-            shutil.copy(f, d / f.name)
-            log.append(f"copied {d / f.name}")
+    shown = list(level.include_dir.iterdir()) if level.include_dir else []
+    shown += sorted(level.path.glob("*.c"))  # C harnesses: the player should read them
+    for f in shown:
+        shutil.copy(f, d / f.name)
+        log.append(f"copied {d / f.name}")
     level.prepare(d, context(prog))
     return log
 
@@ -41,7 +42,7 @@ def build_solution(level: Level, src: Path) -> Build:
     if not src.exists():
         raise BuildError(f"{src} does not exist. Start the level first.")
     b = build(src, src.parent / ".build", level.mode, **level.build_options())
-    if level.mode == "program":
+    if level.mode in ("program", "native"):
         # Whole programs are real Linux executables: put one next to the source so the
         # player can run, strace and gdb it.
         exe = src.parent / src.stem

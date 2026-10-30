@@ -5,7 +5,7 @@ Every level teaches a concept (the assembler, the CPU, Linux, concurrency, the
 hardware) or a class of bug, then seals the gate behind a program you write. See
 [DESIGN.md](DESIGN.md) for the full curriculum (185 levels, 45 of them bug levels).
 
-**Status:** Arcs I–III (levels 184–143, including six bug levels) are playable.
+**Status:** Arcs I–IV (levels 184–128, including ten bug levels) are playable.
 
 ## Play in your browser (Docker)
 
@@ -25,7 +25,7 @@ hosting, run one container per player behind a gateway (see DESIGN.md §12.2).
 
 ## Play natively (Linux)
 
-Needs Python ≥ 3.11, `nasm` and `binutils` (`ld`); `gdb` is recommended.
+Needs Python ≥ 3.11, `nasm`, `binutils` (`ld`) and `gcc` (for the libc levels); `gdb` is recommended.
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate

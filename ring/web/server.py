@@ -156,6 +156,8 @@ class Server:
         lv = self.level(int(body["level"]), prog)
         sol = self.save_text(lv, prog, body.get("text"))
         binary = body.get("binary")
+        if lv.mode == "native" and not binary:
+            raise ApiError(400, "This level runs natively with the C library, which the game's debugger can't emulate. Debug it with gdb in the Terminal tab: `gdb ./solution` (after Test), `break main`, `run`.")
         if binary:
             elf = (sol.parent / binary).resolve()
             if elf.parent != sol.parent.resolve() or not elf.is_file():
@@ -252,6 +254,7 @@ class Server:
                            "line": s.line(a), "current": a == m.pc})
         return {
             "state": m.state, "fault": m.fault, "exit_code": m.exit_code, "steps": m.steps,
+            "mode": s.build.mode,
             "can_back": bool(m.history), "line": s.line(), "rip": f"{m.pc:#x}",
             "where": s.build.symbol_at(m.pc), "test": s.test.name if s.test.name != "debug" else None,
             "regs": [{"name": n, "value": f"{regs[n]:016x}", "changed": regs[n] != prev.get(n)}

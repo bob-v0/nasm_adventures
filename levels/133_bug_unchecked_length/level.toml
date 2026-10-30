@@ -1,0 +1,23 @@
+level = 133
+slug = "bug_unchecked_length"
+title = "Unchecked Length"
+arc = "IV"
+bug = 2
+mode = "function"
+entry = "ring_rename"
+witness = true
+concepts = ["fixed-size fields and buffers", "copying without a bound", "memory next to a buffer belongs to something else", "truncation vs rejection"]
+introduces = []
+
+hints = [
+  "How many bytes does the copy loop write? It stops only at the NUL, wherever that is. What lies right after the 16-byte name field?",
+  "Any name of 16 characters or more writes past the field into the balance (even exactly 16: the NUL lands there). That's your witness.",
+  "Bound the loop: compute the address of the field's last byte (account + 15). When you reach it, write a NUL there and stop.",
+]
+
+[constraints]
+max_changed_lines = 5
+max_steps = 2000
+
+[random]
+count = 40

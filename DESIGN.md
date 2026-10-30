@@ -131,7 +131,7 @@ nasm_adventures/
 | Runner | Used by | How it works | What it can verify |
 |---|---|---|---|
 | `emu` | Arcs I–III; concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and emulated syscalls. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
-| `native` | Arcs IV–VII, IX–X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
+| `native` | libc levels of Arc IV; Arcs V–VII, IX–X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
 | `qemu` | Arcs XI–XIV | `nasm -f bin` → disk image or multiboot2 ELF; `qemu-system-x86_64 -nographic -no-reboot` with `isa-debug-exit` and serial on stdio; `-smp N` for SMP; gdb stub for `ring debug`. | Serial output, exit code via debug port, triple-fault detection, QEMU monitor dumps, interrupt injection. |
 
 Running through emulators also makes the game work on ARM Macs (QEMU TCG / Unicorn);
@@ -815,8 +815,13 @@ the internet directly.
    initial state (from level 144 on), symbol and pointer expectations, branch-free
    checks, the player's library (`itoa`, `atoi`), and plain-language explanations of
    NASM errors and warnings (warnings are now shown, not swallowed).
-4. **M4 – Native runner:** sandbox, ABI harness, syscall tracing, gdb backend for DAP,
-   fault injection (signals, failing syscalls, short reads); Arcs IV–V.
+4. **M4 – Functions and native code:** Arc IV done (levels 142–128). *Function mode*
+   runs in the emulator: the game calls the level's entry function with a return trap,
+   poisoned registers and the level's helper functions linked in, and checks the
+   System V contract (callee-saved registers, rsp, DF, alignment via helpers). *Native
+   mode* links with gcc (and a C harness) and runs with time/memory limits, for the
+   libc levels. Remaining for Arc V: syscall tracing, gdb backend for DAP, fault
+   injection (signals, failing syscalls, short reads).
 5. **M5 – Concurrency engine:** deterministic thread/task scheduler, schedule
    exploration (random, PCT, bounded exhaustive), x86-TSO store-buffer model, race and
    lifetime detectors, multi-thread replay; Arcs VI and VIII.

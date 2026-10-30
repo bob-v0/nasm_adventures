@@ -1,0 +1,23 @@
+level = 141
+slug = "call_return"
+title = "Call & Return"
+arc = "IV"
+mode = "function"
+entry = "print_uint"
+library = "print_uint"
+concepts = ["call pushes the return address, ret pops it", "functions calling functions", "a function's contract: arguments in, result out", "local buffers on the stack"]
+introduces = ["call", "ret", "global (for functions)", "function mode"]
+
+hints = [
+  "Structure: `print_uint` calls a helper (e.g. `utoa`) that formats the number into a buffer and returns its length, then does the `write`. Each function ends with `ret`.",
+  "A buffer on the stack: `sub rsp, 32` reserves 32 bytes (rsp now points at them); `add rsp, 32` before `ret` gives them back. Pass the buffer's address to the helper in a register.",
+  "rbx, rbp and r12–r15 belong to your caller: if you use them, save them (push) at the start and restore them (pop) before ret. rax, rcx, rdx, rsi, rdi and r8–r11 are yours to use freely.",
+]
+
+[constraints]
+max_instructions = 60
+must_use = ["call", "ret"]
+max_steps = 3000
+
+[random]
+count = 30

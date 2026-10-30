@@ -145,7 +145,9 @@ class TerminalDebugger:
     def where(self) -> None:
         m = self.s.m
         if m.finished:
-            what = {"done": "reached the end of your code", "exited": f"exited with status {m.exit_code}",
+            what = {"done": ("the function returned (rax = "f"{m.reg('rax'):#x})"
+                             if m.build.mode == "function" else "reached the end of your code"),
+                    "exited": f"exited with status {m.exit_code}",
                     "fault": m.fault, "limit": "step limit reached"}[m.state]
             print(self._c("33", f"-- program finished: {what}  (use `back` to rewind)"))
         line = self.s.line()

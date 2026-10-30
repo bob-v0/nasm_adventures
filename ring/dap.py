@@ -240,7 +240,8 @@ class DapServer:
     def _after_run(self, reason: str) -> None:
         m = self.s.m
         if m.finished:
-            text = {"done": "reached the end of your code\n",
+            text = {"done": ("your function returned\n" if m.build.mode == "function"
+                             else "reached the end of your code\n"),
                     "exited": f"program exited with status {m.exit_code}\n",
                     "fault": f"{m.fault}\n", "limit": "step limit reached\n"}[m.state]
             self.event("output", {"category": "console", "output": text})

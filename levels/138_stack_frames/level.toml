@@ -1,0 +1,21 @@
+level = 138
+slug = "stack_frames"
+title = "Stack Frames"
+arc = "IV"
+mode = "function"
+entry = "ring_run"
+concepts = ["frame pointers: the rbp chain", "[rbp] = caller's rbp, [rbp + 8] = return address", "enter / leave", "how debuggers and profilers produce backtraces"]
+introduces = ["rbp frames", "leave", "enter", "backtraces"]
+
+hints = [
+  "At the start of backtrace, [rsp] is your own return address: that's entry 0. rbp still belongs to your caller (ring_nest), whose frame looks like [rbp] = saved rbp, [rbp + 8] = return address.",
+  "Loop: store [rbp + 8], then rbp = [rbp], until the rbp you'd follow is 0 or the buffer is full. Use a copy of rbp in another register: you must not change rbp itself (it's callee-saved).",
+  "mov rax, [rsp] / mov [rdi], rax / mov ecx, 1 / mov rdx, rbp / .walk: cmp rcx, rsi / jae .done / test rdx, rdx / jz .done / mov rax, [rdx + 8] / mov [rdi + rcx*8], rax / inc rcx / mov rdx, [rdx] / jmp .walk",
+]
+
+[constraints]
+max_instructions = 30
+max_steps = 2000
+
+[random]
+count = 30

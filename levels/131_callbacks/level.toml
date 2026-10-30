@@ -1,0 +1,22 @@
+level = 131
+slug = "callbacks"
+title = "Callbacks"
+arc = "IV"
+mode = "function"
+entry = "ring_pipeline"
+concepts = ["function pointers are just addresses", "indirect calls: call reg", "higher-order functions", "keeping state across calls into unknown code"]
+introduces = ["call reg", "call [mem]"]
+
+hints = [
+  "A function pointer is an address: `call rdx` calls whatever function rdx points to. But the callback destroys rdx (and every other scratch register), so keep the pointer, the array, n and your index in callee-saved registers.",
+  "filter compacts in place: a 'write' index trails a 'read' index; when pred(arr[read]) is non-zero, arr[write++] = arr[read]. Return write. It's stable: kept elements stay in order.",
+  "Each of the three functions calls back n times, so each needs a prologue that saves the callee-saved registers it uses AND keeps the stack aligned for those calls: count the pushes.",
+]
+
+[constraints]
+max_instructions = 90
+must_use = ["call"]
+max_steps = 20000
+
+[random]
+count = 30

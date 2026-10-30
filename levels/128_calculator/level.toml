@@ -1,0 +1,22 @@
+level = 128
+slug = "calculator"
+title = "Calculator"
+arc = "IV"
+boss = true
+mode = "program"
+concepts = ["recursive-descent parsing", "a grammar as mutually recursive functions", "operator precedence", "error handling across deep recursion", "everything in Arc IV"]
+introduces = []
+
+hints = [
+  "One function per grammar rule: expr calls term, term calls factor, factor calls expr for parentheses. Keep the read cursor in one callee-saved register (e.g. rbx) that every function shares and advances.",
+  "Precedence falls out of the structure: term handles * and / by calling factor, so 1 + 2 * 3 groups as 1 + (2 * 3). Loops (not recursion) handle repeated + and -, so they associate left: 8 - 2 - 1 = 5.",
+  "Errors from deep inside the recursion: save rsp in a variable at the start, and on error restore it and jump to the error printer (C's setjmp/longjmp do this). Division: check for 0 and for -2^63 / -1 before idiv. Number literals: imul/add set OF on signed overflow.",
+]
+
+[constraints]
+max_instructions = 150
+must_use = ["call"]
+max_steps = 300000
+
+[random]
+count = 40

@@ -44,6 +44,7 @@ def encode_mem(spec: dict) -> bytes:
 
 @dataclass
 class TestCase:
+    __test__ = False  # not a pytest test class
     name: str
     hidden: bool = False
     regs: dict[str, int] = field(default_factory=dict)
@@ -59,7 +60,8 @@ class TestCase:
         if isinstance(stdin, str):
             stdin = stdin.encode()
         return cls(name=d["name"], hidden=d.get("hidden", False) if hidden is None else hidden,
-                   regs={k: to_int(v) for k, v in d.get("regs", {}).items()},
+                   regs={k: v if isinstance(v, str) and v.startswith("@") else to_int(v)
+                         for k, v in d.get("regs", {}).items()},  # "@label" = its address
                    mem=list(d.get("mem", [])), stdin=stdin, expect=dict(d.get("expect", {})))
 
 

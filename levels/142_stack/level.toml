@@ -1,0 +1,22 @@
+level = 142
+slug = "stack"
+title = "The Stack"
+arc = "IV"
+mode = "fragment"
+concepts = ["the hardware stack: rsp, push, pop", "last in, first out", "the stack grows down", "leaving rsp as you found it"]
+introduces = ["push", "pop", "rsp"]
+
+hints = [
+  "Reversing: push every character (as a qword: `movzx eax, byte [...]` then `push rax`), then pop them back into `out`; they come out in reverse order. Count how many you pushed, so you pop exactly that many.",
+  "Brackets: push each opening bracket. On a closing one, the stack must not be empty (you need your own counter: there's other data below), and the popped bracket must match. At the end the count must be 0.",
+  "If you stop early on a mismatch, you still have to pop what you pushed (or `add rsp, 8 * count`) so rsp ends where it started. lea rsp, [rsp + rcx*8] drops rcx qwords.",
+]
+
+[constraints]
+max_instructions = 64
+must_use = ["push", "pop"]
+poison = true
+max_steps = 3000
+
+[random]
+count = 50

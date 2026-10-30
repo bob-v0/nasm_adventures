@@ -53,6 +53,8 @@ class Build:
         return None
 
     def symbol_at(self, addr: int) -> str | None:
+        if self.mode == "function" and addr == self.symbols.get(RETURN_SYMBOL):
+            return "return to the game"
         if not any(a <= addr < a + max(n, 1) for a, n in self.sections.values()):
             return None
         best = None

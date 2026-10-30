@@ -1,0 +1,22 @@
+level = 132
+slug = "bug_dangling_frame"
+title = "Dangling Frame"
+arc = "IV"
+bug = 2
+mode = "function"
+entry = "ring_report"
+concepts = ["lifetime of stack memory", "a frame dies at ret", "who owns a buffer", "bugs that depend on what runs next"]
+introduces = []
+
+hints = [
+  "Where does the returned pointer point? Step to the `ret` of format_pair in the debugger and compare rax with rsp. After the ret, is that memory still anyone's?",
+  "The text is built in format_pair's own stack space, which is released by `add rsp, 40` and reused by the very next call (here: the second format_pair, then ring_scrub). The caller gave you a buffer to use instead.",
+  "Write into `out` (kept in r12) instead of rsp, and return r12.",
+]
+
+[constraints]
+max_changed_lines = 2
+max_steps = 6000
+
+[random]
+count = 30

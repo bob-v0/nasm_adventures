@@ -1,0 +1,22 @@
+level = 139
+slug = "stack_alignment"
+title = "Stack Alignment"
+arc = "IV"
+mode = "function"
+entry = "sum_squares"
+concepts = ["the 16-byte alignment rule at call", "counting pushes", "reserving space with sub rsp", "why SSE instructions care"]
+introduces = ["stack alignment"]
+
+hints = [
+  "On entry rsp % 16 == 8 (the call pushed 8 bytes). Each push changes it by 8. Before every call of yours, rsp % 16 must be 0. Count your pushes.",
+  "You need three values to survive the calls (the counter, n or the multiplier, and the sum). With an odd number of pushes the stack is aligned; with an even number, add `sub rsp, 8` (and `add rsp, 8` before the pops).",
+  "Watch it in the debugger: step to a `call ring_square` and look at rsp's last hex digit. It must be 0 just before the call.",
+]
+
+[constraints]
+max_instructions = 32
+must_use = ["call"]
+max_steps = 4000
+
+[random]
+count = 30

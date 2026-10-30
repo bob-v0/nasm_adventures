@@ -94,7 +94,7 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
         rsp = m.reg("rsp")
         m.write(rsp - 4096, rng.randbytes(4096))
     for name, value in test.regs.items():
-        m.set_reg(name, value)
+        m.set_reg(name, symbol_value(build, value[1:]) if isinstance(value, str) else value)
     for spec in test.mem:
         if "ptr" in spec:  # an address: "label", "label+off", or a number (0 = null)
             data = struct.pack("<Q", symbol_value(build, spec["ptr"]))
@@ -123,6 +123,15 @@ def _show(b: bytes, limit: int = 64) -> str:
     except UnicodeDecodeError:
         pass
     return b.hex(" ")
+
+
+def _undefined_symbols(build: Build) -> set[str]:
+    """Functions the player's object uses from elsewhere (libc, the game's helpers)."""
+    if build.player_object is None:
+        return set()
+    with open(build.player_object, "rb") as fh:
+        symtab = ELFFile(fh).get_section_by_name(".symtab")
+        return {s.name for s in symtab.iter_symbols() if s["st_shndx"] == "SHN_UNDEF" and s.name}
 
 
 def _register_diff_hint(name: str, want: int, got: int) -> str:
@@ -355,6 +364,14 @@ def grade(level: Level, build: Build, tests: list[TestCase], ctx: Context | None
     ins = disassemble(build)
     r.instructions = [(a, f"{mn} {ops}".strip()) for a, mn, ops in ins]
     r.checks = _static_checks(level.constraints, ins, r.max_steps)
+    if level.constraints.get("source_patterns"):
+        text = re.sub(r";.*", "", build.source.read_text())  # ignore comments
+        for rule in level.constraints["source_patterns"]:
+            n = len(re.findall(rule["pattern"], text, re.M | re.I))
+            want = rule.get("min", 1)
+            r.checks.append(Check(rule["label"], n >= want, f"found {n}" if n < want else ""))
+    for fn in level.constraints.get("must_call", []):
+        r.checks.append(Check(f"calls `{fn}`", fn in _undefined_symbols(build)))
     if "max_changed_lines" in level.constraints:
         n = level.constraints["max_changed_lines"]
         used = changed_lines(level.starter.read_text(), build.source.read_text())
