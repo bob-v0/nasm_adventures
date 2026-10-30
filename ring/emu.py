@@ -505,10 +505,15 @@ class Machine:
         self._slice_left = self._slice_length()
 
     def _slice_length(self) -> int:
+        """Plain schedule: whole quanta. Others: mostly very short turns, and now and then
+        a long one (a thread that runs for a while undisturbed, as real ones do)."""
         k = self.kernel
         if k.inject.schedule == 0:
             return k.inject.quantum
-        return k.sched_rng.randint(1, max(1, k.inject.quantum // 10))
+        q = k.inject.quantum
+        if k.inject.long_slices and k.sched_rng.random() < 0.2:
+            return k.sched_rng.randint(max(1, q // 2), 2 * q)
+        return k.sched_rng.randint(1, max(1, q // 10))
 
     def symbolize(self, addr: int) -> str:
         """`label` or `label+offset` for an address in the program's data, else hex."""
@@ -692,8 +697,11 @@ class Machine:
         self._yield = False
         if self.threaded and self.thread.state != "running":
             t = self._pick_thread()
-            if t is None:
-                t = self.thread                  # everyone waits: retry this one's syscall
+            if t is None:                        # everyone waits: retry one's syscall
+                t = self.thread if self.thread.state != "exited" else next(
+                    (th for th in self.threads if th.state == "blocked"), None)
+                if t is None:
+                    return
             self._switch(t)
         while self.state == "running" and self.steps < end and not self._yield:
             nxt = self._next_injected()
@@ -713,7 +721,10 @@ class Machine:
                         self.state = "running"
                         self._switch(t)
                         continue
-                    if self.state == "running":     # the only thread left: keep going
+                    if self.thread.state == "exited":  # the rest are all asleep
+                        self.state = "blocked"
+                        self.blocked_on = "every thread waits"
+                    elif self.state == "running":     # the only thread left: keep going
                         self._slice_left = self._slice_length()
             if self.state != "running":
                 break

@@ -355,7 +355,7 @@ Runner: emu: threads share one emulated CPU under the game's scheduler (numbered
 | 82 | **Bug:** Ordering Violation ◆◆◆ | Dekker/Peterson broken by store→load reordering | Witness both threads entering the critical section; fix with the minimum fences |
 | 81 | **Bug:** Weakly-Ordered Stores ◆◆◆ | non-temporal stores (`movnti`) escape TSO; publishing a flag before the data | Fix a producer/consumer that publishes garbage; `sfence` placement |
 | 80 | Condition Variables | futex wait/wake, predicate loops | Bounded blocking queue |
-| 79 | **Bug:** Lost Wakeup II ◆◆◆ | check-then-sleep without the futex value comparison | Consumers that hang once in 10⁵ runs; fix and prove with schedule search |
+| 79 | **Bug:** Lost Wakeup II ◆◆◆ | check-then-sleep without the futex value comparison | Consumers that hang in a few schedules out of a hundred; witness, fix, and pass the schedule search |
 | 78 | **Bug:** False Sharing ◆◆ | performance bug: unrelated data on one cache line | Per-thread counters 10× slower than expected; fix with padding |
 | 77 | Lock-Free Stack | Treiber stack with `cmpxchg` | Push/pop under contention |
 | 76 | **Bug:** ABA ◆◆◆◆ | a pointer compares equal but the node was freed and reused | Witness the ABA schedule; fix with tagged pointers and `cmpxchg16b` |

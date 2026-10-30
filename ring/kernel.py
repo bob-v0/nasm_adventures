@@ -167,6 +167,7 @@ class Injection:
     peers: list[dict] = field(default_factory=list)  # scripted clients (see kernel_events)
     schedule: int = 0              # the game's task runtime: 0 = first ready task, else a seed
     cancel_at: int = 0             # cancel the task making the nth await (0 = never)
+    long_slices: bool = True       # random schedules: sometimes let a thread run a while
     seed: str = ""
 
     @classmethod
@@ -176,7 +177,8 @@ class Injection:
                    short_writes=d.get("short_writes", False),
                    signals=list(d.get("signals", [])), fs_events=list(d.get("fs_events", [])),
                    quantum=d.get("quantum", 500), peers=list(d.get("peers", [])),
-                   schedule=d.get("schedule", 0), cancel_at=d.get("cancel_at", 0), seed=seed)
+                   schedule=d.get("schedule", 0), cancel_at=d.get("cancel_at", 0),
+                   long_slices=d.get("long_slices", True), seed=seed)
 
 
 class Kernel(EventsMixin):

@@ -103,7 +103,9 @@ consumer:
     call queue_get
     test rdx, rdx
     jz exit_thread
-    mov edi, 2
+    mov rdi, r12                ; 2 | consumer << 8
+    shl rdi, 8
+    or rdi, 2
     mov rsi, rax
     call log
     jmp .get

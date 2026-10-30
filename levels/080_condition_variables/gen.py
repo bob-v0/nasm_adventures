@@ -13,7 +13,11 @@ def check(test, m):
     raw = m.read(syms["ring_log"], 16 * count)
     log = [struct.unpack_from("<QQ", raw, 16 * i) for i in range(count)]
     sent = [v for k, v in log if k == 1]
-    got = [v for k, v in log if k == 2]
+    got = [v for k, v in log if k & 0xFF == 2]
+    by_consumer = {}
+    for k, v in log:
+        if k & 0xFF == 2:
+            by_consumer.setdefault(k >> 8, []).append(v)
     problems = []
     want = sorted(q * 1000 + i for q in range(p) for i in range(n))
     if sorted(got) != want:
@@ -23,11 +27,15 @@ def check(test, m):
         problems.append("received values are wrong: " + "; ".join(x for x in (
             f"lost {lost[:5]}" if lost else "", f"received twice {dup[:5]}" if dup else "",
             f"never sent {bogus[:5]}" if bogus else "") if x))
-    for q in range(p):
-        mine = [v for v in got if v // 1000 == q]
-        if mine != sorted(mine):
-            problems.append(f"producer {q}'s values came out of order: {mine[:8]}")
-            break
+    for q in range(p):                       # (each consumer sees each producer's values in order)
+        for seen in by_consumer.values():
+            mine = [v for v in seen if v // 1000 == q]
+            if mine != sorted(mine):
+                problems.append(f"producer {q}'s values came out of order: {mine[:8]}")
+                break
+        else:
+            continue
+        break
     inside = 0
     for k, _ in log:
         inside += 1 if k == 1 else -1

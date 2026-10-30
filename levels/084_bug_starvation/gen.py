@@ -3,7 +3,8 @@ SLACK = 2       # "I want it" is logged a few instructions before the lock reall
 
 
 def case(name, inject, hidden=False):
-    return {"name": name, "hidden": hidden, "inject": {"tso": True, "quantum": 120, **inject},
+    return {"name": name, "hidden": hidden,
+            "inject": {"tso": True, "quantum": 120, "long_slices": False, **inject},
             "expect": {"exit": 0, "check": True}}
 
 

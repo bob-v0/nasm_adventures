@@ -30,4 +30,4 @@ fenced_right:
     mov [r2], eax
     ret
 
-;! witness schedule = 10
+;! witness schedule = 16

@@ -1,0 +1,22 @@
+level = 79
+slug = "bug_lost_wakeup_futex"
+title = "Lost Wakeup II"
+arc = "VIII"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["the window between releasing the lock and going to sleep", "why futex_wait compares a value", "rare bugs and schedule search"]
+introduces = []
+
+hints = [
+  "Everything about the queue is fine; look at cond_wait. Between mutex_unlock and the moment it reads the counter, another thread can take the mutex, change the queue and signal. What value does the waiter then read, and what does futex_wait do with it?",
+  "It reads the counter AFTER the signal bumped it, so futex_wait sees exactly the value it expects and goes to sleep, waiting for a signal that already happened. If nothing else comes, it sleeps forever. Try many witnesses: it's rare.",
+  "Read the counter while still holding the mutex, before unlocking. Then any signal after the unlock changes it, and futex_wait returns at once. Moving one line.",
+]
+
+[constraints]
+max_changed_lines = 2
+max_steps = 2000000
+
+[random]
+count = 1

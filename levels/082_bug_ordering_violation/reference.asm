@@ -133,4 +133,4 @@ go:     resd 1
 tids:   resd 2
 alignb 16
 stacks: resb 3 * 4096
-;! witness schedule = 15
+;! witness schedule = 2
