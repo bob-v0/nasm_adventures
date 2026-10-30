@@ -200,7 +200,7 @@ def _session_for(lv: Level, prog: Progress, test_name: str | None, src: Path | N
         test = matches[0]
     elif tests:
         test = tests[0]
-    return Session(b, test, poison=lv.constraints.get("poison", False))
+    return Session(b, test, poison=lv.poison)
 
 
 def cmd_debug(args, prog: Progress) -> int:

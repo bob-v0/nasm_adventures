@@ -70,23 +70,23 @@ levels = [
 [[arc]]
 id = "IV"
 name = "Stack & Procedures"
-runner = "native (sandboxed)"
+runner = "emu in function mode (the game calls your functions); native for the libc levels"
 levels = [
-  { title = "The Stack", concepts = "`push`, `pop`, rsp", gate = "Reverse a string via the stack" },
-  { title = "Call & Return", concepts = "`call`, `ret`, return addresses", gate = "Refactor the Echo Chamber into functions" },
-  { title = "System V ABI", concepts = "argument/return registers, caller- vs callee-saved", gate = "A harness calls your function with poisoned callee-saved registers" },
-  { title = "Stack Alignment", concepts = "16-byte rule at `call`, red zone", gate = "Call a harness function that asserts alignment" },
-  { title = "Stack Frames", concepts = "`rbp` frames, locals, `enter/leave`", gate = "Print your own call stack" },
-  { title = "Broken Contract", bug = 2, concepts = "ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`)", gate = "Fix a library that works alone but crashes its callers" },
-  { title = "Hello, libc", concepts = "`extern printf`, linking with gcc, varargs and `al`", gate = "Formatted table via printf" },
-  { title = "Called from C", concepts = "exporting symbols, headers, struct passing", gate = "A C-callable API + qsort comparator" },
-  { title = "Recursion", concepts = "recursive calls, stack depth", gate = "Towers of Hanoi with a depth limit" },
-  { title = "Smashed Stack", bug = 2, concepts = "buffer overflow overwriting a return address", gate = "Craft a witness input that redirects control, then fix the bounds check" },
-  { title = "Dangling Frame", bug = 2, concepts = "lifetime: pointers to a callee's locals die at `ret`", gate = "Fix a parser that returns pointers into its own stack frame" },
-  { title = "Callbacks", concepts = "function pointers, `call reg`", gate = "Generic map/filter/reduce" },
-  { title = "Macros", concepts = "`%macro`, local labels `%%`, `%include` libraries", gate = "A macro DSL for your syscalls" },
-  { title = "Coroutines", concepts = "saving/switching stacks, tail calls", gate = "Generators with your own stack switcher (reused in Arc VI)" },
-  { title = "Calculator", boss = true, concepts = "everything in the arc", gate = "Recursive-descent expression evaluator" },
+  { title = "The Stack", dir = "stack", concepts = "`push`, `pop`, rsp, last-in first-out", gate = "Reverse a string and check brackets with the stack" },
+  { title = "Call & Return", dir = "call_return", library = "print_uint", concepts = "`call`, `ret`, return addresses, functions calling functions", gate = "A `print_uint` function built from a helper → library" },
+  { title = "System V ABI", dir = "abi", concepts = "argument/return registers, caller- vs callee-saved registers", gate = "Keep values alive across a call that clobbers every caller-saved register" },
+  { title = "Stack Alignment", dir = "stack_alignment", concepts = "the 16-byte rule at `call`, locals with `sub rsp`, the red zone", gate = "Call a helper that checks alignment, from varying stack depths" },
+  { title = "Stack Frames", dir = "stack_frames", concepts = "`rbp` frames, locals, `enter`/`leave`, walking the frame chain", gate = "Write a backtrace of your callers' return addresses" },
+  { title = "Broken Contract", dir = "bug_broken_contract", bug = 2, concepts = "ABI violations: clobbered callee-saved registers, a misaligned stack", gate = "Fix a library that works alone but breaks its callers" },
+  { title = "Hello, libc", dir = "hello_libc", concepts = "`extern printf`, linking with gcc, `main`, varargs and `al`", gate = "A formatted table via printf (runs natively)" },
+  { title = "Called from C", dir = "called_from_c", concepts = "exporting symbols, C prototypes, pointers and sizes across the boundary", gate = "A C-callable API and a qsort comparator (runs natively)" },
+  { title = "Recursion", dir = "recursion", concepts = "recursive calls, stack depth, what each frame holds", gate = "Towers of Hanoi, recording every move" },
+  { title = "Unchecked Length", dir = "bug_unchecked_length", bug = 2, concepts = "copying without a bounds check corrupts neighbouring data", gate = "A long input overwrites the next field of a record: show it with a witness, then bound the copy" },
+  { title = "Dangling Frame", dir = "bug_dangling_frame", bug = 2, concepts = "lifetime: pointers to a callee's locals die at `ret`", gate = "Fix a function that returns a pointer into its own stack frame" },
+  { title = "Callbacks", dir = "callbacks", concepts = "function pointers, `call reg`, calling back into the caller's code", gate = "Generic map/filter/reduce" },
+  { title = "Macros", dir = "macros", concepts = "`%macro`, parameters, `%%` local labels, `%include` libraries", gate = "A small macro language for system calls" },
+  { title = "Coroutines", dir = "coroutines", concepts = "saving and switching stacks, resuming where you left off", gate = "Generators with your own context switch (reused in Arc VI)" },
+  { title = "Calculator", dir = "calculator", boss = true, concepts = "everything in the arc", gate = "A recursive-descent expression evaluator" },
 ]
 
 [[arc]]

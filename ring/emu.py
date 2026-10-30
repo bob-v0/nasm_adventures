@@ -122,6 +122,11 @@ class Machine:
         self.uc.mem_map(STACK_TOP - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE)
         if self.build.mode == "program":
             rsp = self._linux_initial_stack()
+        elif self.build.mode == "function":
+            # As if called: rsp is 16-byte aligned before the call, and the call pushed
+            # the return address (the game's trap) so the function sees rsp % 16 == 8.
+            rsp = STACK_TOP - PAGE - 8
+            self.uc.mem_write(rsp, struct.pack("<Q", self.build.done_addr))
         else:
             rsp = STACK_TOP - PAGE
         self.uc.reg_write(REGS["rsp"], rsp)
@@ -317,7 +322,8 @@ class Machine:
         loc = f" (solution line {where})" if where else ""
         end = self.build.code_range[1]
         if not where and end <= pc < align_up(end + 1):
-            loc = " (past the end of your code: did you forget to exit?)"
+            missing = "`ret`" if self.build.mode == "function" else "to exit"
+            loc = f" (past the end of your code: did you forget {missing}?)"
         self.fault = f"{_describe(e)} at rip={pc:#x}{loc}"
 
 

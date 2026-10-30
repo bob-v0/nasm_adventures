@@ -170,7 +170,7 @@ class Server:
                 return {"build_error": str(e), "errors": _error_lines(str(e))}
             tests = lv.all_tests(context(prog), include_hidden=False)
             test = next((t for t in tests if t.name == body.get("test")), tests[0] if tests else None)
-            session = Session(b, test, poison=lv.constraints.get("poison", False))
+            session = Session(b, test, poison=lv.poison)
             source_lines = sol.read_text().splitlines()
         sid = secrets.token_hex(8)
         self.sessions = dict(list(self.sessions.items())[-7:])  # keep a few

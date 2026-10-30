@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 
 from capstone import CS_ARCH_X86, CS_MODE_64, Cs
+from elftools.elf.elffile import ELFFile
 
 from .build import Build
 from .emu import FLAG_BITS, GPRS, Machine
@@ -56,9 +57,14 @@ class Report:
 
 def disassemble(build: Build) -> list[tuple[int, str, str]]:
     """(address, mnemonic, operands) for the player's code."""
-    start, end = build.code_range
-    m = Machine(build)
-    code = m.read(start, end - start) if end > start else b""
+    if build.mode == "native":
+        with open(build.player_object, "rb") as fh:  # dynamically linked: read the object
+            sec = ELFFile(fh).get_section_by_name(".text")
+            code, start = (sec.data() if sec else b""), 0
+    else:
+        start, end = build.code_range
+        m = Machine(build)
+        code = m.read(start, end - start) if end > start else b""
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.skipdata = True
     out = []
@@ -119,17 +125,59 @@ def _show(b: bytes, limit: int = 64) -> str:
     return b.hex(" ")
 
 
+def _register_diff_hint(name: str, want: int, got: int) -> str:
+    """Point out the classic width mistakes when only the upper bits differ."""
+    low32 = 0xFFFF_FFFF
+    if got & low32 == want & low32 and got >> 32 == 0:
+        reg32 = f"{name}d" if name[1:].isdigit() else f"e{name[1:]}"
+        return (f" (the low 32 bits are right, but bits 63..32 are 0: writing a 32-bit register "
+                f"like {reg32} clears them; produce the full 64-bit value instead)")
+    for bits in (16, 8):
+        mask = (1 << bits) - 1
+        if got & mask == want & mask and got >> bits != want >> bits:
+            return f" (the low {bits} bits are right; the upper bits differ)"
+    return ""
+
+
+def run_native_test(level: Level, build: Build, test: TestCase) -> TestResult:
+    from . import native
+    r = native.run(build.elf, test.stdin, test.expect.get("args", []))
+    problems: list[str] = []
+    if r.timed_out:
+        problems.append(f"did not finish within {native.TIMEOUT_S} seconds")
+    elif r.signal:
+        names = {11: "segmentation fault (SIGSEGV)", 6: "aborted (SIGABRT)",
+                 4: "illegal instruction (SIGILL)", 8: "arithmetic error (SIGFPE)",
+                 7: "bus error (SIGBUS)", 24: "CPU time limit exceeded"}
+        problems.append(f"crashed: {names.get(r.signal, f'signal {r.signal}')}")
+    exp = test.expect
+    for stream in ("stdout", "stderr"):
+        want = exp.get(stream)
+        if isinstance(want, str):
+            want = want.encode()
+        got = getattr(r, stream)
+        if want is not None and got != want:
+            problems.append(f"{stream}: expected {_show(want)}, got {_show(got)}")
+    if "exit" in exp and not r.signal and r.exit_code != exp["exit"]:
+        problems.append(f"exit status: expected {exp['exit']}, got {r.exit_code}")
+    return TestResult(test.name, test.hidden, not problems, problems, 0)
+
+
 def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Machine]:
+    if level.mode == "native":
+        return run_native_test(level, build, test), None
     c = level.constraints
     try:
-        m = prepare_machine(build, test, poison=c.get("poison", False))
+        m = prepare_machine(build, test, poison=level.poison)
     except KeyError as e:
         return TestResult(test.name, test.hidden, False, [str(e.args[0])]), None
     initial = {n: m.reg(n) for n in GPRS}
     state = m.run(c.get("max_steps", DEFAULT_MAX_STEPS))
     problems: list[str] = []
-    want_state = "done" if level.mode == "fragment" else "exited"
-    if state == "fault":
+    want_state = "exited" if level.mode == "program" else "done"
+    if state == "exited" and level.mode == "function":
+        problems.append("your function ended the program (exit syscall) instead of returning")
+    elif state == "fault":
         problems.append(m.fault)
     elif state == "limit":
         problems.append(f"did not finish within {c.get('max_steps', DEFAULT_MAX_STEPS)} executed "
@@ -148,14 +196,25 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
                 want = build.symbols[sym] + (int(off, 0) if off else 0)
             got, want = m.reg(name), to_int(want)
             if got != want:
-                problems.append(f"{name}: expected {want:#x}, got {got:#x}")
+                problems.append(f"{name}: expected {want:#x}, got {got:#x}"
+                                + _register_diff_hint(name, want, got))
         flags = m.reg("rflags")
         for name, want in exp.get("flags", {}).items():
             bit = dict(FLAG_BITS)[name.upper()]
             got = flags >> bit & 1
             if got != int(want):
                 problems.append(f"flag {name.upper()}: expected {int(want)}, got {got}")
-        for name in c.get("preserve", ["rsp"] if level.mode == "fragment" else []):
+        if level.mode == "function":
+            # The System V contract: callee-saved registers come back unchanged, `ret`
+            # pops the return address, and the direction flag is clear.
+            if m.reg("rsp") != initial["rsp"] + 8:
+                problems.append(f"rsp must be back where it started: expected "
+                                f"{initial['rsp'] + 8:#x} after ret, got {m.reg('rsp'):#x}")
+            if m.reg("rflags") >> 10 & 1:
+                problems.append("the direction flag must be clear (cld) when you return")
+        default_preserve = {"fragment": ["rsp"], "program": [],
+                            "function": ["rbx", "rbp", "r12", "r13", "r14", "r15"]}[level.mode]
+        for name in c.get("preserve", default_preserve):
             if m.reg(name) != initial[name]:
                 problems.append(f"{name} must be preserved: started {initial[name]:#x}, "
                                 f"ended {m.reg(name):#x}")
@@ -277,7 +336,7 @@ def _witness_checks(level: Level, build: Build, ctx: Context) -> list[Check]:
     orig_dir.mkdir(parents=True, exist_ok=True)
     (orig_dir / "solution.asm").write_text(level.starter.read_text())
     original = assemble(orig_dir / "solution.asm", orig_dir / ".build", level.mode,
-                        [level.include_dir] if level.include_dir else [], level.prelude)
+                        **level.build_options())
     before, _ = run_test(level, original, test)
     after, _ = run_test(level, build, test)
     shown = ", ".join(f"{k} = {v:#x}" if isinstance(v, int) else f"{k} = {v!r}" for k, v in w.items())

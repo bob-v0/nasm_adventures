@@ -108,6 +108,19 @@ class Level:
         p = self.path / "include"
         return p if p.is_dir() else None
 
+    @property
+    def poison(self) -> bool:
+        """Do tests start with garbage in the registers? Always for function levels:
+        that's what a real caller leaves behind."""
+        return self.constraints.get("poison", self.mode == "function")
+
+    def build_options(self) -> dict:
+        """Keyword arguments for build.build()."""
+        helpers = self.path / "helpers.asm"
+        return {"include_dirs": [self.include_dir] if self.include_dir else [],
+                "prelude": self.prelude, "helpers": [helpers] if helpers.exists() else [],
+                "entry": self.data.get("entry"), "c_sources": sorted(self.path.glob("*.c"))}
+
     def _gen_module(self):
         p = self.path / "gen.py"
         if not p.exists():

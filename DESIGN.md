@@ -260,25 +260,25 @@ Runner: emu. 14 levels, 2 of them bug levels.
 
 ### Arc IV — Stack & Procedures (Levels 142–128)
 
-Runner: native (sandboxed). 15 levels, 3 of them bug levels.
+Runner: emu in function mode (the game calls your functions); native for the libc levels. 15 levels, 3 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
-| 142 | The Stack | `push`, `pop`, rsp | Reverse a string via the stack |
-| 141 | Call & Return | `call`, `ret`, return addresses | Refactor the Echo Chamber into functions |
-| 140 | System V ABI | argument/return registers, caller- vs callee-saved | A harness calls your function with poisoned callee-saved registers |
-| 139 | Stack Alignment | 16-byte rule at `call`, red zone | Call a harness function that asserts alignment |
-| 138 | Stack Frames | `rbp` frames, locals, `enter/leave` | Print your own call stack |
-| 137 | **Bug:** Broken Contract ◆◆ | ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`) | Fix a library that works alone but crashes its callers |
-| 136 | Hello, libc | `extern printf`, linking with gcc, varargs and `al` | Formatted table via printf |
-| 135 | Called from C | exporting symbols, headers, struct passing | A C-callable API + qsort comparator |
-| 134 | Recursion | recursive calls, stack depth | Towers of Hanoi with a depth limit |
-| 133 | **Bug:** Smashed Stack ◆◆ | buffer overflow overwriting a return address | Craft a witness input that redirects control, then fix the bounds check |
-| 132 | **Bug:** Dangling Frame ◆◆ | lifetime: pointers to a callee's locals die at `ret` | Fix a parser that returns pointers into its own stack frame |
-| 131 | Callbacks | function pointers, `call reg` | Generic map/filter/reduce |
-| 130 | Macros | `%macro`, local labels `%%`, `%include` libraries | A macro DSL for your syscalls |
-| 129 | Coroutines | saving/switching stacks, tail calls | Generators with your own stack switcher (reused in Arc VI) |
-| 128 | Calculator ★ | everything in the arc | Recursive-descent expression evaluator |
+| 142 | The Stack | `push`, `pop`, rsp, last-in first-out | Reverse a string and check brackets with the stack |
+| 141 | Call & Return | `call`, `ret`, return addresses, functions calling functions | A `print_uint` function built from a helper → library |
+| 140 | System V ABI | argument/return registers, caller- vs callee-saved registers | Keep values alive across a call that clobbers every caller-saved register |
+| 139 | Stack Alignment | the 16-byte rule at `call`, locals with `sub rsp`, the red zone | Call a helper that checks alignment, from varying stack depths |
+| 138 | Stack Frames | `rbp` frames, locals, `enter`/`leave`, walking the frame chain | Write a backtrace of your callers' return addresses |
+| 137 | **Bug:** Broken Contract ◆◆ | ABI violations: clobbered callee-saved registers, a misaligned stack | Fix a library that works alone but breaks its callers |
+| 136 | Hello, libc | `extern printf`, linking with gcc, `main`, varargs and `al` | A formatted table via printf (runs natively) |
+| 135 | Called from C | exporting symbols, C prototypes, pointers and sizes across the boundary | A C-callable API and a qsort comparator (runs natively) |
+| 134 | Recursion | recursive calls, stack depth, what each frame holds | Towers of Hanoi, recording every move |
+| 133 | **Bug:** Unchecked Length ◆◆ | copying without a bounds check corrupts neighbouring data | A long input overwrites the next field of a record: show it with a witness, then bound the copy |
+| 132 | **Bug:** Dangling Frame ◆◆ | lifetime: pointers to a callee's locals die at `ret` | Fix a function that returns a pointer into its own stack frame |
+| 131 | Callbacks | function pointers, `call reg`, calling back into the caller's code | Generic map/filter/reduce |
+| 130 | Macros | `%macro`, parameters, `%%` local labels, `%include` libraries | A small macro language for system calls |
+| 129 | Coroutines | saving and switching stacks, resuming where you left off | Generators with your own context switch (reused in Arc VI) |
+| 128 | Calculator ★ | everything in the arc | A recursive-descent expression evaluator |
 
 ### Arc V — Linux Userland (Levels 127–111)
 
@@ -501,7 +501,7 @@ taught, from easy to very hard:
 | Category | Levels (tier) |
 |---|---|
 | State & encoding | Garbage in the High Bits ◆, Clobbered by the Kernel ◆, Signed or Unsigned? ◆, Silent Overflow ◆◆, Off by One ◆, Assumed Zero ◆◆ |
-| Contracts & memory safety | Broken Contract ◆◆, Smashed Stack ◆◆, Dangling Frame ◆◆, Short Reads ◆◆, Ignored Errors ◆◆, Use After Free ◆◆, Tail Overrun ◆◆, Wrong Segment ◆◆, Triple Fault Hunt ◆◆ |
+| Contracts & memory safety | Broken Contract ◆◆, Unchecked Length ◆◆, Dangling Frame ◆◆, Short Reads ◆◆, Ignored Errors ◆◆, Use After Free ◆◆, Tail Overrun ◆◆, Wrong Segment ◆◆, Triple Fault Hunt ◆◆ |
 | Reentrancy | Reentrant Signal Handler ◆◆◆, Reentrancy at Await Points ◆◆◆, Interrupt Reentrancy ◆◆◆, swapgs Confusion ◆◆◆◆ |
 | Logical races | Time of Check, Time of Use ◆◆◆, Logical Race ◆◆◆ |
 | Data races & atomicity | Data Race ◆◆, Torn Read ◆◆ |
@@ -534,8 +534,8 @@ Concurrency is taught in three passes, each with its own bugs:
 | 158 | II | Silent Overflow | ◆◆ medium | wrap-around in size computations, checking CF after `mul`/`add` |
 | 151 | III | Off by One | ◆ easy | fencepost errors, inclusive vs exclusive bounds, a stale DF |
 | 144 | III | Assumed Zero | ◆◆ medium | uninitialized registers and memory; from here on the grader poisons initial state |
-| 137 | IV | Broken Contract | ◆◆ medium | ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`) |
-| 133 | IV | Smashed Stack | ◆◆ medium | buffer overflow overwriting a return address |
+| 137 | IV | Broken Contract | ◆◆ medium | ABI violations: clobbered callee-saved registers, a misaligned stack |
+| 133 | IV | Unchecked Length | ◆◆ medium | copying without a bounds check corrupts neighbouring data |
 | 132 | IV | Dangling Frame | ◆◆ medium | lifetime: pointers to a callee's locals die at `ret` |
 | 124 | V | Short Reads, Short Writes | ◆◆ medium | `read`/`write` may transfer less than asked; EINTR |
 | 123 | V | Ignored Errors | ◆◆ medium | negative rax used as a length, leaked file descriptors |

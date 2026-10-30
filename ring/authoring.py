@@ -15,8 +15,7 @@ def build_copy(level: Level, src: Path, workdir: Path) -> Build:
     workdir.mkdir(parents=True, exist_ok=True)
     copy = workdir / "solution.asm"
     shutil.copy(src, copy)
-    return build(copy, workdir / ".build", level.mode,
-                 [level.include_dir] if level.include_dir else [], level.prelude)
+    return build(copy, workdir / ".build", level.mode, **level.build_options())
 
 
 def check_level(level: Level, ctx: Context, workdir: Path) -> list[str]:
