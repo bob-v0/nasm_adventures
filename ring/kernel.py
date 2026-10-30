@@ -51,6 +51,7 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          41: "socket", 42: "connect", 43: "accept", 48: "shutdown", 49: "bind", 50: "listen",
          54: "setsockopt", 288: "accept4", 213: "epoll_create", 291: "epoll_create1",
          233: "epoll_ctl", 232: "epoll_wait", 281: "epoll_pwait", 283: "timerfd_create",
+         0x1002: "ring_choose", 0x1003: "ring_await", 0x1000: "ring_malloc", 0x1001: "ring_free",
          286: "timerfd_settime", 287: "timerfd_gettime", 7: "poll", 290: "eventfd2"}
 NUMBERS = {v: k for k, v in NAMES.items()}
 
@@ -65,6 +66,7 @@ IGNORED_BY_DEFAULT = {SIGCHLD, 28, 23}   # SIGCHLD, SIGWINCH, SIGURG
 
 # The game's checked allocator: private syscall numbers used by its malloc/free helpers.
 SYS_RING_MALLOC, SYS_RING_FREE = 0x1000, 0x1001
+SYS_RING_CHOOSE, SYS_RING_AWAIT = 0x1002, 0x1003   # the task runtime asks the game
 CHECKED_HEAP = 0x10000000
 
 HEAP_GAP = 0x1000          # first brk address = end of the program, page-aligned, + a gap
@@ -160,6 +162,8 @@ class Injection:
     fs_events: list[dict] = field(default_factory=list)  # another process changes files (see fs_event)
     quantum: int = 500             # instructions a process runs before the next one's turn
     peers: list[dict] = field(default_factory=list)  # scripted clients (see kernel_events)
+    schedule: int = 0              # the game's task runtime: 0 = first ready task, else a seed
+    cancel_at: int = 0             # cancel the task making the nth await (0 = never)
     seed: str = ""
 
     @classmethod
@@ -168,7 +172,8 @@ class Injection:
         return cls(fail=list(d.get("fail", [])), short_reads=d.get("short_reads", False),
                    short_writes=d.get("short_writes", False),
                    signals=list(d.get("signals", [])), fs_events=list(d.get("fs_events", [])),
-                   quantum=d.get("quantum", 500), peers=list(d.get("peers", [])), seed=seed)
+                   quantum=d.get("quantum", 500), peers=list(d.get("peers", [])),
+                   schedule=d.get("schedule", 0), cancel_at=d.get("cancel_at", 0), seed=seed)
 
 
 class Kernel(EventsMixin):
@@ -208,6 +213,8 @@ class Kernel(EventsMixin):
         self.events: list[str] = []             # what happened to processes, for reports
         self.fs_events: list[dict] = list(self.inject.fs_events)
         self.init_events(self.inject.peers)
+        self.sched_rng = random.Random(f"schedule:{self.inject.schedule}")
+        self.awaits: list[int] = []             # task id at each await point
 
     def new_proc(self, ppid: int) -> Proc:
         p = Proc(self.next_pid, ppid)
@@ -339,6 +346,14 @@ class Kernel(EventsMixin):
             return self.ring_malloc(m, args[0])
         if nr == SYS_RING_FREE:
             return self.ring_free(m, args[0])
+        if nr == SYS_RING_CHOOSE:      # which of n ready tasks runs next
+            n = args[0]
+            if self.inject.schedule == 0 or n <= 1:
+                return 0
+            return self.sched_rng.randrange(n)
+        if nr == SYS_RING_AWAIT:       # a task reached an await point: cancel it here?
+            self.awaits.append(args[0])
+            return int(len(self.awaits) == self.inject.cancel_at)
         handler = getattr(self, "sys_" + name, None)
         if handler is None:
             return -ENOSYS

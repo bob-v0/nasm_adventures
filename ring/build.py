@@ -244,6 +244,10 @@ def _inspect(elf_path: Path, source: Path, mode: str, player_object: Path | None
                              f"doesn't define it. Add `global {entry_name}` and a "
                              f"`{entry_name}:` label.")
         entry = symbols[entry_name]
+    elif player_object is not None:   # the player's object comes first; the game's helpers after it
+        with open(player_object, "rb") as fh:
+            sec = ELFFile(fh).get_section_by_name(".text")
+            code_range = (text_addr, text_addr + (sec["sh_size"] if sec else 0))
     else:
         code_range = (text_addr, text_addr + text_size)
     return Build(elf=elf_path, source=source, mode=mode, entry=entry, symbols=symbols,

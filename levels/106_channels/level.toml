@@ -1,0 +1,21 @@
+level = 106
+slug = "channels"
+title = "Channels"
+arc = "VI"
+mode = "program"
+runtime = ["rt"]
+concepts = ["a bounded queue between tasks", "backpressure: a full channel makes the sender wait", "wakers: leave a note, park, get unparked", "re-check after waking: someone else may have taken the slot", "closing a channel"]
+introduces = ["rt_park", "rt_unpark", "rt_current", "wakers", "backpressure", "ring buffer"]
+
+hints = [
+  "Struct: capacity, head, count, closed, then a queue of waiting senders and one of waiting receivers (task pointers from rt_current), then the ring buffer. The value goes in at buf[(head + count) % cap]; the oldest is at buf[head].",
+  "Waiting: append rt_current() to the right queue, then rt_park(). The other side, after changing the channel, takes the first task from that queue and rt_unparks it. Do nothing that awaits between checking and parking.",
+  "After waking, LOOK AGAIN (a loop, not an if): another task may have filled the free slot first. chan_close sets the flag and unparks every waiting receiver; chan_recv returns rdx = 0 when the channel is empty and closed.",
+]
+
+[constraints]
+max_instructions = 110
+max_steps = 2000000
+
+[random]
+count = 4

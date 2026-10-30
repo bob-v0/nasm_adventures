@@ -126,8 +126,11 @@ class Level:
     def build_options(self) -> dict:
         """Keyword arguments for build.build()."""
         helpers = self.path / "helpers.asm"
+        runtime = [Path(__file__).parent / "runtime" / f"{name}.asm"
+                   for name in self.data.get("runtime", [])]   # e.g. runtime = ["rt"]
         return {"include_dirs": [self.include_dir] if self.include_dir else [],
-                "prelude": self.prelude, "helpers": [helpers] if helpers.exists() else [],
+                "prelude": self.prelude,
+                "helpers": runtime + ([helpers] if helpers.exists() else []),
                 "entry": self.data.get("entry"), "c_sources": sorted(self.path.glob("*.c")),
                 "link": self.data.get("link", "")}
 

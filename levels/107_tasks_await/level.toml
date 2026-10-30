@@ -1,0 +1,23 @@
+level = 107
+slug = "tasks_await"
+title = "Tasks & Await"
+arc = "VI"
+mode = "program"
+concepts = ["a task is a coroutine the event loop resumes", "await: register interest, switch to the loop", "straight-line code instead of callbacks and state machines", "a stack per task", "run queue + epoll = a scheduler"]
+introduces = ["tasks", "await", "spawn", "run queue", "EPOLLONESHOT", "EPOLL_CTL_MOD"]
+
+hints = [
+  "spawn: take a free slot, store fn and arg, and fake a saved context: on the task's new stack write the address of a small trampoline (task_start) at the top, and set ctx.rsp to point at it. co_switch's `ret` then lands in task_start, which calls fn(arg); put the task pointer in the saved rbx so task_start can find fn and arg. Append the task to the run queue.",
+  "await_readable(fd): epoll_ctl with data = the current task and events = EPOLLIN | EPOLLONESHOT (1 << 30), so each wakeup happens once. Try EPOLL_CTL_MOD (3) first; if that says -ENOENT (-2) the fd is new: EPOLL_CTL_ADD (1). Then co_switch(&current->ctx, &main_ctx).",
+  "run: while the run queue has a task, pop it, set current, co_switch(&main_ctx, &task->ctx). When it's empty: epoll_wait(ep, events, 32, -1) and append every event's task (data at +4) to the run queue. When a task's fn returns, task_start marks the slot free and switches to main_ctx for good.",
+]
+
+[constraints]
+max_instructions = 170
+max_steps = 4000000
+source_patterns = [
+  { pattern = "^\\s*call\\s+await_readable", label = "the tasks still await (they're given)", min = 2 },
+]
+
+[random]
+count = 3

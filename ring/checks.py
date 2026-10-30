@@ -198,7 +198,53 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
         return _signal_sweep(level, build, test)
     if "fs_sweep" in test.inject:
         return _fs_sweep(level, build, test)
+    if "schedule_sweep" in test.inject:
+        return _schedule_sweep(level, build, test)
+    if "cancel_sweep" in test.inject:
+        return _cancel_sweep(level, build, test)
     return _run_one(level, build, test)
+
+
+def _without(test: TestCase, key: str, **inject) -> TestCase:
+    rest = {k: v for k, v in test.inject.items() if k != key}
+    return TestCase(**{**test.__dict__, "inject": {**rest, **inject}})
+
+
+def _schedule_sweep(level: Level, build: Build, test: TestCase):
+    """The task runtime asks the game which ready task runs next: try the plain order
+    (schedule 0), then `count` shuffled ones. The first that fails is reported, by
+    number, so it can be replayed (and used as a witness)."""
+    count = test.inject["schedule_sweep"].get("count", 100)
+    m = None
+    for s in range(count + 1):
+        r, m = _run_one(level, build, _without(test, "schedule_sweep", schedule=s))
+        if not r.passed:
+            r.problems.insert(0, "with the plain schedule (ready tasks in order):" if s == 0 else
+                              f"with schedule {s} (one of {count} task orders the game tried):")
+            return r, m
+    return TestResult(test.name, test.hidden, True, [], m.steps if m else 0), m
+
+
+def _cancel_sweep(level: Level, build: Build, test: TestCase):
+    """Run once, then once per await point of that run, cancelling the task that makes
+    it right there (only tasks in `tasks`, if given)."""
+    sweep = test.inject["cancel_sweep"]
+    base = _without(test, "cancel_sweep")
+    result, m = _run_one(level, build, base)
+    if not result.passed:
+        result.problems.insert(0, "(without any cancellation)")
+        return result, m
+    awaits = list(m.kernel.awaits)
+    only = sweep.get("tasks")
+    for k, task in enumerate(awaits[:400], 1):
+        if only and task not in only:
+            continue
+        r, mm = _run_one(level, build, _without(test, "cancel_sweep", cancel_at=k))
+        if not r.passed:
+            r.problems.insert(0, f"with task {task} cancelled at await #{k} (its "
+                                 f"{awaits[:k].count(task)}. await):")
+            return r, mm
+    return TestResult(test.name, test.hidden, True, [], m.steps), m
 
 
 def _fs_sweep(level: Level, build: Build, test: TestCase):
