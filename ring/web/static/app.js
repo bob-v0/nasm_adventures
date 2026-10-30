@@ -338,8 +338,18 @@ async function save() {
   setDirty(false);
 }
 
+function errorMap(errors) {
+  return new Map((errors || []).map((e) => [e.line, `${e.kind}: ${e.message}${e.why ? "\n\n" + e.why : ""}`]));
+}
+
+function warningsHtml(text) {
+  if (!text) return "";
+  const body = esc(text).replace(/solution\.asm:(\d+):/g, '<span class="errline" data-line="$1">solution.asm:$1:</span>');
+  return `<div class="row"><span class="warn">⚠</span> assembler warnings</div><pre class="problem">${body}</pre>`;
+}
+
 function showBuildError(r) {
-  S.errors = new Map(r.errors.map((e) => [e.line, `${e.kind}: ${e.message}`]));
+  S.errors = errorMap(r.errors);
   renderEditor();
   const lines = esc(r.build_error).replace(/solution\.asm:(\d+):/g,
     '<span class="errline" data-line="$1">solution.asm:$1:</span>');
@@ -364,10 +374,10 @@ async function runTests(submit) {
   } catch (err) { $("#btab-results").innerHTML = `<p class="bad">${esc(err.message)}</p>`; return; }
   setDirty(false);
   if (r.build_error) return showBuildError(r);
-  S.errors.clear();
+  S.errors = errorMap(r.errors);  // warnings, if any, marked on their lines
   renderEditor();
   const mark = (ok) => ok ? '<span class="ok">✔</span>' : '<span class="bad">✘</span>';
-  let html = `<div class="result-title">Level ${S.level.number} — ${esc(S.level.title)}</div>`;
+  let html = `<div class="result-title">Level ${S.level.number} — ${esc(S.level.title)}</div>` + warningsHtml(r.warnings);
   for (const t of r.tests) {
     html += `<div class="row">${mark(t.passed)} ${esc(t.name)}</div>`;
     for (const p of t.problems) html += `<div class="problem">${esc(p)}</div>`;

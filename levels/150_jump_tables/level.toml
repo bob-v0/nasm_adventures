@@ -1,0 +1,21 @@
+level = 150
+slug = "jump_tables"
+title = "Jump Tables"
+arc = "III"
+mode = "fragment"
+concepts = ["dispatch through a table of addresses", "indirect jumps", "bounds-checking an index before using it", "a tiny virtual machine"]
+introduces = ["jmp [table + rax*8]", "dq label", "indirect branches"]
+
+hints = [
+  "Keep the VM's state in registers: pc (index into code) and depth (number of values on vstack). Each step: load the opcode byte, advance pc, check opcode ≤ 10, then `jmp [table + rax*8]`, where `table: dq op_halt, op_push, ...` lives in .data.",
+  "Use ordinary (non-dot) labels for the handlers: a `.local` label written inside `table:` would belong to `table`. Every handler ends with `jmp` back to the dispatch loop. Check depth before every pop (underflow) and push (overflow).",
+  "PUSH: movsx rax, byte [code + pc]. JNZ: read the signed offset, advance pc past it, pop, and if the value is non-zero add the offset to pc. ROT (a b c -> b c a): load the three slots and store them rotated.",
+]
+
+[constraints]
+max_instructions = 120
+must_use = ["jmp"]
+max_steps = 30000
+
+[random]
+count = 40

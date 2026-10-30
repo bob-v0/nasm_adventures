@@ -243,20 +243,20 @@ Runner: emu. 14 levels, 2 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
-| 156 | Loops | counted and conditional loops, `loop` (and why not to use it) | Sum an array |
-| 155 | Branchless | `cmovcc`, `setcc` | abs/min/max/sign with zero branches |
-| 154 | Numbers to Text | `itoa` (unsigned, signed, hex) | Print any 64-bit integer → library: `itoa` |
-| 153 | Text to Numbers | `atoi`, overflow and error handling | Parse decimal/hex/negative input → library: `atoi` |
-| 152 | String Instructions | `movs/stos/lods/scas/cmps`, `rep`, DF | `memcpy`, `memset`, `strlen`, `memcmp` |
-| 151 | **Bug:** Off by One ◆ | fencepost errors, inclusive vs exclusive bounds, a stale DF | Fix three copy/compare routines that each touch one byte too many or too few |
-| 150 | Jump Tables | `jmp [table + rax*8]`, bounds checks | Interpret a tiny bytecode VM |
-| 149 | Searching | binary search, pointer arithmetic | Lower-bound search |
-| 148 | Sorting | insertion sort, in-place swaps | Sort 10k integers within a step budget |
-| 147 | Structs | `struc`/`endstruc`, `istruc`, offsets, alignment | Walk a linked list of records |
-| 146 | Bit Tricks | lowest set bit, round to power of two, parity | Six micro-puzzles with tight budgets |
-| 145 | Hashing | FNV-1a, `crc32` | Hash stdin |
-| 144 | **Bug:** Assumed Zero ◆◆ | uninitialized registers and memory; the grader now poisons initial state | A program that only works because registers started at 0; make it robust |
-| 143 | The Interpreter ★ | everything in the arc | Brainf*** interpreter |
+| 156 | Loops | counted and conditional loops, zero-trip loops, `loop` (and why not to use it) | Sum, maximum and a threshold count over an array |
+| 155 | Branchless | `cmovcc`, `setcc`, mask arithmetic | abs/min/max/sign/equality with zero jumps |
+| 154 | Numbers to Text | `itoa`: digits by repeated division, unsigned/signed/hex | Format any 64-bit integer three ways → library: `itoa` |
+| 153 | Text to Numbers | `atoi`: parsing, validation, overflow detection | Parse decimal/hex/signed text with error codes → library: `atoi` |
+| 152 | String Instructions | `movs/stos/scas/cmps`, `rep`/`repe`/`repne`, DF and `cld` | `memcpy`, `memset`, `strlen`, `memcmp` |
+| 151 | **Bug:** Off by One ◆ | fencepost errors, inclusive vs exclusive bounds, a stale DF | Fix three routines that each touch one element too many or too few |
+| 150 | Jump Tables | `jmp [table + rax*8]`, tables of labels, bounds checks | Interpret a tiny stack-machine bytecode |
+| 149 | Searching | binary search, invariants, unsigned midpoints | Lower-bound search within an O(log n) step budget |
+| 148 | Sorting | insertion sort, in-place swaps, signed comparisons | Sort up to 200 signed integers |
+| 147 | Structs | `struc`/`endstruc`, `istruc`/`at`/`iend`, field offsets, alignment | Walk and extend a linked list of records |
+| 146 | Bit Tricks | x & -x, x & (x-1), powers of two, parity, branch-free tricks | Six micro-puzzles, no jumps, tight budget |
+| 145 | Hashing | FNV-1a, the SSE4.2 `crc32` instruction | Hash a string two ways |
+| 144 | **Bug:** Assumed Zero ◆◆ | uninitialized registers and memory; from here on the grader poisons initial state | A routine that only works when registers start at 0; make it robust |
+| 143 | The Interpreter ★ | everything in the arc | A Brainf*** interpreter |
 
 ### Arc IV — Stack & Procedures (Levels 142–128)
 
@@ -533,7 +533,7 @@ Concurrency is taught in three passes, each with its own bugs:
 | 163 | II | Signed or Unsigned? | ◆ easy | `ja` vs `jg`, `div` vs `idiv` + `cqo`, `movzx` vs `movsx` |
 | 158 | II | Silent Overflow | ◆◆ medium | wrap-around in size computations, checking CF after `mul`/`add` |
 | 151 | III | Off by One | ◆ easy | fencepost errors, inclusive vs exclusive bounds, a stale DF |
-| 144 | III | Assumed Zero | ◆◆ medium | uninitialized registers and memory; the grader now poisons initial state |
+| 144 | III | Assumed Zero | ◆◆ medium | uninitialized registers and memory; from here on the grader poisons initial state |
 | 137 | IV | Broken Contract | ◆◆ medium | ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`) |
 | 133 | IV | Smashed Stack | ◆◆ medium | buffer overflow overwriting a return address |
 | 132 | IV | Dangling Frame | ◆◆ medium | lifetime: pointers to a callee's locals die at `ret` |

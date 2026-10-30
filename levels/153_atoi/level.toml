@@ -1,0 +1,21 @@
+level = 153
+slug = "atoi"
+title = "Text to Numbers"
+arc = "III"
+mode = "fragment"
+library = "atoi"
+concepts = ["parsing with a cursor", "validating untrusted input", "detecting overflow while accumulating", "error codes"]
+introduces = ["atoi", "status codes"]
+
+hints = [
+  "Walk a pointer through the string. Handle an optional sign, then an optional 0x/0X (which switches the base to 16), then digits until the NUL. Every other character is invalid, and so is having no digits.",
+  "Accumulate the magnitude as UNSIGNED: value = value * base + digit. Use `mul` and check CF (and the CF of the add) to catch overflow beyond 64 bits; at the end, the magnitude must be ≤ 2^63 - 1, or ≤ 2^63 if negative.",
+  "Invalid wins over overflow: if the number is too big, remember that (a flag register) but keep scanning in case a bad character follows. `or dl, 0x20` turns 'A'-'F' and 'X' into lowercase.",
+]
+
+[constraints]
+max_instructions = 90
+max_steps = 5000
+
+[random]
+count = 70

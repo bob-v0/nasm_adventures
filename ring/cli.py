@@ -11,7 +11,8 @@ from . import briefs, docs
 from .build import BuildError, _inspect
 from .checks import Report, grade
 from .level import Context, Level, all_levels
-from .game import build_solution, context, record_pass, setup_level, solution_path
+from .game import (build_solution, context, library_entries, record_pass, setup_level,
+                   solution_path)
 from .progress import Progress, SaveError, dev_mode, workspace
 
 COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
@@ -44,6 +45,10 @@ def print_report(level: Level, report: Report, show_hidden_names: bool) -> None:
     public = [t for t in report.tests if not t.hidden]
     hidden = [t for t in report.tests if t.hidden]
     print(c("1", f"Level {level.number} — {level.title}"))
+    if report.warnings:
+        print(c("33", "  assembler warnings:"))
+        for line in report.warnings.splitlines():
+            print(f"    {line}")
     for t in public:
         print(f"  {OK if t.passed else FAIL} {t.name}")
         for p in t.problems:
@@ -195,7 +200,7 @@ def _session_for(lv: Level, prog: Progress, test_name: str | None, src: Path | N
         test = matches[0]
     elif tests:
         test = tests[0]
-    return Session(b, test)
+    return Session(b, test, poison=lv.constraints.get("poison", False))
 
 
 def cmd_debug(args, prog: Progress) -> int:
@@ -236,8 +241,12 @@ def cmd_ui(args, prog: Progress) -> None:
 
 
 def cmd_library(args, prog: Progress) -> None:
-    print("  Your library is empty. Routines you prove (starting with `itoa` in level 154)")
-    print("  will be collected here for reuse in later levels.")
+    entries = library_entries()
+    if not entries:
+        print("  Your library is empty. Routines you prove (starting with `itoa` in level 154)")
+        print("  are collected here for reuse in later levels.")
+    for name, (path, number) in sorted(entries.items()):
+        print(f"  {name:<10} from level {number}   {path}")
 
 
 def cmd_check_levels(args, prog: Progress) -> int:

@@ -11,6 +11,8 @@ from pathlib import Path
 
 from elftools.elf.elffile import ELFFile
 
+from . import explain
+
 # Fragment rings: the player writes only instructions/data; the game supplies the
 # program around them. Execution starts at _start and ends on reaching __ring_done.
 WRAP_HEAD = "bits 64\nsection .text\nglobal _start\n_start:\n"
@@ -36,6 +38,7 @@ class Build:
     addr_to_line: dict[int, int] = field(default_factory=dict)
     line_to_addr: dict[int, int] = field(default_factory=dict)
     listing: str = ""
+    warnings: str = ""  # assembler warnings (with explanations), if the build succeeded
 
     @property
     def done_addr(self) -> int | None:
@@ -98,8 +101,9 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
     cmd.append(str(asm_input))
     r = _run(cmd, source.parent)
     msgs = _rewrite_errors(r.stdout + r.stderr, str(asm_input), source.name, line_offset)
+    msgs = explain.annotate(msgs.strip(), text.splitlines())
     if r.returncode != 0:
-        raise BuildError(msgs.strip())
+        raise BuildError(msgs)
 
     r = _run(["ld", "-o", str(elf), str(obj)], source.parent)
     if r.returncode != 0 or "cannot find entry symbol" in r.stderr:
@@ -110,6 +114,7 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         raise BuildError((r.stderr.strip() or "link failed") + hint)
 
     b = _inspect(elf, source, mode)
+    b.warnings = msgs
     b.listing = lst.read_text()
     _map_lines(b, b.listing, line_offset, count_lines=text.count("\n") + 1)
     return b

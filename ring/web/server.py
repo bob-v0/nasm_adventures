@@ -11,6 +11,7 @@ import hmac
 import json
 import os
 import mimetypes
+import re
 import secrets
 import threading
 import webbrowser
@@ -118,6 +119,8 @@ class Server:
             return {"build_error": str(e), "errors": _error_lines(str(e))}
         report = grade(lv, b, lv.all_tests(context(prog), include_hidden=submit), context(prog))
         out = _report_json(report, show_hidden_names=dev_mode())
+        out["warnings"] = report.warnings
+        out["errors"] = _error_lines(report.warnings)
         out["submitted"] = submit
         if submit and report.passed:
             result = record_pass(prog, lv, report)
@@ -167,7 +170,7 @@ class Server:
                 return {"build_error": str(e), "errors": _error_lines(str(e))}
             tests = lv.all_tests(context(prog), include_hidden=False)
             test = next((t for t in tests if t.name == body.get("test")), tests[0] if tests else None)
-            session = Session(b, test)
+            session = Session(b, test, poison=lv.constraints.get("poison", False))
             source_lines = sol.read_text().splitlines()
         sid = secrets.token_hex(8)
         self.sessions = dict(list(self.sessions.items())[-7:])  # keep a few
@@ -272,10 +275,10 @@ class Server:
 
 
 def _error_lines(text: str) -> list[dict]:
-    import re
     out = []
-    for m in re.finditer(r"solution\.asm:(\d+): (error|warning): (.*)", text):
-        out.append({"line": int(m.group(1)), "kind": m.group(2), "message": m.group(3)})
+    for m in re.finditer(r"solution\.asm:(\d+): (error|warning): (.*)(?:\n    why: (.*))?", text):
+        out.append({"line": int(m.group(1)), "kind": m.group(2), "message": m.group(3),
+                    "why": m.group(4)})
     return out
 
 

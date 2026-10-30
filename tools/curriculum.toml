@@ -51,20 +51,20 @@ id = "III"
 name = "Control Flow & Data"
 runner = "emu"
 levels = [
-  { title = "Loops", concepts = "counted and conditional loops, `loop` (and why not to use it)", gate = "Sum an array" },
-  { title = "Branchless", concepts = "`cmovcc`, `setcc`", gate = "abs/min/max/sign with zero branches" },
-  { title = "Numbers to Text", concepts = "`itoa` (unsigned, signed, hex)", gate = "Print any 64-bit integer → library: `itoa`" },
-  { title = "Text to Numbers", concepts = "`atoi`, overflow and error handling", gate = "Parse decimal/hex/negative input → library: `atoi`" },
-  { title = "String Instructions", concepts = "`movs/stos/lods/scas/cmps`, `rep`, DF", gate = "`memcpy`, `memset`, `strlen`, `memcmp`" },
-  { title = "Off by One", bug = 1, concepts = "fencepost errors, inclusive vs exclusive bounds, a stale DF", gate = "Fix three copy/compare routines that each touch one byte too many or too few" },
-  { title = "Jump Tables", concepts = "`jmp [table + rax*8]`, bounds checks", gate = "Interpret a tiny bytecode VM" },
-  { title = "Searching", concepts = "binary search, pointer arithmetic", gate = "Lower-bound search" },
-  { title = "Sorting", concepts = "insertion sort, in-place swaps", gate = "Sort 10k integers within a step budget" },
-  { title = "Structs", concepts = "`struc`/`endstruc`, `istruc`, offsets, alignment", gate = "Walk a linked list of records" },
-  { title = "Bit Tricks", concepts = "lowest set bit, round to power of two, parity", gate = "Six micro-puzzles with tight budgets" },
-  { title = "Hashing", concepts = "FNV-1a, `crc32`", gate = "Hash stdin" },
-  { title = "Assumed Zero", bug = 2, concepts = "uninitialized registers and memory; the grader now poisons initial state", gate = "A program that only works because registers started at 0; make it robust" },
-  { title = "The Interpreter", boss = true, concepts = "everything in the arc", gate = "Brainf*** interpreter" },
+  { title = "Loops", dir = "loops", concepts = "counted and conditional loops, zero-trip loops, `loop` (and why not to use it)", gate = "Sum, maximum and a threshold count over an array" },
+  { title = "Branchless", dir = "branchless", concepts = "`cmovcc`, `setcc`, mask arithmetic", gate = "abs/min/max/sign/equality with zero jumps" },
+  { title = "Numbers to Text", dir = "itoa", library = "itoa", concepts = "`itoa`: digits by repeated division, unsigned/signed/hex", gate = "Format any 64-bit integer three ways → library: `itoa`" },
+  { title = "Text to Numbers", dir = "atoi", library = "atoi", concepts = "`atoi`: parsing, validation, overflow detection", gate = "Parse decimal/hex/signed text with error codes → library: `atoi`" },
+  { title = "String Instructions", dir = "string_instructions", concepts = "`movs/stos/scas/cmps`, `rep`/`repe`/`repne`, DF and `cld`", gate = "`memcpy`, `memset`, `strlen`, `memcmp`" },
+  { title = "Off by One", dir = "bug_off_by_one", bug = 1, concepts = "fencepost errors, inclusive vs exclusive bounds, a stale DF", gate = "Fix three routines that each touch one element too many or too few" },
+  { title = "Jump Tables", dir = "jump_tables", concepts = "`jmp [table + rax*8]`, tables of labels, bounds checks", gate = "Interpret a tiny stack-machine bytecode" },
+  { title = "Searching", dir = "searching", concepts = "binary search, invariants, unsigned midpoints", gate = "Lower-bound search within an O(log n) step budget" },
+  { title = "Sorting", dir = "sorting", concepts = "insertion sort, in-place swaps, signed comparisons", gate = "Sort up to 200 signed integers" },
+  { title = "Structs", dir = "structs", concepts = "`struc`/`endstruc`, `istruc`/`at`/`iend`, field offsets, alignment", gate = "Walk and extend a linked list of records" },
+  { title = "Bit Tricks", dir = "bit_tricks", concepts = "x & -x, x & (x-1), powers of two, parity, branch-free tricks", gate = "Six micro-puzzles, no jumps, tight budget" },
+  { title = "Hashing", dir = "hashing", concepts = "FNV-1a, the SSE4.2 `crc32` instruction", gate = "Hash a string two ways" },
+  { title = "Assumed Zero", dir = "bug_assumed_zero", bug = 2, concepts = "uninitialized registers and memory; from here on the grader poisons initial state", gate = "A routine that only works when registers start at 0; make it robust" },
+  { title = "The Interpreter", dir = "interpreter", boss = true, concepts = "everything in the arc", gate = "A Brainf*** interpreter" },
 ]
 
 [[arc]]

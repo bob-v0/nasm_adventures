@@ -17,15 +17,16 @@ MAX_RUN = 1_000_000
 
 
 class Session:
-    def __init__(self, build: Build, test: TestCase | None = None):
+    def __init__(self, build: Build, test: TestCase | None = None, poison: bool = False):
         self.build = build
         self.test = test or TestCase(name="debug")
+        self.poison = poison
         self.breakpoints: set[int] = set()
         self.md = Cs(CS_ARCH_X86, CS_MODE_64)
         self.restart()
 
     def restart(self) -> None:
-        self.m: Machine = prepare_machine(self.build, self.test, record=True)
+        self.m: Machine = prepare_machine(self.build, self.test, record=True, poison=self.poison)
 
     # -- execution ------------------------------------------------------------------
 

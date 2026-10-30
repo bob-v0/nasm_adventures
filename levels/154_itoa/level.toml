@@ -1,0 +1,37 @@
+level = 154
+slug = "itoa"
+title = "Numbers to Text"
+arc = "III"
+mode = "fragment"
+library = "itoa"
+concepts = ["digits by repeated division", "digits come out backwards", "signed formatting and the INT_MIN trap", "hex digits with a lookup table"]
+introduces = ["itoa", "lookup tables"]
+
+hints = [
+  "x % 10 is the last digit and x / 10 the rest, so digits come out last-first. Write them backwards from the end of a scratch buffer, then copy them forward (or count digits first).",
+  "Signed: if x < 0, write '-' and format the magnitude 0 - x as UNSIGNED. That way -2^63 works too, whose magnitude doesn't fit in a signed register. Hex: x & 15 indexes a table db \"0123456789abcdef\", then shr x, 4.",
+  "Zero must print as \"0\" and \"0x0\": use a do-while loop (body first, then test), so at least one digit is always written.",
+]
+
+[constraints]
+max_instructions = 110
+preserve = ["rsp", "rdi"]
+max_steps = 5000
+
+[random]
+count = 60
+
+[[tests]]
+name = "1234"
+regs = { rdi = 1234 }
+mem = [{ sym = "dec_u", str = "########################" }, { sym = "dec_s", str = "########################" }, { sym = "hex", str = "########################" }]
+[tests.expect]
+regs = { rax = 4, rbx = 4, rcx = 5 }
+mem = [{ sym = "dec_u", str = "1234" }, { sym = "dec_s", str = "1234" }, { sym = "hex", str = "0x4d2" }]
+
+[[tests]]
+name = "-1"
+regs = { rdi = "0xFFFFFFFFFFFFFFFF" }
+[tests.expect]
+regs = { rax = 20, rbx = 2, rcx = 18 }
+mem = [{ sym = "dec_u", str = "18446744073709551615" }, { sym = "dec_s", str = "-1" }, { sym = "hex", str = "0xffffffffffffffff" }]

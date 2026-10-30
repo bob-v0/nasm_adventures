@@ -194,3 +194,4 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .dbg-break { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px;
   font: 12.5px var(--mono); width: 230px; }
 .hint-text { white-space: pre-wrap; margin-top: 6px; }
+.warn { color: var(--warn); }

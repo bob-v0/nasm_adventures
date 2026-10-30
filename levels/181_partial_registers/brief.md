@@ -34,9 +34,13 @@ So `mov eax, 42` sets *all* of rax to 42. That is why NASM was happy to encode y
 To widen a small value on purpose:
 
 - `movzx` (**zero-extend**): fill the upper bits with 0. Use it for unsigned values.
+  It only takes an 8- or 16-bit source. There is **no `movzx rdi, eax`**: to
+  zero-extend 32 bits you just write the 32-bit register, `mov edi, eax`, thanks to
+  the rule above. Intel never needed a separate instruction for it.
 - `movsx` / `movsxd` (**sign-extend**): fill the upper bits with copies of the top bit
   of the source. Use it for signed values: the 8-bit value 0xFF means −1, and
-  sign-extending it to 64 bits gives 0xFFFF…FFFF, which is also −1.
+  sign-extending it to 64 bits gives 0xFFFF…FFFF, which is also −1. From 32 bits it's
+  called `movsxd rdi, eax` (NASM also accepts `movsx` for it).
 
 `ah`/`bh`/`ch`/`dh` cannot be used in the same instruction as `sil`, `r8`–`r15` or
 other registers that need the newer encoding (the REX prefix, level 56). For example,

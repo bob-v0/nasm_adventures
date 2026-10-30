@@ -1,0 +1,35 @@
+level = 156
+slug = "loops"
+title = "Loops"
+arc = "III"
+mode = "fragment"
+concepts = ["loop structure: init, test, body, step", "zero-trip loops (empty input)", "counting down to zero", "why `loop` is slow"]
+introduces = ["loop", "jrcxz", "dec + jnz idiom"]
+
+hints = [
+  "Test the condition BEFORE the first iteration: with count = 0 the body must not run at all. Keep an index register (e.g. rcx) and address elements as [arr + rcx*8].",
+  "One loop can compute all three results: add to rax, compare with rbx (keep the larger, unsigned), and compare with rdx (count when above).",
+  "xor eax,eax / xor ebx,ebx / xor ecx,ecx / xor r8d,r8d / .top: cmp r8, rsi / jae .done / mov r9, [arr + r8*8] / add rax, r9 / cmp r9, rbx / jbe .nomax / mov rbx, r9 / .nomax: cmp r9, rdx / jbe .next / inc rcx / .next: inc r8 / jmp .top / .done:",
+]
+
+[constraints]
+max_instructions = 30
+preserve = ["rsp", "rsi", "rdx"]
+max_steps = 2000
+
+[random]
+count = 50
+
+[[tests]]
+name = "1, 5, 3 with threshold 2"
+regs = { rsi = 3, rdx = 2 }
+mem = [{ sym = "arr", u64 = [1, 5, 3] }]
+[tests.expect]
+regs = { rax = 9, rbx = 5, rcx = 2 }
+
+[[tests]]
+name = "empty array"
+regs = { rsi = 0, rdx = 0 }
+mem = [{ sym = "arr", u64 = [7, 7, 7] }]
+[tests.expect]
+regs = { rax = 0, rbx = 0, rcx = 0 }

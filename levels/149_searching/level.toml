@@ -1,0 +1,21 @@
+level = 149
+slug = "searching"
+title = "Searching"
+arc = "III"
+mode = "fragment"
+concepts = ["binary search", "loop invariants", "half-open intervals", "overflow-safe midpoints", "step budgets: O(log n) vs O(n)"]
+introduces = []
+
+hints = [
+  "Keep an interval [lo, hi) that always contains the answer. Start with lo = 0, hi = n. While lo < hi: mid = lo + (hi - lo) / 2; if arr[mid] < key the answer is above mid (lo = mid + 1), else it is mid or below (hi = mid).",
+  "When the loop ends, lo == hi is the answer. Compare unsigned (jb/jae). The budget allows about 400 executed instructions, so a linear scan of 1024 elements won't fit.",
+  "xor eax, eax / mov rcx, rsi / .loop: cmp rax, rcx / jae .done / lea rdx, [rax + rcx] / shr rdx, 1 / cmp [arr + rdx*8], rdi / jae .left / lea rax, [rdx + 1] / jmp .loop / .left: mov rcx, rdx / jmp .loop",
+]
+
+[constraints]
+max_instructions = 24
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 400
+
+[random]
+count = 60

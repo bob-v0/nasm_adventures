@@ -1,0 +1,35 @@
+level = 155
+slug = "branchless"
+title = "Branchless"
+arc = "III"
+mode = "fragment"
+concepts = ["conditional moves", "materializing flags with setcc", "why branches can be expensive"]
+introduces = ["cmovcc", "setcc"]
+
+hints = [
+  "cmov copies only when its condition holds; it never jumps. Compute both candidates, compare, then cmov the right one into place. setcc writes 0 or 1 into an 8-bit register (zero the full register first).",
+  "abs: copy a, neg the copy, and if the negation is negative (signed less than zero) take a instead: `neg` sets the flags for you. sign(a) = (a > 0) - (a < 0) with two setcc.",
+  "rdx: xor edx,edx / xor r10d,r10d / test rdi,rdi / setg dl / setl r10b / sub rdx, r10. For r8: xor r8d,r8d / cmp rdi,rsi / sete r8b.",
+]
+
+[constraints]
+max_instructions = 24
+must_use = ["cmovl"]
+banned_prefixes = ["j", "loop"]
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 1000
+
+[random]
+count = 80
+
+[[tests]]
+name = "a = -7, b = 3"
+regs = { rdi = "0xFFFFFFFFFFFFFFF9", rsi = 3 }
+[tests.expect]
+regs = { rax = 7, rbx = "0xFFFFFFFFFFFFFFF9", rcx = "0xFFFFFFFFFFFFFFF9", rdx = "0xFFFFFFFFFFFFFFFF", r8 = 0 }
+
+[[tests]]
+name = "a = b = 0"
+regs = { rdi = 0, rsi = 0 }
+[tests.expect]
+regs = { rax = 0, rbx = 0, rcx = 0, rdx = 0, r8 = 1 }

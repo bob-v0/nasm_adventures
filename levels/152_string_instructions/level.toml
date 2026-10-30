@@ -1,0 +1,22 @@
+level = 152
+slug = "string_instructions"
+title = "String Instructions"
+arc = "III"
+mode = "fragment"
+concepts = ["string instructions and their fixed registers (rsi, rdi, rcx, al)", "rep prefixes", "the direction flag", "unsigned byte comparison"]
+introduces = ["movsb", "stosb", "scasb", "cmpsb", "lodsb", "rep", "repe", "repne", "cld", "std"]
+
+hints = [
+  "Each string instruction has fixed registers: source in rsi, destination in rdi, count in rcx, value in al. With `rep`, it repeats rcx times. Set them up, then one instruction does the work.",
+  "strlen: rdi = str1, al = 0, rcx = -1 (a huge count), `repne scasb` stops after the NUL; the length is then -rcx - 2 (work it out in the debugger). memcmp: `repe cmpsb` stops at the first difference; then compare the last two bytes it looked at.",
+  "Start with `cld`: one test begins with DF=1, left over by 'earlier code', and then every string instruction runs backwards. For memcmp, n = 0 must give 0, but `repe cmpsb` with rcx = 0 leaves the flags unchanged, so handle it first.",
+]
+
+[constraints]
+max_instructions = 40
+must_use = ["rep movsb", "rep stosb", "repne scasb", "repe cmpsb"]
+preserve = ["rsp", "rdx", "r8"]
+max_steps = 1000
+
+[random]
+count = 60

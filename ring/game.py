@@ -9,7 +9,7 @@ from pathlib import Path
 from .build import Build, BuildError, build
 from .checks import Report
 from .level import Context, Level, all_levels
-from .progress import Progress, level_dir
+from .progress import Progress, level_dir, workspace
 
 
 def solution_path(level: Level) -> Path:
@@ -58,8 +58,28 @@ class PassResult:
     next_level: Level | None = None
 
 
+def library_dir() -> Path:
+    return workspace() / "library"
+
+
+def library_entries() -> dict[str, tuple[Path, int]]:
+    """name -> (file, level it came from), for routines the player has proven."""
+    out = {}
+    for f in sorted(library_dir().glob("*.asm")) if library_dir().exists() else []:
+        first = f.read_text().splitlines()[:1]
+        number = int(first[0].split()[-1]) if first and first[0].startswith("; from level") else 0
+        out[f.stem] = (f, number)
+    return out
+
+
 def record_pass(prog: Progress, level: Level, report: Report) -> PassResult:
     """Record a successful submission and open the next level."""
+    provides = level.data.get("library")
+    if provides:
+        # The proven solution joins the player's library (used from Arc IV on).
+        library_dir().mkdir(parents=True, exist_ok=True)
+        (library_dir() / f"{provides}.asm").write_text(
+            f"; from level {level.number}\n" + solution_path(level).read_text())
     badges = []
     if report.stretch and all(s.passed for s in report.stretch):
         badges.append(level.stretch.get("label", "stretch goal"))

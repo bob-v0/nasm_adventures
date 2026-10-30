@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import difflib
+import random
 import re
 from dataclasses import dataclass, field
 
@@ -41,6 +42,7 @@ class Report:
     checks: list[Check] = field(default_factory=list)
     stretch: list[Check] = field(default_factory=list)
     instructions: list[tuple[int, str]] = field(default_factory=list)
+    warnings: str = ""
 
     @property
     def passed(self) -> bool:
@@ -72,8 +74,18 @@ def resolve(build: Build, spec: dict) -> int:
     return to_int(spec["addr"])
 
 
-def prepare_machine(build: Build, test: TestCase, record: bool = False) -> Machine:
+def prepare_machine(build: Build, test: TestCase, record: bool = False,
+                    poison: bool = False) -> Machine:
     m = Machine(build, stdin=test.stdin, record=record)
+    if poison:
+        # Real callers leave junk behind: registers the test doesn't set, and the
+        # stack below rsp, start with garbage (deterministic per test, for replay).
+        rng = random.Random(f"poison:{test.name}")
+        for name in GPRS:
+            if name != "rsp":
+                m.set_reg(name, rng.getrandbits(64))
+        rsp = m.reg("rsp")
+        m.write(rsp - 4096, rng.randbytes(4096))
     for name, value in test.regs.items():
         m.set_reg(name, value)
     for spec in test.mem:
@@ -95,20 +107,19 @@ def _show(b: bytes, limit: int = 64) -> str:
 
 def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Machine]:
     c = level.constraints
-    initial = {n: test.regs.get(n, 0) for n in GPRS}
     try:
-        m = prepare_machine(build, test)
+        m = prepare_machine(build, test, poison=c.get("poison", False))
     except KeyError as e:
         return TestResult(test.name, test.hidden, False, [str(e.args[0])]), None
-    initial["rsp"] = m.reg("rsp")
+    initial = {n: m.reg(n) for n in GPRS}
     state = m.run(c.get("max_steps", DEFAULT_MAX_STEPS))
     problems: list[str] = []
     want_state = "done" if level.mode == "fragment" else "exited"
     if state == "fault":
         problems.append(m.fault)
     elif state == "limit":
-        problems.append(f"did not finish within {c.get('max_steps', DEFAULT_MAX_STEPS)} "
-                        "instructions (infinite loop?)")
+        problems.append(f"did not finish within {c.get('max_steps', DEFAULT_MAX_STEPS)} executed "
+                        "instructions (an infinite loop, or too slow for this level's budget)")
     elif state != want_state:
         problems.append(f"ended in state {state}, expected {want_state}")
 
@@ -154,6 +165,12 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
             got = bytes(getattr(m, stream))
             if want is not None and got != want:
                 problems.append(f"{stream}: expected {_show(want)}, got {_show(got)}")
+        for name, want in exp.get("symbols", {}).items():
+            got = build.symbols.get(name)
+            if got is None:
+                problems.append(f"`{name}` is not defined")
+            elif got != to_int(want):
+                problems.append(f"`{name}`: expected {to_int(want)}, got {got}")
         if "exit" in exp and m.exit_code != exp["exit"]:
             problems.append(f"exit status: expected {exp['exit']}, got {m.exit_code}")
     if "syscalls" in exp:
@@ -175,8 +192,10 @@ def _static_checks(rules: dict, ins: list[tuple[int, str, str]], report_steps: i
                          f"you: {report_steps}"))
     for mn in rules.get("must_use", []):
         out.append(Check(f"uses `{mn}`", mn in mnemonics))
-    banned = sorted(mnemonics & set(rules.get("banned", [])))
-    if rules.get("banned"):
+    prefixes = tuple(rules.get("banned_prefixes", []))
+    banned = sorted({mn for mn in mnemonics if mn in set(rules.get("banned", []))
+                     or (prefixes and mn.startswith(prefixes))})
+    if rules.get("banned") or prefixes:
         out.append(Check("no banned instructions", not banned,
                          f"found: {', '.join(banned)}" if banned else ""))
     return out
@@ -251,7 +270,7 @@ def _witness_checks(level: Level, build: Build, ctx: Context) -> list[Check]:
 
 
 def grade(level: Level, build: Build, tests: list[TestCase], ctx: Context | None = None) -> Report:
-    r = Report()
+    r = Report(warnings=build.warnings)
     for t in tests:
         result, _ = run_test(level, build, t)
         r.tests.append(result)

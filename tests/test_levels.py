@@ -15,8 +15,8 @@ LEVELS = all_levels()
 CTX = Context(seed=1234)
 
 
-def test_arcs_one_and_two_are_complete():
-    assert sorted(LEVELS) == list(range(157, 185))
+def test_levels_are_contiguous_from_184():
+    assert sorted(LEVELS) == list(range(min(LEVELS), 185))
 
 
 @pytest.mark.parametrize("ring", sorted(LEVELS, reverse=True))
