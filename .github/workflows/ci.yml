@@ -24,10 +24,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f docker/Dockerfile -t nasm-adventures .
       - name: smoke test
-        run: |
-          docker run --rm nasm-adventures bash -c '
-            (RING_UI_TOKEN=ci ring ui --no-browser &) && sleep 2 &&
-            python3 -c "import urllib.request as u; assert u.urlopen(\"http://127.0.0.1:8080/?token=ci\").status == 200" &&
-            ring start && ring test; test $? -eq 1 &&
-            printf "mov rax, 42\nmov rbx, 184\n" > level184/solution.asm &&
-            ring submit && ring status'
+        run: docker run --rm -v "$PWD/docker/smoke_test.sh:/smoke_test.sh:ro" nasm-adventures bash /smoke_test.sh
