@@ -1,0 +1,19 @@
+level = 80
+slug = "condition_variables"
+title = "Condition Variables"
+arc = "VIII"
+mode = "program"
+concepts = ["waiting for a condition, not for a lock", "a condition variable is a futex on a sequence number", "wait releases the mutex and sleeps, atomically", "the predicate loop: wakeups can be stale or spurious", "signal vs broadcast"]
+introduces = ["condition variables", "cond_wait", "cond_signal", "broadcast"]
+
+hints = [
+  "The queue itself is level 106's ring buffer, protected by one mutex. Waiting is the new part: a getter that finds it empty must sleep without holding the mutex, and wake up when a put happens.",
+  "A condition variable can be just a dword counter. wait(cond, mutex): seq = [cond]; unlock; futex_wait(cond, seq); lock. signal(cond): lock inc [cond]; futex_wake(cond, 1). Read seq BEFORE unlocking: if a signal comes between your unlock and your sleep, the counter has changed and futex_wait returns at once.",
+  "Always wait in a loop that re-checks the condition with the mutex held: another thread may have taken the slot before you got the mutex back. Two condition variables: not_empty (put signals it) and not_full (get signals it). close sets a flag and wakes every getter (futex_wake with a huge count).",
+]
+
+[constraints]
+max_steps = 2000000
+
+[random]
+count = 2
