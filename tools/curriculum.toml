@@ -176,22 +176,22 @@ levels = [
 [[arc]]
 id = "IX"
 name = "Floating Point & SIMD"
-runner = "native (CPU features detected; emulated if missing)"
+runner = "emu: SSE on Unicorn; AVX, AVX2, FMA and AVX-512 on the game's vector unit (ring/simd.py), which also plays older CPUs (cpuid profiles); the CPU model for speed"
 levels = [
-  { title = "IEEE 754", concepts = "sign/exponent/mantissa, NaN, inf, denormals", gate = "Decode doubles without FP instructions" },
-  { title = "x87 (Museum)", concepts = "FPU stack, control word", gate = "sqrt and sin with x87" },
-  { title = "SSE Scalar", concepts = "`movsd`, `addsd`, `cvtsi2sd`, `ucomisd`, MXCSR", gate = "Print a double → library: `dtoa`" },
-  { title = "Precision Lost", bug = 2, concepts = "catastrophic cancellation, NaN compares (`ucomisd` sets PF), float equality", gate = "Fix a geometry routine that fails on near-degenerate inputs" },
-  { title = "SIMD Integers", concepts = "xmm, `padd*`, saturation", gate = "Brighten an image 16 px at a time" },
-  { title = "Shuffles", concepts = "`pshufd`, `pshufb`, `punpck*`, `palignr`", gate = "Byte-reverse/transpose with shuffles" },
-  { title = "Masks & Compares", concepts = "`pcmpeqb`, `pmovmskb`, `tzcnt`", gate = "SIMD `strlen`/`memchr`" },
-  { title = "Tail Overrun", bug = 2, concepts = "vector loads past the end of a buffer into an unmapped page", gate = "Fix a SIMD strlen that crashes on page boundaries" },
-  { title = "Packed Floats", concepts = "`mulps`, horizontal sums, alignment", gate = "Dot product" },
-  { title = "AVX & VEX", concepts = "ymm, 3-operand form, `vzeroupper`, feature detection", gate = "AVX with runtime dispatch" },
-  { title = "FMA", concepts = "`vfmadd231ps`, precision", gate = "Polynomial exp within a ULP bound" },
-  { title = "Gathers & Permutes", concepts = "`vpgatherdd`, `vpermd`", gate = "Vectorized histogram" },
-  { title = "AVX-512", concepts = "zmm, mask registers, `vpcompressd`", gate = "Filter by predicate" },
-  { title = "SIMD Gauntlet", boss = true, concepts = "everything in the arc", gate = "UTF-8 validator at ≥ 4 GB/s" },
+  { title = "IEEE 754", dir = "ieee754", concepts = "sign/exponent/mantissa, NaN, inf, denormals", gate = "Decode doubles without FP instructions" },
+  { title = "x87 (Museum)", dir = "x87", concepts = "FPU stack, control word", gate = "sqrt and sin with x87" },
+  { title = "SSE Scalar", dir = "sse_scalar", concepts = "`movsd`, `addsd`, `cvtsi2sd`, `ucomisd`, MXCSR", gate = "Print a double → library: `dtoa`" },
+  { title = "Precision Lost", dir = "bug_precision", bug = 2, concepts = "catastrophic cancellation, NaN compares (`ucomisd` sets PF), float equality", gate = "Fix a geometry routine that fails on near-degenerate inputs" },
+  { title = "SIMD Integers", dir = "simd_integers", concepts = "xmm, `padd*`, saturation", gate = "Brighten an image 16 px at a time" },
+  { title = "Shuffles", dir = "shuffles", concepts = "`pshufd`, `pshufb`, `punpck*`, `palignr`", gate = "Byte-reverse/transpose with shuffles" },
+  { title = "Masks & Compares", dir = "masks_compares", concepts = "`pcmpeqb`, `pmovmskb`, `tzcnt`", gate = "SIMD `strlen`/`memchr`" },
+  { title = "Tail Overrun", dir = "bug_tail_overrun", bug = 2, concepts = "vector loads past the end of a buffer into an unmapped page", gate = "Fix a SIMD strlen that crashes on page boundaries" },
+  { title = "Packed Floats", dir = "packed_floats", concepts = "`mulps`, horizontal sums, alignment", gate = "Dot product" },
+  { title = "AVX & VEX", dir = "avx_vex", concepts = "ymm, 3-operand form, `vzeroupper`, feature detection", gate = "AVX with runtime dispatch" },
+  { title = "FMA", dir = "fma", concepts = "`vfmadd231ps`, precision", gate = "Polynomial exp within a ULP bound" },
+  { title = "Gathers & Permutes", dir = "gathers_permutes", concepts = "`vpgatherdd`, `vpermd`", gate = "Vectorized histogram" },
+  { title = "AVX-512", dir = "avx512", concepts = "zmm, mask registers, `vpcompressd`", gate = "Filter by predicate" },
+  { title = "SIMD Gauntlet", dir = "simd_gauntlet", boss = true, concepts = "everything in the arc", gate = "UTF-8 validator at ≥ 4 GB/s" },
 ]
 
 [[arc]]

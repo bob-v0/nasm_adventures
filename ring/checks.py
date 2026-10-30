@@ -93,6 +93,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
     if test.userland:
         install_userland(kernel)
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
+    if "cpu" in test.inject:                       # which CPU: what cpuid reports (ring/simd.py)
+        m.set_cpu(test.inject["cpu"])
     if test.inject.get("tso"):
         m.enable_tso()
     if perf or "max_cycles" in test.expect or "noise" in test.inject:
@@ -112,6 +114,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
         for name in GPRS:
             if name != "rsp":
                 m.set_reg(name, rng.getrandbits(64))
+        for n in range(16):                        # (the upper halves are clean, as the ABI says)
+            m.set_reg(f"xmm{n}", rng.getrandbits(128))
         rsp = m.reg("rsp")
         m.write(rsp - 4096, rng.randbytes(4096))
     for name, value in test.regs.items():

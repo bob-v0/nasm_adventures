@@ -7,8 +7,8 @@ import struct
 from dataclasses import dataclass, field
 
 from elftools.elf.elffile import ELFFile
-from unicorn import (UC_ARCH_X86, UC_HOOK_CODE, UC_HOOK_INSN, UC_HOOK_MEM_INVALID,
-                     UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE, UC_MODE_64, UC_PROT_EXEC, UC_PROT_READ,
+from unicorn import (UC_ARCH_X86, UC_HOOK_CODE, UC_HOOK_INSN, UC_HOOK_INSN_INVALID,
+                     UC_HOOK_MEM_INVALID, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE, UC_MODE_64, UC_PROT_EXEC, UC_PROT_READ,
                      UC_PROT_WRITE, Uc, UcError)
 from unicorn import x86_const as X
 
@@ -25,6 +25,14 @@ USER_LIMIT = 0x7FFFFFFFF000  # end of the user address space on Linux x86-64
 GPRS = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
         "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"]
 REGS = {name: getattr(X, f"UC_X86_REG_{name.upper()}") for name in GPRS + ["rip", "rflags"]}
+VREGS = {f"{p}mm{n}": (getattr(X, f"UC_X86_REG_{p.upper()}MM{n}"), (1 << {"x": 128, "y": 256, "z": 512}[p]) - 1)
+         for p in "xyz" for n in range(32)}
+# legacy SSE instructions that don't require a 16-byte aligned memory operand
+_UNALIGNED_OK = {"movups", "movupd", "movdqu", "lddqu", "movq", "movd", "movss", "movsd", "movlps",
+                 "movhps", "movlpd", "movhpd", "pcmpestri", "pcmpestrm", "pcmpistri", "pcmpistrm",
+                 "maskmovdqu", "movntdqa"} - {"movntdqa"}
+_UNSEEN = object()
+OTHER_REGS = {"mxcsr": X.UC_X86_REG_MXCSR, "fpcw": X.UC_X86_REG_FPCW, "fpsw": X.UC_X86_REG_FPSW}
 
 FLAG_BITS = [("CF", 0), ("PF", 2), ("AF", 4), ("ZF", 6), ("SF", 7), ("TF", 8),
              ("IF", 9), ("DF", 10), ("OF", 11)]
@@ -143,6 +151,9 @@ class Machine:
         self.cycle_limit = 0                      # stop once the model passes this many cycles
         self._redirect: str | None = None        # "sigreturn" / "deliver", requested mid-slice
         self._bad_access: int | None = None
+        self._pending_fault: tuple | None = None # (signal, text, address) for the next stop
+        self._kinds: dict[int, object] = {}      # addr -> what's special about the instruction
+        self.vector = None                        # the vector unit (ring/simd.py)
         self._checked_mapped = 0
         self.exit_code: int | None = None
         self.state = "ready"
@@ -160,6 +171,10 @@ class Machine:
         self.uc.hook_add(UC_HOOK_INSN, self._on_syscall, None, 1, 0, X.UC_X86_INS_SYSCALL)
         self.uc.hook_add(UC_HOOK_CODE, self._count)
         self.uc.hook_add(UC_HOOK_MEM_INVALID, self._on_invalid)
+        self.uc.hook_add(UC_HOOK_INSN_INVALID, self._on_insn_invalid)
+        self.uc.hook_add(UC_HOOK_INSN, self._on_cpuid, None, 1, 0, X.UC_X86_INS_CPUID)
+        self.uc.reg_write(X.UC_X86_REG_MXCSR, 0x1F80)  # what Linux starts a process with:
+        self.uc.reg_write(X.UC_X86_REG_FPCW, 0x037F)   # exceptions masked, round to nearest
         if self.record:
             self.uc.hook_add(UC_HOOK_MEM_WRITE, self._on_write)
         self._checked_mapped = 0
@@ -236,10 +251,107 @@ class Machine:
     # ---- registers & memory -------------------------------------------------------
 
     def reg(self, name: str) -> int:
+        if name in VREGS:
+            reg, mask = VREGS[name]
+            return self.uc.reg_read(reg) & mask
+        if name in OTHER_REGS:
+            return self.uc.reg_read(OTHER_REGS[name])
         return self.uc.reg_read(REGS[name]) & MASK64
 
     def set_reg(self, name: str, value: int) -> None:
+        if name in VREGS:
+            reg, mask = VREGS[name]
+            self.uc.reg_write(reg, value & mask)
+            return
+        if name in OTHER_REGS:
+            self.uc.reg_write(OTHER_REGS[name], value)
+            return
         self.uc.reg_write(REGS[name], value & MASK64)
+
+    # ---- the vector unit, cpuid ------------------------------------------------------
+
+    def set_cpu(self, profile: str) -> None:
+        """Which CPU this is (ring/simd.py PROFILES): what cpuid reports and which
+        vector instructions exist."""
+        from .simd import Vector
+        self.vector = Vector(self, profile)
+
+    def _vec(self):
+        if self.vector is None:
+            self.set_cpu("avx512")
+        return self.vector
+
+    def _on_insn_invalid(self, _uc, _user) -> bool:
+        return self._vec().on_invalid()
+
+    def _on_cpuid(self, uc, _user) -> int:
+        leaf, sub = self.reg("rax") & 0xFFFFFFFF, self.reg("rcx") & 0xFFFFFFFF
+        for name, value in zip(("rax", "rbx", "rcx", "rdx"), self._vec().cpuid(leaf, sub)):
+            self.set_reg(name, value)
+        return 1                                    # (skip Unicorn's own cpuid)
+
+    def vector_access(self, kind: str, addr: int, size: int, data: bytes = b"") -> None:
+        """An access made by an emulated vector instruction: the same hooks as Unicorn's."""
+        if self.perf is not None:
+            self.perf.on_mem(kind, addr, size)
+        if kind == "w":
+            if self._frame is not None:
+                self._frame.writes.append((addr, self.read(addr, size)))
+            if self.tso is not None and self.threaded:
+                self.tso.on_store(self.thread.tid, addr, size, int.from_bytes(data, "little"))
+        if self._checked_mapped and K.CHECKED_HEAP <= addr < K.CHECKED_HEAP + (1 << 28):
+            self._on_heap_access(self.uc, 17 if kind == "w" else 16, addr, size, 0, None)
+
+    def vector_fault(self, kind: str, addr: int, message: str = "") -> None:
+        """An emulated instruction faults (the hook then reports #UD to Unicorn, and
+        _fault turns it into this)."""
+        if kind == "gp":
+            self._pending_fault = (11, message or "general protection fault", None)
+        else:
+            what = "write to read-only or unmapped" if kind == "write" else "access to unmapped"
+            self._pending_fault = (11, f"segmentation fault: {what} memory at {addr:#x}", addr)
+
+    def _special(self, addr: int):
+        """What needs doing before the instruction at addr runs (decoded once): xgetbv is
+        the game's; legacy SSE memory operands must be 16-byte aligned."""
+        from .simd import UNICORN_VEX
+        d = self._vec().decode(addr)
+        if d is None:
+            return None
+        if d.vex or d.evex:
+            return None if d.mnemonic in UNICORN_VEX else ("vector", d)
+        if d.mnemonic == "xgetbv":
+            return ("xgetbv", d)
+        mems = [op for op in d.ops if op.kind == "mem" and op.size == 16]
+        if mems and d.mnemonic not in _UNALIGNED_OK and (
+                d.mnemonic == "cmpxchg16b" or any(op.kind == "reg" and op.reg.startswith("xmm")
+                                                  for op in d.ops)):
+            return ("align", d, mems[0])
+        return None
+
+    def _do_special(self, addr: int, kind) -> None:
+        if kind[0] == "vector":                   # the game's vector unit runs it, not Unicorn
+            if not self.vector.emulate(kind[1]):
+                self.uc.reg_write(X.UC_X86_REG_RIP, addr)
+                self.uc.emu_stop()
+            elif self.state == "fault":
+                self.uc.reg_write(X.UC_X86_REG_RIP, addr)
+            return
+        if kind[0] == "xgetbv":
+            xcr0 = self.vector.xcr0() if self.reg("rcx") & 0xFFFFFFFF == 0 else 0
+            self.set_reg("rax", xcr0)
+            self.set_reg("rdx", 0)
+            self.uc.reg_write(X.UC_X86_REG_RIP, addr + kind[1].size)   # (instead of Unicorn's)
+            return
+        _, d, op = kind
+        a = self.vector.address(d, op)
+        if a % 16:
+            self._pending_fault = (11, f"general protection fault: `{d.mnemonic}` needs a "
+                                   f"16-byte aligned memory operand, and {a:#x} isn't (align "
+                                   "the data, or use an unaligned instruction like movdqu/movups)",
+                                   None)
+            self.uc.reg_write(X.UC_X86_REG_RIP, addr)      # don't run it
+            self.uc.emu_stop()
 
     def regs(self) -> dict[str, int]:
         return {n: self.reg(n) for n in REGS}
@@ -547,8 +659,12 @@ class Machine:
             child.uc.mem_protect(start, size, prot)
         for name in REGS:
             child.set_reg(name, self.reg(name))
-        for r in [X.UC_X86_REG_FS_BASE] + [getattr(X, f"UC_X86_REG_XMM{i}") for i in range(16)]:
+        for r in [X.UC_X86_REG_FS_BASE, X.UC_X86_REG_MXCSR] + [getattr(X, f"UC_X86_REG_ZMM{i}")
+                                                               for i in range(32)]:
             child.uc.reg_write(r, self.uc.reg_read(r))
+        if self.vector is not None:
+            child.set_cpu(self.vector.profile)
+            child.vector.kregs[child.thread.tid] = list(self.vector.k)
         child.set_reg("rip", self.pc + 2)
         child.set_reg("rax", 0)
         child.set_reg("rcx", self.pc + 2)
@@ -571,6 +687,9 @@ class Machine:
         self.build = Image(e.image, e.path, entry=entry)
         self.argv, self.env = e.argv, e.env
         self._end_history("execve")
+        self._kinds.clear()
+        if self.vector is not None:
+            self.set_cpu(self.vector.profile)
         self._new_cpu()
         self._load()
 
@@ -596,6 +715,9 @@ class Machine:
 
     def _count(self, _uc, addr, _size, _user) -> None:
         self.steps += 1
+        special = self._kinds.get(addr, _UNSEEN)
+        if special is _UNSEEN:
+            special = self._kinds[addr] = self._special(addr)
         if self.trace is not None:
             self.trace.append(addr)
         if self.tso is not None:
@@ -618,6 +740,8 @@ class Machine:
                 self.set_reg("rdx", tsc >> 32)
                 if rdtscp:
                     self.set_reg("rcx", 0)
+        if special is not None:
+            self._do_special(addr, special)
 
     def enable_tso(self) -> None:
         """Model x86-TSO store buffers for this process's threads (ring/tso.py)."""
@@ -710,6 +834,9 @@ class Machine:
             self.uc.emu_start(self.pc, until, count=count)
         except UcError as e:
             self._fault(e)
+            return
+        if self._pending_fault is not None:
+            self._fault(None)
 
     def _advance(self, budget: int) -> None:
         """Run this process for up to `budget` instructions; stop early when it ends,
@@ -956,14 +1083,21 @@ class Machine:
 
     # ---- faults ----------------------------------------------------------------------
 
-    def _fault(self, e: UcError) -> None:
-        msg = str(e).upper()
-        sig = 4 if "INSN_INVALID" in msg else 8 if "EXCEPTION" in msg else 11
+    def _fault(self, e: UcError | None) -> None:
+        text = None
+        if self._pending_fault is not None:       # the game's own fault (vector unit, alignment)
+            sig, text, addr = self._pending_fault
+            self._pending_fault = None
+            if addr is not None:
+                self._bad_access = addr
+        else:
+            msg = str(e).upper()
+            sig = 4 if "INSN_INVALID" in msg else 8 if "EXCEPTION" in msg else 11
         if self.kernel.disposition(sig) == "handle" and not self.kernel.blocked >> (sig - 1) & 1:
             self._deliver(sig)          # the faulting instruction is re-run after sigreturn
             self._bad_access = None
             return
-        self._set_fault(e)
+        self._set_fault(e, text)
         self.fault += f" [{SIGNAL_NAMES[sig]}]"
 
     def memory_error(self, message: str) -> None:
@@ -1034,7 +1168,7 @@ class Machine:
         self.steps -= 1
         return True
 
-    def _set_fault(self, e: UcError) -> None:
+    def _set_fault(self, e: UcError | None, text: str | None = None) -> None:
         self.state = "fault"
         pc = self.pc
         where = self.build.addr_to_line.get(pc)
@@ -1043,7 +1177,7 @@ class Machine:
         if not where and end <= pc < align_up(end + 1):
             missing = "`ret`" if self.build.mode == "function" else "to exit"
             loc = f" (past the end of your code: did you forget {missing}?)"
-        self.fault = f"{_describe(e)} at rip={pc:#x}{loc}"
+        self.fault = f"{text or _describe(e)} at rip={pc:#x}{loc}"
 
 
 def _describe(e: UcError) -> str:

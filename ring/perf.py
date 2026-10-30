@@ -65,14 +65,69 @@ _TABLE = {
     "rdtscp": (32, "serial", 22), "cpuid": (100, "serial", 30), "syscall": (150, "serial", 30),
     "pause": (140, "alu", 4), "shld": (3, "mul", 1), "shrd": (3, "mul", 1),
 }
-_UNITS = {"alu": 4, "branch": 2, "load": 2, "store": 1, "mul": 1, "div": 1 / 24, "fp": 2,
+_UNITS = {"alu": 4, "branch": 2, "load": 2, "store": 1, "mul": 1, "div": 1 / 24, "fp": 2, "shuf": 1,
           "fdiv": 1 / 4, "vec": 3, "serial": 1, "mem": 1 / 4, "l2": 1 / 2, "walk": 1 / 20}
 STORE_BUFFER = 56
 _FUSES = {"cmp", "test", "add", "sub", "and", "inc", "dec"}
-_ZERO_IDIOMS = {"xor", "sub", "pxor", "xorps", "xorpd", "vpxor", "vxorps", "psubd"}
+_ZERO_IDIOMS = {"xor", "sub", "pxor", "xorps", "xorpd", "vpxor", "vxorps", "psubd", "vpxord",
+                "vpxorq", "vxorpd", "vpsubd", "pcmpgtd", "vpcmpgtd"}
 _FP = {"addsd", "addss", "subsd", "subss", "mulsd", "mulss", "divsd", "divss", "addpd", "addps",
        "mulpd", "mulps", "subpd", "subps", "divpd", "sqrtsd", "sqrtss", "vaddsd", "vaddpd",
        "vaddps", "vmulpd", "vmulps", "vfmadd231sd", "vfmadd231pd", "vfmadd231ps"}
+
+
+# Vector instructions (SSE, and AVX/AVX-512 forms with or without the v): one uop per
+# vector of any width; three simple vector ALUs, two FP/multiply units, one shuffle unit
+# (lane-crossing shuffles take 3 cycles), gathers that are as slow as their loads.
+_CROSS_LANE = ("vpermd", "vpermq", "vpermps", "vpermpd", "vperm2i128", "vperm2f128", "vpermb",
+               "vpermw", "vpermt2", "vpermi2", "vinserti", "vinsertf", "vextracti", "vextractf",
+               "vpbroadcast", "vbroadcast", "vpmovzx", "vpmovsx", "valign", "vpcompress",
+               "vpexpand", "vcompress", "vexpand", "vpmovdb", "vpmovqb", "vpmovdw", "vpmovqd",
+               "vpmovqw", "vpmovwb")
+_SHUFFLES = ("pshuf", "shufp", "punpck", "unpck", "palignr", "pack", "pslldq", "psrldq",
+             "pinsr", "pextr", "insertps", "extractps", "movhlps", "movlhps", "permil", "pblendw")
+
+
+def _vector_cost(mn: str) -> tuple | None:
+    base = mn[1:] if mn.startswith("v") and not mn.startswith(("vf", "vp", "vperm")) else mn
+    if base in _TABLE:
+        return _TABLE[base]
+    if mn.startswith("v") and mn[1:] in _TABLE:
+        return _TABLE[mn[1:]]
+    if mn.startswith(("vfmadd", "vfmsub", "vfnmadd", "vfnmsub")):
+        return 4, "fp", 1
+    if mn.startswith(("vpgather", "vgather")):
+        return 16, "vec", 4                       # (+ one load per element)
+    if mn.startswith(("vpscatter", "vscatter")):
+        return 4, "store", 8
+    if mn.startswith("vpconflict"):
+        return 20, "shuf", 17
+    if mn.startswith(_CROSS_LANE):
+        return 3, "shuf", 2 if "compress" in mn or "expand" in mn else 1
+    s = mn[1:] if mn.startswith("v") else mn
+    if s.startswith(_SHUFFLES) or s in ("pshufb",):
+        return 1, "shuf", 1
+    if s in ("pmovmskb", "movmskps", "movmskpd", "ptest", "testps", "testpd"):
+        return 3, "vec", 1 if "mov" in s else 2
+    if s.startswith(("pmovb2m", "pmovw2m", "pmovd2m", "pmovq2m")) or mn.startswith("kmov"):
+        return 3, "vec", 1
+    if s.startswith(("pmullw", "pmulhw", "pmulhuw", "pmulhrsw", "pmaddwd", "pmaddubsw", "psadbw",
+                     "pmuldq", "pmuludq", "dpps", "dppd")):
+        return 5, "fp", 1
+    if s.startswith(("pmulld", "pmullq")):
+        return 10, "fp", 2
+    if s.startswith(("divps", "divss")):
+        return 11, "fdiv", 1
+    if s.startswith(("divpd", "divsd")):
+        return 14, "fdiv", 1
+    if s.startswith(("sqrtps", "sqrtss")):
+        return 12, "fdiv", 1
+    if s.startswith(("sqrtpd", "sqrtsd")):
+        return 18, "fdiv", 1
+    if s.startswith(("add", "sub", "mul", "min", "max", "cmp", "cvt", "round", "rndscale", "rcp",
+                     "rsqrt", "hadd", "hsub")) and s.endswith(("ps", "pd", "ss", "sd", "dq", "si")):
+        return (6, "fp", 3) if s.startswith(("hadd", "hsub")) else (4, "fp", 1)
+    return None
 
 
 def _family(name: str) -> str:
@@ -294,7 +349,9 @@ class CostModel:
             lat, unit, uops = 1, "branch", 2 if mn in ("call", "ret") else 1
         elif mn.startswith("prefetch"):
             lat, unit, uops = 1, "load", 1
-        elif mn.startswith(("v", "p", "mov")) or mn.endswith(("ps", "pd", "sd", "ss")):
+        elif _vector_cost(mn) is not None:
+            lat, unit, uops = _vector_cost(mn)
+        elif mn.startswith(("v", "p", "mov", "k")) or mn.endswith(("ps", "pd", "sd", "ss")):
             lat, unit, uops = 1, "vec", 1
         else:
             lat, unit, uops = 2, "alu", 2

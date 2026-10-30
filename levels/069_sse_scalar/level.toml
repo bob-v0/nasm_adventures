@@ -1,0 +1,20 @@
+level = 69
+slug = "sse_scalar"
+title = "SSE Scalar"
+arc = "IX"
+mode = "function"
+entry = "ring_dtoa"
+concepts = ["SSE: sixteen xmm registers, a double in the low 64 bits", "scalar arithmetic: addsd, mulsd, divsd, sqrtsd", "conversions: cvtsi2sd, cvtsd2si, cvttsd2si", "comparing: ucomisd sets ZF, PF and CF; PF means unordered (a NaN)", "MXCSR: the rounding mode the caller chose"]
+introduces = ["movsd / movq", "addsd / mulsd / divsd", "cvtsd2si / cvttsd2si / cvtsi2sd", "ucomisd", "MXCSR", "andpd / bit tricks on doubles"]
+
+hints = [
+  "Order matters. NaN first: ucomisd xmm0, xmm0 compares x with itself, and only a NaN is unordered (PF = 1, so jp). Then the sign: movq rax, xmm0 gives the bits, bit 63 is the sign (also for −0.0, which compares equal to 0.0). Clear it (btr rax, 63) and movq it back for |x|. Infinity is the bits 0x7FF0000000000000.",
+  "n = |x| × 1000, rounded: mulsd by 1000.0 (a constant in .rodata: dq 1000.0), then cvtsd2si rax, xmm0. cvtsd2si rounds the way MXCSR says, which is exactly what this level asks; cvttsd2si would always truncate, and adding 0.5 first gets ties and the other modes wrong.",
+  "Then it's integers: n / 1000 is the integer part (print it in decimal: digits come out last-first, so fill a small buffer backwards or reverse), a '.', and n % 1000 as exactly three digits (divide by 100, by 10).",
+]
+
+[constraints]
+max_steps = 5000
+
+[random]
+count = 30

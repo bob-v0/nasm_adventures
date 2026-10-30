@@ -1,0 +1,21 @@
+level = 70
+slug = "x87"
+title = "x87 (Museum)"
+arc = "IX"
+mode = "function"
+entry = "ring_rotate"
+concepts = ["the x87 FPU: a stack of eight 80-bit registers", "doubles arrive in xmm registers (System V): moving them through memory", "fsincos, fsqrt and friends", "the control word: rounding modes", "the ABI: the x87 stack is empty at every call and return"]
+introduces = ["st0-st7", "fld / fstp / fild / fistp", "fsincos", "fsqrt", "fmul / fadd / fsubp", "fnstcw / fldcw", "rounding control"]
+
+hints = [
+  "There are no moves between xmm and x87 registers: go through memory. The red zone (the 128 bytes below rsp) is yours in a leaf function: movsd [rsp-8], xmm0 / fld qword [rsp-8], and back with fstp qword [rsp-8] / movsd xmm0, [rsp-8].",
+  "fsincos replaces st0 = a with two values: st0 = cos a, st1 = sin a. fld st2 pushes a copy of st2 (everything shifts down by one, so count again after every push and pop). A plan: load x, y, the angle; fsincos; then compute x·c − y·s and x·s + y·c with fld/fmul/fsubp/faddp, storing each result as soon as it's done.",
+  "For the floor: fnstcw [rsp-16] saves the control word; copy it, set bits 10-11 to 01 (round down: and ax, 0xF3FF / or ax, 0x0400), fldcw the copy, fistp qword [mem], then fldcw the saved one. Count your pushes and pops: the stack must be empty when you return.",
+]
+
+[constraints]
+max_steps = 2000
+must_use = ["fsqrt", "fldcw"]
+
+[random]
+count = 12

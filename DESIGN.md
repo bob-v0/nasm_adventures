@@ -366,7 +366,7 @@ Runner: emu: threads share one emulated CPU under the game's scheduler (numbered
 
 ### Arc IX — Floating Point & SIMD (Levels 71–58)
 
-Runner: native (CPU features detected; emulated if missing). 14 levels, 2 of them bug levels.
+Runner: emu: SSE on Unicorn; AVX, AVX2, FMA and AVX-512 on the game's vector unit (ring/simd.py), which also plays older CPUs (cpuid profiles); the CPU model for speed. 14 levels, 2 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
@@ -753,7 +753,7 @@ docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace \
 |---|---|
 | Apple Silicon (ARM container) | Multi-arch image. `emu` and `qemu` levels work unchanged; the `native` runner uses `qemu-x86_64` user-mode emulation. |
 | Performance arc (VII) | Real timing is noisy in Docker and meaningless on ARM, so Arc VII is graded on the game's own CPU model: the same cycle counts on every host. Players are told it's a model; `perf stat` in the Terminal shows the real counters where the container allows it. |
-| CPU features (AVX2, AVX-512) | Detected at startup; missing features fall back to emulation under QEMU `-cpu max`. |
+| CPU features (AVX2, AVX-512) | Not needed: Arc IX runs on the game's own vector unit (`ring/simd.py`), the same on every host. It is checked instruction by instruction against a real AVX-512 CPU in the tests. |
 | ptrace and perf counters | `--cap-add=SYS_PTRACE` plus a tailored seccomp profile. **Never `--privileged`.** |
 | QEMU speed | Software emulation by default (more reliable for single-stepping). Optional `--device /dev/kvm` on Linux. |
 | Network exposure | The UI can build and run code: bind to `127.0.0.1` only and require a per-session token in the URL (as Jupyter does). |
