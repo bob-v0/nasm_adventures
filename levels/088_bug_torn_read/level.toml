@@ -1,0 +1,22 @@
+level = 88
+slug = "bug_torn_read"
+title = "Torn Read"
+arc = "VIII"
+bug = 2
+mode = "program"
+witness = true
+concepts = ["only aligned accesses up to 8 bytes are guaranteed atomic", "two halves read at two moments", "invariants spanning several words", "cmpxchg16b as an atomic 16-byte read and write"]
+introduces = ["torn reads", "cmpxchg16b"]
+
+hints = [
+  "A snapshot is two loads, and an update is two stores. Between them, the other side can do its whole thing: the reader gets the new count with the old check, or the reverse.",
+  "lock cmpxchg16b [m] (m 16-byte aligned) compares the 16 bytes at m with rdx:rax; if equal, stores rcx:rbx; if not, loads them into rdx:rax. Either way, as one indivisible access.",
+  "Writer: put the old pair (any guess) in rdx:rax, the new pair in rcx:rbx, and loop on lock cmpxchg16b until ZF = 1. Reader: rax = rdx = rbx = rcx = 0, then lock cmpxchg16b: if the record isn't 0:0 you get it in rdx:rax; if it is, it stores 0:0 again. Mind that the writer's loop uses rbx.",
+]
+
+[constraints]
+max_changed_lines = 14
+max_steps = 600000
+
+[random]
+count = 1
