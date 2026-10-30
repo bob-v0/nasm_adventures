@@ -1,0 +1,22 @@
+level = 86
+slug = "bug_logical_race"
+title = "Logical Race"
+arc = "VIII"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["atomic accesses don't make an algorithm atomic", "check-then-act", "invariants that span two variables", "a critical section must cover the whole invariant", "claim first, then check"]
+introduces = ["logical races", "check-then-act", "critical sections"]
+
+hints = [
+  "No data race here: every access is aligned or locked. The problem is what happens BETWEEN them. Rate limiter: 10 threads can all see 9 and all decide there's room. Bank: between `lock sub [a]` and `lock add [b]`, the money is in neither account.",
+  "Rate limiter: make deciding and counting one step. lock xadd adds 1 and tells you the count before: if that was already >= 10, the slot wasn't real, so take it back (lock dec) and refuse.",
+  "Bank: the invariant a + b == 1000 involves two words, so no single atomic instruction covers it. Put each transfer (both halves) and each audit (both reads) under the same lock: spin_lock / spin_unlock on `bank`.",
+]
+
+[constraints]
+max_changed_lines = 16
+max_steps = 600000
+
+[random]
+count = 1
