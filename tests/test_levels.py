@@ -72,3 +72,12 @@ def test_flags_quiz_answers_match_the_cpu(tmp_path):
         m.run()
         got = bytes(m.reg("rflags") >> bits[f] & 1 for f in ("CF", "ZF", "SF", "OF"))
         assert got == want[4 * i:4 * i + 4], f"operation {i + 1}: {op!r}"
+
+
+def test_arc_names_match_the_curriculum():
+    import tomllib
+    from pathlib import Path
+    from ring.arcs import ARCS
+    cur = tomllib.loads((Path(__file__).resolve().parent.parent / "tools" / "curriculum.toml").read_text())
+    assert ARCS == {a["id"]: a["name"] for a in cur["arc"]}
+    assert {lv.arc for lv in LEVELS.values()} <= ARCS.keys()

@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from ..arcs import arc_title
 from .. import briefs, docs
 from ..build import BuildError, _inspect
 from ..checks import Report, grade
@@ -77,6 +78,7 @@ class Server:
         for n, lv in sorted(all_levels().items(), reverse=True):
             unlocked = prog.unlocked(n)
             levels.append({"number": n, "title": lv.title if unlocked else None, "arc": lv.arc,
+                           "arc_title": arc_title(lv.arc),
                            "bug": lv.data.get("bug"), "boss": lv.data.get("boss", False),
                            "unlocked": unlocked, "completed": prog.completed(n),
                            "current": n == prog.current})
@@ -91,7 +93,8 @@ class Server:
         extra = sorted(p.name for p in sol.parent.iterdir()
                        if p.is_file() and p.stat().st_mode & 0o111)
         used = prog.hints_used(lv.number)
-        return {"number": lv.number, "title": lv.title, "arc": lv.arc, "mode": lv.mode,
+        return {"number": lv.number, "title": lv.title, "arc": lv.arc,
+                "arc_title": arc_title(lv.arc), "mode": lv.mode,
                 "bug": lv.data.get("bug"), "boss": lv.data.get("boss", False),
                 "brief": briefs.render(lv.brief, "web"), "introduces": lv.introduces, "text": sol.read_text(),
                 "path": str(sol), "tests": [t.name for t in tests],

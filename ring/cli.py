@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from . import briefs, docs
+from .arcs import arc_title
 from .build import BuildError, _inspect
 from .checks import Report, grade
 from .level import Context, Level, all_levels
@@ -83,7 +84,7 @@ def cmd_status(args, prog: Progress) -> None:
     if prog.current < 0 or lv is None:
         print(c("1", "You have reached the deepest level that exists so far."))
     else:
-        print(f"  {c('1', f'Level {lv.number}')} — \"{lv.title}\"    Arc {lv.arc}")
+        print(f"  {c('1', f'Level {lv.number}')} — \"{lv.title}\"    {arc_title(lv.arc)}")
     print(f"  Levels cleared: {done}   Heat: {prog.heat}   Badges: {len(prog.data['badges'])}")
     print(f"  Workspace: {workspace()}")
     if lv is not None:
@@ -93,7 +94,11 @@ def cmd_status(args, prog: Progress) -> None:
 
 
 def cmd_list(args, prog: Progress) -> None:
+    arc = None
     for number, lv in sorted(all_levels().items(), reverse=True):
+        if lv.arc != arc:
+            arc = lv.arc
+            print(("\n" if number != max(all_levels()) else "") + "  " + c("1", arc_title(arc)))
         if prog.completed(number):
             mark = OK
         elif number == prog.current:
@@ -103,7 +108,7 @@ def cmd_list(args, prog: Progress) -> None:
         else:
             mark = c("2", "·")
         title = lv.title if prog.unlocked(number) or prog.completed(number) else c("2", "sealed")
-        print(f"  {mark} {number:>3}  {title:<28} Arc {lv.arc}")
+        print(f"  {mark} {number:>3}  {title}")
 
 
 def cmd_brief(args, prog: Progress) -> None:

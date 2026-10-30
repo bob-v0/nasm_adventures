@@ -209,7 +209,7 @@ function renderLevels() {
   let html = "";
   let arc = null;
   for (const lv of S.game.levels) {
-    if (lv.arc !== arc) { arc = lv.arc; html += `<div class="arc">Arc ${esc(arc)}</div>`; }
+    if (lv.arc !== arc) { arc = lv.arc; html += `<div class="arc">${esc(lv.arc_title)}</div>`; }
     const mark = lv.completed ? '<span class="done">✔</span>' : lv.current ? '<span class="cur">▶</span>' : "";
     const tag = lv.bug ? `<span class="tag bug" title="bug level">bug ${TIERS[lv.bug]}</span>`
       : lv.boss ? '<span class="tag boss">boss</span>' : "";
@@ -254,7 +254,7 @@ async function openLevel(n) {
   setDirty(false);
   renderEditor();
   const kind = lv.bug ? ` · bug ${TIERS[lv.bug]}` : lv.boss ? " · boss" : "";
-  $("#where").innerHTML = `<b>Level ${lv.number}</b> — ${esc(lv.title)} <span class="muted">· Arc ${esc(lv.arc)}${kind}</span>`;
+  $("#where").innerHTML = `<b>Level ${lv.number}</b> — ${esc(lv.title)} <span class="muted">· ${esc(lv.arc_title)}${kind}</span>`;
   $("#file-name").textContent = lv.path;
   document.title = `Level ${lv.number} — ${lv.title} · NASM Adventures`;
   $("#tab-brief").innerHTML = markdown(lv.brief) +
