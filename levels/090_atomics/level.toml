@@ -1,0 +1,19 @@
+level = 90
+slug = "atomics"
+title = "Atomics"
+arc = "VIII"
+mode = "program"
+concepts = ["read-modify-write is three steps", "the lock prefix makes one instruction atomic", "xadd: fetch-and-add", "xchg: always atomic", "cmpxchg and the compare-and-swap loop"]
+introduces = ["lock", "xadd", "xchg", "cmpxchg", "compare-and-swap (CAS)"]
+
+hints = [
+  "Another thread can run between any two instructions, and on a real machine at the same time as yours. mov rax, [rdi] then add [rdi], rsi: someone may add in between, and both see the same old value. Even a single add [rdi], rsi isn't atomic across cores: it's a read and a write.",
+  "lock xadd [rdi], rax adds rax to memory and puts the OLD value in rax, as one indivisible step (the lock prefix makes the core own the cache line for the whole instruction). xchg [rdi], rax swaps; with a memory operand it's always locked, even without the prefix.",
+  "atomic_max needs a decision, so it's a loop: read the current value into rax; if it's already >= v, done; else lock cmpxchg [rdi], rsi stores v only if memory still equals rax. If someone changed it meanwhile, cmpxchg loads the new value into rax and clears ZF: compare again.",
+]
+
+[constraints]
+max_steps = 600000
+
+[random]
+count = 2
