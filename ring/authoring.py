@@ -27,7 +27,7 @@ def check_level(level: Level, ctx: Context, workdir: Path) -> list[str]:
         problems.append("level has no tests")
     for kind, src in (("reference", level.reference), ("starter", level.starter)):
         try:
-            report: Report = grade(level, build_copy(level, src, workdir / kind), tests)
+            report: Report = grade(level, build_copy(level, src, workdir / kind), tests, ctx)
             ok = report.passed
             why = [f"{t.name}: {t.problems}" for t in report.tests if not t.passed][:3]
             why += [ch.name for ch in report.checks if not ch.passed]

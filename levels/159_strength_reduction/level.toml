@@ -1,0 +1,34 @@
+level = 159
+slug = "strength_reduction"
+title = "Strength Reduction"
+arc = "II"
+mode = "fragment"
+concepts = ["replacing expensive operations with cheap ones", "lea as multiply-and-add", "division by a constant as multiplication by its reciprocal"]
+introduces = ["magic numbers for division"]
+
+hints = [
+  "x * 45 = x * 5 * 9, and lea can multiply by 3, 5 and 9: [r + r*4] and [r + r*8]. x / 8 and x * 1024 are single shifts.",
+  "x / 10 = (x * 0xCCCCCCCCCCCCCCCD) >> 67. `mul` gives you the 128-bit product in rdx:rax; rdx is already the product >> 64, so shift rdx right by 3 more.",
+  "remainder = x - 10 * quotient; compute 10 * q with lea (q*5, then *2) and subtract.",
+]
+
+[constraints]
+max_instructions = 16
+banned = ["div", "idiv", "imul"]
+preserve = ["rsp", "rdi"]
+max_steps = 1000
+
+[random]
+count = 100
+
+[[tests]]
+name = "x = 1234"
+regs = { rdi = 1234 }
+[tests.expect]
+regs = { rax = 123, rbx = 4, rcx = 55530, r8 = 154, r9 = 1263616 }
+
+[[tests]]
+name = "x = 2^64 - 1"
+regs = { rdi = "0xFFFFFFFFFFFFFFFF" }
+[tests.expect]
+regs = { rax = 1844674407370955161, rbx = 5, rcx = "0xFFFFFFFFFFFFFFD3", r8 = "0x1FFFFFFFFFFFFFFF", r9 = "0xFFFFFFFFFFFFFC00" }

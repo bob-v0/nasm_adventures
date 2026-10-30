@@ -1,0 +1,34 @@
+level = 164
+slug = "division"
+title = "Division"
+arc = "II"
+mode = "fragment"
+concepts = ["div/idiv divide rdx:rax", "cqo sign-extends rax into rdx", "truncation vs floor", "#DE: divide error"]
+introduces = ["div", "idiv", "cqo", "cdq", "cwd"]
+
+hints = [
+  "idiv divides rdx:rax (128 bits) by its operand: quotient in rax, remainder in rdx. Before it, `cqo` copies the sign of rax into every bit of rdx. Without it you divide some random 128-bit number.",
+  "idiv rounds toward zero. Floor differs only when the remainder is non-zero and has the opposite sign to the divisor. Then: quotient - 1, remainder + divisor.",
+  "mov rax, rdi / cqo / idiv rsi / mov r8, rax / mov r9, rdx / test rdx, rdx / jz .done / (if rdx and rsi have different signs) dec rax ; add rdx, rsi / .done:",
+]
+
+[constraints]
+max_instructions = 24
+must_use = ["idiv", "cqo"]
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 1000
+
+[random]
+count = 100
+
+[[tests]]
+name = "7 / 2"
+regs = { rdi = 7, rsi = 2 }
+[tests.expect]
+regs = { r8 = 3, r9 = 1, rax = 3, rdx = 1 }
+
+[[tests]]
+name = "-7 / 2: truncation and floor differ"
+regs = { rdi = "0xFFFFFFFFFFFFFFF9", rsi = 2 }
+[tests.expect]
+regs = { r8 = "0xFFFFFFFFFFFFFFFD", r9 = "0xFFFFFFFFFFFFFFFF", rax = "0xFFFFFFFFFFFFFFFC", rdx = 1 }

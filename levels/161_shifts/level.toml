@@ -1,0 +1,35 @@
+level = 161
+slug = "shifts"
+title = "Shifts & Rotates"
+arc = "II"
+mode = "fragment"
+concepts = ["shift left/right = multiply/divide by powers of 2", "logical vs arithmetic right shift", "variable counts in cl and their masking", "double shifts across two registers"]
+introduces = ["shl", "shr", "sar", "rol", "ror", "shld", "shrd", "cl"]
+
+hints = [
+  "RGB565: shr each channel to drop its low bits (r and b by 3, g by 2), shift it into place with shl (r by 11, g by 5) and or the three together.",
+  "A shift count in a register must be in cl, and the CPU only uses its low 6 bits: shifting by 64 is the same as by 0. So handle counts ≥ 64 separately: the result's high word is lo << (count - 64), low word is 0.",
+  "mov r8, r10 / mov r9, r11 / shld r9, r8, cl / shl r8, cl / cmp ecx, 64 / jb .done / mov r9, r8 / xor r8d, r8d / .done:",
+]
+
+[constraints]
+max_instructions = 26
+must_use = ["shl", "shr", "shld"]
+banned = ["mul", "imul", "div", "idiv"]
+preserve = ["rsp", "rdi", "rsi", "rdx", "r10", "r11"]
+max_steps = 1000
+
+[random]
+count = 80
+
+[[tests]]
+name = "white, and shift by 4"
+regs = { rdi = 255, rsi = 255, rdx = 255, r10 = "0xF000000000000001", r11 = 0, rcx = 4 }
+[tests.expect]
+regs = { rax = "0xFFFF", r8 = "0x10", r9 = "0xF" }
+
+[[tests]]
+name = "orange, and shift by 64"
+regs = { rdi = 255, rsi = 128, rdx = 0, r10 = 5, r11 = 7, rcx = 64 }
+[tests.expect]
+regs = { rax = "0xFC00", r8 = 0, r9 = 5 }

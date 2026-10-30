@@ -15,8 +15,8 @@ LEVELS = all_levels()
 CTX = Context(seed=1234)
 
 
-def test_arc_one_is_complete():
-    assert sorted(LEVELS) == [n for n in range(171, 185) if n not in (172, 173)] or sorted(LEVELS) == list(range(171, 185))
+def test_arcs_one_and_two_are_complete():
+    assert sorted(LEVELS) == list(range(157, 185))
 
 
 @pytest.mark.parametrize("ring", sorted(LEVELS, reverse=True))
@@ -37,3 +37,26 @@ def test_emulator_matches_native(ring, tmp_path):
         assert bytes(m.stdout) == native.stdout
         assert bytes(m.stderr) == native.stderr
         assert m.exit_code == native.returncode
+
+
+def test_flags_quiz_answers_match_the_cpu(tmp_path):
+    """Level 169's expected answers must be what the CPU really does."""
+    import tomllib
+
+    from ring.build import build
+    from ring.emu import FLAG_BITS, Machine
+
+    lv = LEVELS[169]
+    ops = ["mov al, 0xFF\nadd al, 1", "mov al, 0x7F\nadd al, 1", "mov al, 0x80\nsub al, 1",
+           "mov al, 0\nsub al, 1", "mov eax, 5\nsub eax, 5", "mov rax, -1\nadd rax, -1",
+           "mov al, 0x80\nadd al, 0x80", "mov al, 0x40\nadd al, 0x40"]
+    want = bytes.fromhex(tomllib.loads((lv.path / "level.toml").read_text())
+                         ["tests"][0]["expect"]["mem"][0]["hex"].replace(" ", ""))
+    bits = dict(FLAG_BITS)
+    for i, op in enumerate(ops):
+        src = tmp_path / f"op{i}.asm"
+        src.write_text(op + "\n")
+        m = Machine(build(src, tmp_path / f"b{i}", "fragment"))
+        m.run()
+        got = bytes(m.reg("rflags") >> bits[f] & 1 for f in ("CF", "ZF", "SF", "OF"))
+        assert got == want[4 * i:4 * i + 4], f"operation {i + 1}: {op!r}"

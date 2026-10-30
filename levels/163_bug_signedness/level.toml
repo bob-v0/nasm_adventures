@@ -1,0 +1,21 @@
+level = 163
+slug = "bug_signedness"
+title = "Signed or Unsigned?"
+arc = "II"
+bug = 1
+mode = "fragment"
+concepts = ["choosing signed vs unsigned instructions", "boundary values expose sign bugs", "testing with negative inputs"]
+introduces = []
+
+hints = [
+  "The first public test passes, the second (negative a and delta) fails. Every bug is an instruction that has a signed twin. Which three operations here care about sign?",
+  "Comparisons: ja/jb are unsigned, jg/jl are signed. Division: div + zeroed rdx is unsigned; idiv needs cqo. Widening: movzx is for unsigned, movsx for signed.",
+  "ja -> jg, mov edx, 0 -> cqo, div -> idiv, movzx -> movsx.",
+]
+
+[constraints]
+max_changed_lines = 4
+max_steps = 1000
+
+[random]
+count = 80

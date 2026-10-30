@@ -1,0 +1,23 @@
+level = 169
+slug = "flags"
+title = "The Flags Register"
+arc = "II"
+mode = "fragment"
+concepts = ["RFLAGS", "CF, ZF, SF, OF", "flags are set by the result, not by intent", "predict, then verify"]
+introduces = ["CF", "ZF", "SF", "OF", "PF", "rflags"]
+
+hints = [
+  "Work each one out on paper in binary, then check yourself: put the two instructions in your code, step over them in the debugger and read the flags row.",
+  "CF: the unsigned result didn't fit (carry out of the top bit, or a borrow). OF: the signed result didn't fit (two positives gave a negative, or two negatives a positive). SF: top bit of the result. ZF: result is zero.",
+  "For the final flag state, `mov al, 0x80` then `add al, 0x80` gives 0 with a carry out and a signed overflow.",
+]
+
+[constraints]
+max_instructions = 30
+max_steps = 1000
+
+[[tests]]
+name = "your predictions, and the final flag state"
+[tests.expect]
+mem = [{ sym = "answers", hex = "01010000 00000101 00000001 01000100 00010000 01000100 01010001 00000101" }]
+flags = { CF = 1, ZF = 1, SF = 0, OF = 1 }

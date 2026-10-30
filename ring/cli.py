@@ -134,7 +134,7 @@ def cmd_test(args, prog: Progress, submit: bool = False) -> int:
         show_build_error(e)
         return 1
     tests = lv.all_tests(context(prog), include_hidden=submit)
-    report = grade(lv, b, tests)
+    report = grade(lv, b, tests, context(prog))
     print_report(lv, report, show_hidden_names=dev_mode())
     if not submit:
         if report.passed:

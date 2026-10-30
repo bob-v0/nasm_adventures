@@ -222,20 +222,20 @@ Runner: emu. 14 levels, 2 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
-| 170 | Add & Subtract | `add`, `sub`, `inc`, `dec`, `neg` | Evaluate an expression in registers |
-| 169 | The Flags Register | ZF, SF, CF, OF, PF; `pushfq` preview | Predict flags; produce a given RFLAGS state |
-| 168 | The Carry Flag | `adc`, `sbb`, `clc`, `stc` | 128-bit add/sub in ≤ 6 instructions |
-| 167 | Signed vs Unsigned | two's complement, OF vs CF | Classify overflow for random operand pairs |
-| 166 | Compare & Jump | `cmp`, `test`, `jcc` | `clamp(x, lo, hi)` signed and unsigned |
-| 165 | Multiplication | `mul`, `imul` (1/2/3 operands), rdx:rax | 64×64→128 and overflow detection |
-| 164 | Division | `div`, `idiv`, `cqo`, `cdq`, #DE | Signed division with floor semantics |
-| 163 | **Bug:** Signed or Unsigned? ◆ | `jl` vs `jb`, `idiv` without `cqo`, `movsx` vs `movzx` mixups | Find and fix three sign bugs; hidden tests use boundary values |
-| 162 | Bitwise Logic | `and`, `or`, `xor`, `not`, masks | Pack/unpack RGB565 |
-| 161 | Shifts & Rotates | `shl/shr/sar`, `rol/ror`, `shld/shrd` | 128-bit shift by a variable count |
-| 160 | Bit Surgery | `bt*`, `bsf/bsr`, `popcnt`, `lzcnt`, `tzcnt` | 256-bit set operations |
-| 159 | Strength Reduction | `lea` arithmetic, division by a constant via multiply | Divide by 10 without `div` |
-| 158 | **Bug:** Silent Overflow ◆◆ | wrap-around in size computations, `jc`/`jo` checks | A length calculation wraps and under-allocates; write a witness input, then fix it |
-| 157 | Bignum ★ | multi-limb arithmetic with carries | Arbitrary-precision multiply |
+| 170 | Add & Subtract | `add`, `sub`, `inc`, `dec`, `neg`; arithmetic is modulo 2⁶⁴ | Five results from three inputs, wrap-around included |
+| 169 | The Flags Register | CF, ZF, SF, OF (and PF, AF); which instructions set which flags | Predict the flags of eight operations, then make the CPU end in a given flag state |
+| 168 | The Carry Flag | `adc`, `sbb`, `clc`, `stc`; multi-word arithmetic | 128-bit add and subtract; the final CF is checked |
+| 167 | Compare & Jump | `cmp`, `test`, `jmp`, `jcc` (above/below vs greater/less), NASM local labels | `clamp(x, lo, hi)`, signed and unsigned |
+| 166 | Signed vs Unsigned | two's complement, CF vs OF, `jc`/`jo` | Detect unsigned and signed overflow of add and sub; compare both ways |
+| 165 | Multiplication | `mul`, `imul` (1/2/3 operands), rdx:rax | 64×64→128, signed overflow detection, multiply by a constant |
+| 164 | Division | `div`, `idiv`, `cqo`, truncation vs floor, #DE | C-style and Python-style signed division |
+| 163 | **Bug:** Signed or Unsigned? ◆ | `ja` vs `jg`, `div` vs `idiv` + `cqo`, `movzx` vs `movsx` | Find and fix four sign bugs in ≤ 4 changed lines; hidden tests use boundary values |
+| 162 | Bitwise Logic | `and`, `or`, `xor`, `not`, `test`, masks, the `xor reg, reg` idiom, imm32 sign-extension | Page-align addresses with masks |
+| 161 | Shifts & Rotates | `shl/shr/sar`, `rol/ror`, counts in `cl`, `shld/shrd` | Pack RGB565 and shift a 128-bit value by 0–127 |
+| 160 | Bit Surgery | `bt/bts/btr/btc` on memory bit strings, `popcnt`, `bsf/bsr`, `tzcnt/lzcnt` | Operate on two 256-bit sets in memory |
+| 159 | Strength Reduction | `lea` arithmetic, shifts as multiply/divide, division by a constant via multiply | Divide by 10 without `div` |
+| 158 | **Bug:** Silent Overflow ◆◆ | wrap-around in size computations, checking CF after `mul`/`add` | A size check is fooled by wrap-around: give a witness input, then fix it |
+| 157 | Bignum ★ | multi-limb arithmetic with carries, loops from jumps | Multiply two numbers of up to 512 bits |
 
 ### Arc III — Control Flow & Data (Levels 156–143)
 
@@ -530,8 +530,8 @@ Concurrency is taught in three passes, each with its own bugs:
 |---|---|---|---|---|
 | 173 | I | Garbage in the High Bits | ◆ easy | first bug hunt: partial-register writes leave stale upper bits |
 | 172 | I | Clobbered by the Kernel | ◆ easy | `syscall` destroys rcx and r11; caller-owned state |
-| 163 | II | Signed or Unsigned? | ◆ easy | `jl` vs `jb`, `idiv` without `cqo`, `movsx` vs `movzx` mixups |
-| 158 | II | Silent Overflow | ◆◆ medium | wrap-around in size computations, `jc`/`jo` checks |
+| 163 | II | Signed or Unsigned? | ◆ easy | `ja` vs `jg`, `div` vs `idiv` + `cqo`, `movzx` vs `movsx` |
+| 158 | II | Silent Overflow | ◆◆ medium | wrap-around in size computations, checking CF after `mul`/`add` |
 | 151 | III | Off by One | ◆ easy | fencepost errors, inclusive vs exclusive bounds, a stale DF |
 | 144 | III | Assumed Zero | ◆◆ medium | uninitialized registers and memory; the grader now poisons initial state |
 | 137 | IV | Broken Contract | ◆◆ medium | ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`) |
@@ -768,7 +768,9 @@ possible later but out of scope for now.
    backwards), token auth; Dockerfile + CI; levels 184–171 with reference solutions.
 2. **M2 – Richer UI:** Monaco (bundled, offline) with hover docs, topic panels as
    arcs need them, live updates over WebSocket, VS Code launch config for the DAP server.
-3. **M3 – Arcs II–III on `emu`:** flags views, witness inputs, poisoned initial state.
+3. **M3 – Arcs II–III on `emu`:** Arc II done (levels 170–157), with flag
+   expectations and witness inputs (`;! witness …` lines checked against the original
+   program). Remaining: Arc III, poisoned initial state for "Assumed Zero".
 4. **M4 – Native runner:** sandbox, ABI harness, syscall tracing, gdb backend for DAP,
    fault injection (signals, failing syscalls, short reads); Arcs IV–V.
 5. **M5 – Concurrency engine:** deterministic thread/task scheduler, schedule

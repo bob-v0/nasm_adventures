@@ -1,0 +1,24 @@
+level = 157
+slug = "bignum"
+title = "Bignum"
+arc = "II"
+boss = true
+mode = "fragment"
+concepts = ["schoolbook multiplication", "carry propagation", "nested loops built from cmp and jumps", "everything in Arc II"]
+introduces = []
+
+hints = [
+  "Schoolbook: for each limb i of A and j of B, the 128-bit product A[i]×B[j] is added into product[i+j] (low half) and product[i+j+1] (high half), and any carry ripples further up.",
+  "Clear the n+m product limbs first (the tests fill them with garbage). Then for each i, keep a running carry: for j in 0..m-1: rdx:rax = A[i]*B[j]; add rax, carry; adc rdx, 0; add rax, product[i+j]; adc rdx, 0; product[i+j] = rax; carry = rdx. After the inner loop, product[i+m] = carry.",
+  "Use registers as loop counters (e.g. r8 = i, r9 = j) and [product + r10*8] addressing with r10 = i + j. `mul` clobbers rdx, so keep the carry elsewhere (e.g. r11).",
+]
+
+[constraints]
+max_instructions = 60
+banned = ["div", "idiv"]
+must_use = ["mul", "adc"]
+preserve = ["rsp", "rsi", "rcx"]
+max_steps = 20000
+
+[random]
+count = 60

@@ -1,0 +1,35 @@
+level = 162
+slug = "bitwise"
+title = "Bitwise Logic"
+arc = "II"
+mode = "fragment"
+concepts = ["masks", "and/or/xor/not", "test", "rounding to a power of two", "the xor-zeroing idiom", "imm32 is sign-extended"]
+introduces = ["and", "or", "xor", "not", "test"]
+
+hints = [
+  "4096 = 0x1000, so the low 12 bits (0xFFF) are the offset inside a page. `and` with the inverse mask (~0xFFF) clears them; `or` with 0xFFF sets them.",
+  "Round up = add 0xFFF, then round down. Bit 63 needs a 64-bit constant, but `xor rcx, imm` only takes 32 bits (sign-extended), so put 1 << 63 in a register first. `test rdi, 7` + `jnz` checks alignment.",
+  "mov rax, rdi / and rax, ~0xFFF ... `~0xFFF` is -4096 as a sign-extended imm32, which is exactly the mask you need. mov r11, 1 << 63 / xor rcx, r11. xor r9, r9 zeroes r9.",
+]
+
+[constraints]
+max_instructions = 22
+must_use = ["and", "or", "xor", "not", "test"]
+banned = ["shl", "shr", "sar", "rol", "ror", "mul", "imul", "div"]
+preserve = ["rsp", "rdi"]
+max_steps = 1000
+
+[random]
+count = 60
+
+[[tests]]
+name = "v = 0x401234"
+regs = { rdi = "0x401234", r9 = 12345 }
+[tests.expect]
+regs = { rax = "0x401000", rbx = "0x401FFF", rcx = "0x8000000000401234", rdx = "0xFFFFFFFFFFBFEDCB", r8 = "0x402000", r9 = 0, r10 = 0 }
+
+[[tests]]
+name = "v = 0x7000 (already aligned)"
+regs = { rdi = "0x7000", r9 = 99 }
+[tests.expect]
+regs = { rax = "0x7000", rbx = "0x7FFF", rcx = "0x8000000000007000", rdx = "0xFFFFFFFFFFFF8FFF", r8 = "0x7000", r9 = 0, r10 = 1 }

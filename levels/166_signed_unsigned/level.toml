@@ -1,0 +1,40 @@
+level = 166
+slug = "signed_unsigned"
+title = "Signed vs Unsigned"
+arc = "II"
+mode = "fragment"
+concepts = ["two's complement", "unsigned overflow (CF) vs signed overflow (OF)", "turning a flag into a 0/1 value"]
+introduces = ["jc / jnc", "jo / jno", "js / jns", "adc reg, 0 trick"]
+
+hints = [
+  "Do the operation on a copy, then jump on the flag you want: jc for unsigned overflow (carry/borrow), jo for signed overflow. Set the output to 1 only on the path where the flag was set.",
+  "A neat trick for CF: `mov eax, 0` then `adc rax, 0` turns CF into 0 or 1, but only if nothing in between changes CF. `mov` doesn't; `xor eax, eax` would.",
+  "r8 and r9 are just `cmp rdi, rsi` followed by jl (signed) or jb (unsigned).",
+]
+
+[constraints]
+max_instructions = 40
+banned = ["seto", "setc", "setb", "setl", "setno", "setnc", "setae", "setge", "pushfq", "pushf", "lahf"]
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 1000
+
+[random]
+count = 100
+
+[[tests]]
+name = "small numbers: nothing overflows"
+regs = { rdi = 7, rsi = 5 }
+[tests.expect]
+regs = { rax = 0, rbx = 0, rcx = 0, rdx = 0, r8 = 0, r9 = 0 }
+
+[[tests]]
+name = "a = INT64_MAX, b = 1"
+regs = { rdi = "0x7FFFFFFFFFFFFFFF", rsi = 1 }
+[tests.expect]
+regs = { rax = 0, rbx = 1, rcx = 0, rdx = 0, r8 = 0, r9 = 0 }
+
+[[tests]]
+name = "a = -1, b = 1"
+regs = { rdi = "0xFFFFFFFFFFFFFFFF", rsi = 1 }
+[tests.expect]
+regs = { rax = 1, rbx = 0, rcx = 0, rdx = 0, r8 = 1, r9 = 0 }

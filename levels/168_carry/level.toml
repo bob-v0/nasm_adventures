@@ -1,0 +1,40 @@
+level = 168
+slug = "carry"
+title = "The Carry Flag"
+arc = "II"
+mode = "fragment"
+concepts = ["multi-word arithmetic", "the carry chain", "adc and sbb", "inc/dec don't touch CF"]
+introduces = ["adc", "sbb", "clc", "stc"]
+
+hints = [
+  "Add the low halves with `add` (which sets CF), then the high halves with `adc`, which also adds CF. Subtraction works the same way with `sub` then `sbb`.",
+  "Be careful what runs between the low and high halves: any arithmetic in between overwrites CF. `mov` doesn't touch flags.",
+  "mov r8, rdi / add r8, rdx / mov r9, rsi / adc r9, rcx / mov r10, rdi / sub r10, rdx / mov r11, rsi / sbb r11, rcx",
+]
+
+[constraints]
+max_instructions = 10
+must_use = ["adc", "sbb"]
+preserve = ["rsp", "rdi", "rsi", "rdx", "rcx"]
+max_steps = 1000
+
+[stretch]
+label = "Carry chain"
+max_instructions = 8
+
+[random]
+count = 60
+
+[[tests]]
+name = "carry from low to high"
+regs = { rdi = "0xFFFFFFFFFFFFFFFF", rsi = 0, rdx = 1, rcx = 0 }
+[tests.expect]
+regs = { r8 = 0, r9 = 1, r10 = "0xFFFFFFFFFFFFFFFE", r11 = 0 }
+flags = { CF = 0 }
+
+[[tests]]
+name = "borrow out of the top"
+regs = { rdi = 0, rsi = 0, rdx = 1, rcx = 0 }
+[tests.expect]
+regs = { r8 = 1, r9 = 0, r10 = "0xFFFFFFFFFFFFFFFF", r11 = "0xFFFFFFFFFFFFFFFF" }
+flags = { CF = 1 }

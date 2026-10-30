@@ -106,7 +106,7 @@ class Server:
             b = build_solution(lv, sol)
         except BuildError as e:
             return {"build_error": str(e), "errors": _error_lines(str(e))}
-        report = grade(lv, b, lv.all_tests(context(prog), include_hidden=submit))
+        report = grade(lv, b, lv.all_tests(context(prog), include_hidden=submit), context(prog))
         out = _report_json(report, show_hidden_names=dev_mode())
         out["submitted"] = submit
         if submit and report.passed:

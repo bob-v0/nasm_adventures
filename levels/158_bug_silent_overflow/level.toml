@@ -1,0 +1,22 @@
+level = 158
+slug = "bug_silent_overflow"
+title = "Silent Overflow"
+arc = "II"
+bug = 2
+mode = "fragment"
+witness = true
+concepts = ["integer overflow in size calculations", "wrap-around defeats range checks", "checking CF after mul and add", "proving a bug with a witness"]
+introduces = ["witness inputs"]
+
+hints = [
+  "The check compares the *wrapped* total with LIMIT. Find count and size whose true product is enormous but whose product mod 2^64 is tiny. Powers of two make this easy.",
+  "2^61 × 8 = 2^64, which wraps to exactly 0. For the fix: `imul` only detects *signed* overflow (and keeps 64 bits). `mul` gives the full unsigned product and sets CF if the high half isn't zero. The `add` can wrap too.",
+  "Witness: ;! witness rdi = 0x2000000000000000, rsi = 8. Fix: mul rsi / jc .too_big / add rax, 16 / jc .too_big.",
+]
+
+[constraints]
+max_changed_lines = 4
+max_steps = 1000
+
+[random]
+count = 80

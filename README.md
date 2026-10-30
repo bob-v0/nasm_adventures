@@ -5,7 +5,7 @@ Every level teaches a concept (the assembler, the CPU, Linux, concurrency, the
 hardware) or a class of bug, then seals the gate behind a program you write. See
 [DESIGN.md](DESIGN.md) for the full curriculum (185 levels, 45 of them bug levels).
 
-**Status:** Arc I (levels 184–171, including the first two bug levels) is playable.
+**Status:** Arcs I and II (levels 184–157, including four bug levels) are playable.
 
 ## Play in your browser (Docker)
 

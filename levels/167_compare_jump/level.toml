@@ -1,0 +1,34 @@
+level = 167
+slug = "compare_jump"
+title = "Compare & Jump"
+arc = "II"
+mode = "fragment"
+concepts = ["cmp as a subtraction that only sets flags", "conditional jumps", "signed (less/greater) vs unsigned (below/above) conditions", "NASM local labels"]
+introduces = ["cmp", "test", "jmp", "jl jle jg jge", "jb jbe ja jae", "je jne", ".local labels"]
+
+hints = [
+  "Start with rax = x. If x < lo, rax = lo. Then if rax > hi, rax = hi. Each `if` is a `cmp` plus a jump that skips the assignment.",
+  "Signed comparisons use jl/jg (less/greater); unsigned ones use jb/ja (below/above). The cmp is the same; only the jump differs.",
+  "mov rax, rdi / cmp rax, rsi / jge .s1 / mov rax, rsi / .s1: cmp rax, rdx / jle .s2 / mov rax, rdx / .s2: — then the same for rbx with jae and jbe.",
+]
+
+[constraints]
+max_instructions = 16
+banned = ["cmovl", "cmovg", "cmovb", "cmova", "cmovle", "cmovge", "cmovbe", "cmovae", "cmovs", "cmovns"]
+preserve = ["rsp", "rdi", "rsi", "rdx"]
+max_steps = 1000
+
+[random]
+count = 80
+
+[[tests]]
+name = "x inside the range"
+regs = { rdi = 50, rsi = 10, rdx = 100 }
+[tests.expect]
+regs = { rax = 50, rbx = 50 }
+
+[[tests]]
+name = "x = -5: below lo when signed, above hi when unsigned"
+regs = { rdi = "0xFFFFFFFFFFFFFFFB", rsi = 10, rdx = 100 }
+[tests.expect]
+regs = { rax = 10, rbx = 100 }

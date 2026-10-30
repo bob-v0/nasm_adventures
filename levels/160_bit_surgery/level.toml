@@ -1,0 +1,30 @@
+level = 160
+slug = "bit_surgery"
+title = "Bit Surgery"
+arc = "II"
+mode = "fragment"
+concepts = ["bit strings in memory", "bt/bts/btr/btc with register offsets beyond 64", "counting and scanning bits", "loops from jumps"]
+introduces = ["bt", "bts", "btr", "btc", "popcnt", "bsf", "bsr", "tzcnt", "lzcnt"]
+
+hints = [
+  "`bts [setA], rdi` treats memory as one long bit string: with a register offset it can reach any bit, even far past the first qword. CF gets the bit's old value.",
+  "popcnt counts the bits of one qword, so add up four of them. tzcnt finds the lowest set bit of a qword (64 if none): scan the qwords from 0 to 3. For the highest bit of B use bsr from qword 3 down, and remember ZF=1 means the qword was empty.",
+  "Lowest bit of A: for i in 0..3: tzcnt rbx, [setA + 8*i]; if CF=0 (non-zero) -> rbx += 64*i, done. CF after tzcnt is set when the source was zero.",
+]
+
+[constraints]
+max_instructions = 60
+must_use = ["bts", "btr", "bt", "popcnt"]
+preserve = ["rsp", "rdi", "rsi", "rdx"]
+max_steps = 2000
+
+[random]
+count = 60
+
+[[tests]]
+name = "set bit 70 in A, clear bit 3 in B, test bit 3"
+regs = { rdi = 70, rsi = 3, rdx = 3 }
+mem = [{ sym = "setA", u64 = [0, 0, 0, 0] }, { sym = "setB", u64 = [9, 0, 0, "0x8000000000000000"] }]
+[tests.expect]
+regs = { rax = 1, rbx = 70, rcx = 0, r8 = 255 }
+mem = [{ sym = "setA", u64 = [0, 64, 0, 0] }, { sym = "setB", u64 = [1, 0, 0, "0x8000000000000000"] }]

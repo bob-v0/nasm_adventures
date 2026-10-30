@@ -30,20 +30,20 @@ id = "II"
 name = "Arithmetic & Flags"
 runner = "emu"
 levels = [
-  { title = "Add & Subtract", concepts = "`add`, `sub`, `inc`, `dec`, `neg`", gate = "Evaluate an expression in registers" },
-  { title = "The Flags Register", concepts = "ZF, SF, CF, OF, PF; `pushfq` preview", gate = "Predict flags; produce a given RFLAGS state" },
-  { title = "The Carry Flag", concepts = "`adc`, `sbb`, `clc`, `stc`", gate = "128-bit add/sub in ≤ 6 instructions" },
-  { title = "Signed vs Unsigned", concepts = "two's complement, OF vs CF", gate = "Classify overflow for random operand pairs" },
-  { title = "Compare & Jump", concepts = "`cmp`, `test`, `jcc`", gate = "`clamp(x, lo, hi)` signed and unsigned" },
-  { title = "Multiplication", concepts = "`mul`, `imul` (1/2/3 operands), rdx:rax", gate = "64×64→128 and overflow detection" },
-  { title = "Division", concepts = "`div`, `idiv`, `cqo`, `cdq`, #DE", gate = "Signed division with floor semantics" },
-  { title = "Signed or Unsigned?", bug = 1, concepts = "`jl` vs `jb`, `idiv` without `cqo`, `movsx` vs `movzx` mixups", gate = "Find and fix three sign bugs; hidden tests use boundary values" },
-  { title = "Bitwise Logic", concepts = "`and`, `or`, `xor`, `not`, masks", gate = "Pack/unpack RGB565" },
-  { title = "Shifts & Rotates", concepts = "`shl/shr/sar`, `rol/ror`, `shld/shrd`", gate = "128-bit shift by a variable count" },
-  { title = "Bit Surgery", concepts = "`bt*`, `bsf/bsr`, `popcnt`, `lzcnt`, `tzcnt`", gate = "256-bit set operations" },
-  { title = "Strength Reduction", concepts = "`lea` arithmetic, division by a constant via multiply", gate = "Divide by 10 without `div`" },
-  { title = "Silent Overflow", bug = 2, concepts = "wrap-around in size computations, `jc`/`jo` checks", gate = "A length calculation wraps and under-allocates; write a witness input, then fix it" },
-  { title = "Bignum", boss = true, concepts = "multi-limb arithmetic with carries", gate = "Arbitrary-precision multiply" },
+  { title = "Add & Subtract", dir = "add_subtract", concepts = "`add`, `sub`, `inc`, `dec`, `neg`; arithmetic is modulo 2⁶⁴", gate = "Five results from three inputs, wrap-around included" },
+  { title = "The Flags Register", dir = "flags", concepts = "CF, ZF, SF, OF (and PF, AF); which instructions set which flags", gate = "Predict the flags of eight operations, then make the CPU end in a given flag state" },
+  { title = "The Carry Flag", dir = "carry", concepts = "`adc`, `sbb`, `clc`, `stc`; multi-word arithmetic", gate = "128-bit add and subtract; the final CF is checked" },
+  { title = "Compare & Jump", dir = "compare_jump", concepts = "`cmp`, `test`, `jmp`, `jcc` (above/below vs greater/less), NASM local labels", gate = "`clamp(x, lo, hi)`, signed and unsigned" },
+  { title = "Signed vs Unsigned", dir = "signed_unsigned", concepts = "two's complement, CF vs OF, `jc`/`jo`", gate = "Detect unsigned and signed overflow of add and sub; compare both ways" },
+  { title = "Multiplication", dir = "multiplication", concepts = "`mul`, `imul` (1/2/3 operands), rdx:rax", gate = "64×64→128, signed overflow detection, multiply by a constant" },
+  { title = "Division", dir = "division", concepts = "`div`, `idiv`, `cqo`, truncation vs floor, #DE", gate = "C-style and Python-style signed division" },
+  { title = "Signed or Unsigned?", dir = "bug_signedness", bug = 1, concepts = "`ja` vs `jg`, `div` vs `idiv` + `cqo`, `movzx` vs `movsx`", gate = "Find and fix four sign bugs in ≤ 4 changed lines; hidden tests use boundary values" },
+  { title = "Bitwise Logic", dir = "bitwise", concepts = "`and`, `or`, `xor`, `not`, `test`, masks, the `xor reg, reg` idiom, imm32 sign-extension", gate = "Page-align addresses with masks" },
+  { title = "Shifts & Rotates", dir = "shifts", concepts = "`shl/shr/sar`, `rol/ror`, counts in `cl`, `shld/shrd`", gate = "Pack RGB565 and shift a 128-bit value by 0–127" },
+  { title = "Bit Surgery", dir = "bit_surgery", concepts = "`bt/bts/btr/btc` on memory bit strings, `popcnt`, `bsf/bsr`, `tzcnt/lzcnt`", gate = "Operate on two 256-bit sets in memory" },
+  { title = "Strength Reduction", dir = "strength_reduction", concepts = "`lea` arithmetic, shifts as multiply/divide, division by a constant via multiply", gate = "Divide by 10 without `div`" },
+  { title = "Silent Overflow", dir = "bug_silent_overflow", bug = 2, concepts = "wrap-around in size computations, checking CF after `mul`/`add`", gate = "A size check is fooled by wrap-around: give a witness input, then fix it" },
+  { title = "Bignum", dir = "bignum", boss = true, concepts = "multi-limb arithmetic with carries, loops from jumps", gate = "Multiply two numbers of up to 512 bits" },
 ]
 
 [[arc]]

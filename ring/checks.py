@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import difflib
 import re
 from dataclasses import dataclass, field
@@ -9,8 +10,8 @@ from dataclasses import dataclass, field
 from capstone import CS_ARCH_X86, CS_MODE_64, Cs
 
 from .build import Build
-from .emu import GPRS, Machine
-from .level import Level, TestCase, encode_mem, to_int
+from .emu import FLAG_BITS, GPRS, Machine
+from .level import Context, Level, TestCase, encode_mem, to_int
 
 DEFAULT_MAX_STEPS = 1_000_000
 
@@ -123,6 +124,12 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
             got, want = m.reg(name), to_int(want)
             if got != want:
                 problems.append(f"{name}: expected {want:#x}, got {got:#x}")
+        flags = m.reg("rflags")
+        for name, want in exp.get("flags", {}).items():
+            bit = dict(FLAG_BITS)[name.upper()]
+            got = flags >> bit & 1
+            if got != int(want):
+                problems.append(f"flag {name.upper()}: expected {int(want)}, got {got}")
         for name in c.get("preserve", ["rsp"] if level.mode == "fragment" else []):
             if m.reg(name) != initial[name]:
                 problems.append(f"{name} must be preserved: started {initial[name]:#x}, "
@@ -195,7 +202,55 @@ def changed_lines(original: str, edited: str) -> int:
     return sum(max(i2 - i1, j2 - j1) for op, i1, i2, j1, j2 in sm.get_opcodes() if op != "equal")
 
 
-def grade(level: Level, build: Build, tests: list[TestCase]) -> Report:
+_WITNESS_LINE = re.compile(r"^\s*;!\s*witness\b(.*)$", re.M | re.I)
+_WITNESS_PAIR = re.compile(r"""(\w+)\s*=\s*("(?:[^"\\]|\\.)*"|[^,\s]+)""")
+
+
+def parse_witness(text: str) -> dict | None:
+    """Collect `;! witness key = value, ...` lines from a solution. Values are
+    integers (any base Python/NASM-style prefix, `_` allowed) or "strings"."""
+    pairs = {}
+    for line in _WITNESS_LINE.findall(text):
+        for key, raw in _WITNESS_PAIR.findall(line):
+            if raw.startswith('"'):
+                pairs[key] = ast.literal_eval(raw)
+            else:
+                pairs[key] = int(raw.replace("_", ""), 0)
+    return pairs or None
+
+
+def _witness_checks(level: Level, build: Build, ctx: Context) -> list[Check]:
+    """A bug level with a witness: the player's input must make the ORIGINAL program
+    fail, and their fixed program must handle it."""
+    from .build import build as assemble  # local: avoid a name clash with `build`
+
+    try:
+        w = parse_witness(build.source.read_text())
+    except (ValueError, SyntaxError) as e:
+        return [Check("witness", False, f"can't read the witness line: {e}")]
+    if w is None:
+        return [Check("witness", False, "add a line like `;! witness rdi = 5, rsi = 7` "
+                      "with an input that makes the original program fail")]
+    try:
+        test = TestCase.from_dict(level._gen_module().witness_test(w, ctx))
+    except (ValueError, KeyError) as e:
+        return [Check("witness", False, str(e))]
+    orig_dir = build.elf.parent / "original"
+    orig_dir.mkdir(parents=True, exist_ok=True)
+    (orig_dir / "solution.asm").write_text(level.starter.read_text())
+    original = assemble(orig_dir / "solution.asm", orig_dir / ".build", level.mode,
+                        [level.include_dir] if level.include_dir else [], level.prelude)
+    before, _ = run_test(level, original, test)
+    after, _ = run_test(level, build, test)
+    shown = ", ".join(f"{k} = {v:#x}" if isinstance(v, int) else f"{k} = {v!r}" for k, v in w.items())
+    return [
+        Check(f"witness ({shown}) breaks the original program", not before.passed,
+              "the original handles this input correctly" if before.passed else before.problems[0]),
+        Check("your fix handles the witness", after.passed, "" if after.passed else after.problems[0]),
+    ]
+
+
+def grade(level: Level, build: Build, tests: list[TestCase], ctx: Context | None = None) -> Report:
     r = Report()
     for t in tests:
         result, _ = run_test(level, build, t)
@@ -207,5 +262,7 @@ def grade(level: Level, build: Build, tests: list[TestCase]) -> Report:
         n = level.constraints["max_changed_lines"]
         used = changed_lines(level.starter.read_text(), build.source.read_text())
         r.checks.append(Check(f"≤ {n} changed lines (vs. the original)", used <= n, f"you: {used}"))
+    if level.data.get("witness"):
+        r.checks += _witness_checks(level, build, ctx or Context())
     r.stretch = _static_checks(level.stretch, ins, r.max_steps)
     return r
