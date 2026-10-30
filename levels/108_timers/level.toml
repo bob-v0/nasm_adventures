@@ -1,0 +1,20 @@
+level = 108
+slug = "timers"
+title = "Timers"
+arc = "VI"
+mode = "program"
+concepts = ["time as an event: timerfd in the epoll set", "monotonic vs wall-clock time", "per-connection deadlines", "timer wheels and heaps for many timers"]
+introduces = ["timerfd_create (283)", "timerfd_settime (286)", "struct itimerspec", "CLOCK_MONOTONIC", "idle timeouts"]
+
+hints = [
+  "One periodic timer is enough: timerfd_create(CLOCK_MONOTONIC = 1, 0), then timerfd_settime(tfd, 0, &spec, 0) with spec = interval {0, 100000000} then first expiry {0, 100000000}: a tick every 100 ms. Add tfd to the epoll set like a client.",
+  "Keep a table indexed by fd: the last time (clock_gettime(1, &ts), ns = sec*1e9 + nsec) each client sent something, or connected; 0 = not a client. When the timer fires, read 8 bytes from tfd (the number of ticks, which resets it), then check every client against now.",
+  "With 100 ms ticks, a client is caught between 5.0 and 5.1 s after its last data. Clear its table entry when you close it, so a later client reusing the same fd number starts fresh.",
+]
+
+[constraints]
+max_instructions = 140
+max_steps = 4000000
+
+[random]
+count = 4

@@ -11,7 +11,8 @@ it closes the pipe when its steps are done.
 
 A peer is a client script from the test, e.g.
     {"connect": 7000, "at": 1000, "steps": [{"send": "hi\\n"}, {"expect": "hi\\n"}, {"close": true}]}
-Steps: send / send_hex, expect (wait for exactly these bytes), drain (take what's there),
+Steps: send / send_hex, expect (wait for exactly these bytes; optionally "after" / "within":
+µs since the step began, for things that must happen at the right time), drain (take what's there),
 sleep (µs), shutdown (stop sending: the server reads EOF), close (stop sending and
 receiving), expect_eof (wait until the server closes the connection).
 """
@@ -56,6 +57,7 @@ class Peer:
     done: bool = False
     tries: int = 0
     pipe: int | None = None          # a pipe peer: the pipe it writes
+    step_started: int = 0
 
     @property
     def name(self) -> str:
@@ -67,6 +69,10 @@ class Timer:
     next_ns: int = 0                 # 0: disarmed
     interval_ns: int = 0
     expirations: int = 0
+
+
+def _ms(us: int) -> str:
+    return f"{us / 1000:g} ms"
 
 
 class EventsMixin:
@@ -171,6 +177,7 @@ class EventsMixin:
             p.conn = self._obj()
             self.conns[p.conn] = Conn(port=40000 + p.index)
             backlog.append(p.conn)
+            p.step_started = self.time_ns
             return True
         steps = p.script.get("steps", [])
         if p.step >= len(steps):
@@ -184,7 +191,14 @@ class EventsMixin:
         elif "expect" in s:
             want = s["expect"].encode()
             closed = self._server_closed(p.conn)
+            late = "within" in s and (self.time_ns - p.step_started) // US > s["within"]
+            if len(c.to_client) < len(want) and not closed and late:
+                self._peer_fail(p, f"waited {_ms(s['within'])} for {want!r} (it should have come "
+                                   f"by then) but got only {bytes(c.to_client)!r}")
+                return False
             if len(c.to_client) < len(want) and not closed:
+                if "within" in s:            # come back exactly at the limit
+                    p.wake = max(p.wake, p.step_started + s["within"] * US + US)
                 return self._peer_wait(p, f"waited for {want!r} but got only {bytes(c.to_client)!r}")
             got = bytes(c.to_client[:len(want)])
             del c.to_client[:len(want)]
@@ -192,6 +206,11 @@ class EventsMixin:
             if got != want:
                 end = " and then the server closed the connection" if closed and len(got) < len(want) else ""
                 self._peer_fail(p, f"expected {want!r}, got {got!r}{end}")
+                return False
+            waited = (self.time_ns - p.step_started) // US
+            if "after" in s and waited < s["after"]:
+                self._peer_fail(p, f"got {want!r} too early: {_ms(waited)} after the previous "
+                                   f"step, expected at least {_ms(s['after'])}")
                 return False
         elif "drain" in s:
             p.received += c.to_client
@@ -216,6 +235,7 @@ class EventsMixin:
                 return False
         p.step += 1
         p.waiting_since = None
+        p.step_started = self.time_ns
         return True
 
     def _pipe_peer_step(self, p: Peer) -> bool:

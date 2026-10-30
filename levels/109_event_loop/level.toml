@@ -1,0 +1,20 @@
+level = 109
+slug = "event_loop"
+title = "Event Loop"
+arc = "VI"
+mode = "program"
+concepts = ["sockets: socket, bind, listen, accept", "network byte order in struct sockaddr_in", "epoll: register interest once, wait for whichever is ready", "level-triggered readiness", "an event loop: one thread, many clients"]
+introduces = ["socket (41)", "bind (49)", "listen (50)", "accept4 (288)", "epoll_create1 (291)", "epoll_ctl (233)", "epoll_wait (232)", "struct epoll_event (packed, 12 bytes)", "EPOLLIN"]
+
+hints = [
+  "Setup: socket(AF_INET = 2, SOCK_STREAM = 1, 0), bind(fd, addr, 16), listen(fd, 16), epoll_create1(0), then epoll_ctl(ep, EPOLL_CTL_ADD = 1, listen_fd, &ev) with ev = dd EPOLLIN (1) followed by dq data. Put the fd itself in data: epoll_wait hands it back.",
+  "struct epoll_event is PACKED on x86-64: 4 bytes of events, then 8 bytes of data, 12 bytes in all, no padding. Event i's data is at [events + 12*i + 4].",
+  "In the loop: epoll_wait(ep, events, 16, -1) returns n. For each: if data == the listening fd, accept4(fd, 0, 0, 0) and add the new fd to epoll; otherwise read(fd, buf, 4096): > 0 -> write it back; 0 -> close(fd) (closing also removes it from epoll).",
+]
+
+[constraints]
+max_instructions = 90
+max_steps = 3000000
+
+[random]
+count = 4

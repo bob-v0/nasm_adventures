@@ -116,11 +116,11 @@ levels = [
 [[arc]]
 id = "VI"
 name = "Events, Tasks & Actors (one thread)"
-runner = "native + deterministic event scheduler"
+runner = "emu with the game's kernel: sockets with scripted clients, epoll, timers and virtual time, so every schedule is reproducible"
 levels = [
-  { title = "Non-blocking I/O", concepts = "`O_NONBLOCK`, EAGAIN", gate = "Serve two pipes without blocking on either" },
-  { title = "Event Loop", concepts = "`epoll_create1`, `epoll_ctl`, `epoll_wait`", gate = "Echo server for many clients" },
-  { title = "Timers", concepts = "`timerfd`, timer wheels", gate = "Timeouts on idle connections" },
+  { title = "Non-blocking I/O", dir = "nonblocking_io", concepts = "`O_NONBLOCK`, EAGAIN", gate = "Serve two pipes without blocking on either" },
+  { title = "Event Loop", dir = "event_loop", concepts = "`epoll_create1`, `epoll_ctl`, `epoll_wait`", gate = "Echo server for many clients" },
+  { title = "Timers", dir = "timers", concepts = "`timerfd`, timer wheels", gate = "Timeouts on idle connections" },
   { title = "Tasks & Await", concepts = "coroutines (from Arc IV) as tasks; await = yield to the loop until ready", gate = "Rewrite the echo server as straight-line tasks" },
   { title = "Channels", concepts = "bounded queues, backpressure, wakers", gate = "Producer/consumer tasks with a bounded channel" },
   { title = "Reentrancy at Await Points", bug = 3, concepts = "state read before an await is stale after it; invariants across suspension", gate = "A bank of tasks loses money only under certain interleavings; the grader explores task schedules" },

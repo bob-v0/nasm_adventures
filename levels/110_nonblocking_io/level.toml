@@ -1,0 +1,20 @@
+level = 110
+slug = "nonblocking_io"
+title = "Non-blocking I/O"
+arc = "VI"
+mode = "program"
+concepts = ["a blocking read waits for THAT descriptor, while others pile up", "O_NONBLOCK and EAGAIN", "polling, and why it burns CPU", "partial data: buffering until a line is complete"]
+introduces = ["O_NONBLOCK", "fcntl F_SETFL (4)", "EAGAIN (-11)", "nanosleep (35)"]
+
+hints = [
+  "fcntl(fd, F_SETFL = 4, O_NONBLOCK = 0o4000) on fd 3 and on fd 4. After that, a read with nothing to give returns -11 (EAGAIN) at once instead of waiting.",
+  "Read whatever is there into the source's buffer (at buf + len), add it to len, then print every complete line at the front and move the rest down. A read of 0 means that sensor closed its pipe.",
+  "Loop: service A, service B; if neither had anything, nanosleep 1 ms (struct timespec: dq 0, 1000000). Without the sleep the loop spins thousands of times per millisecond and runs out of instructions.",
+]
+
+[constraints]
+max_instructions = 110
+max_steps = 400000
+
+[random]
+count = 5
