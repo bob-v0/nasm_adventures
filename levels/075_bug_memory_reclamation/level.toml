@@ -1,0 +1,21 @@
+level = 75
+slug = "bug_memory_reclamation"
+title = "Memory Reclamation"
+arc = "VIII"
+bug = 4
+mode = "program"
+witness = true
+concepts = ["in lock-free code, popping a node doesn't mean nobody is reading it", "use after free between threads", "hazard pointers: publish what you're about to read", "deferred freeing: retire, then scan", "epoch-based reclamation and RCU as alternatives"]
+introduces = ["safe memory reclamation", "hazard pointers", "retire lists"]
+
+hints = [
+  "pop reads top.next before its CAS. Meanwhile another thread can pop that same node and free it. The read is a use after free even though the CAS would then fail: the game's allocator catches it and names both lines.",
+  "Hazard pointers: before reading a node, store its address in your hazard slot, fence, then check that top still points to it (if so, nobody freed it before your hazard was visible, and nobody will now). Clear the slot when done.",
+  "Never free a popped node right away: retire it into your own list. Every few retirements, scan: free the retired nodes that no thread's hazard slot names, keep the rest. After the threads have finished, free everything still retired.",
+]
+
+[constraints]
+max_steps = 1500000
+
+[random]
+count = 1
