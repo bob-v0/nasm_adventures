@@ -1,0 +1,21 @@
+level = 119
+slug = "signals"
+title = "Signals"
+arc = "V"
+mode = "program"
+concepts = ["asynchronous notifications from the kernel", "handlers and the signal frame", "SA_RESTORER and rt_sigreturn", "faults delivered as signals", "editing the saved context"]
+introduces = ["rt_sigaction (13)", "rt_sigreturn (15)", "SA_RESTORER", "ucontext", "SIGINT", "SIGSEGV"]
+
+hints = [
+  "rt_sigaction(sig, &act, NULL, 8) with act = dq handler, flags, restorer, mask. flags must include SA_RESTORER (0x04000000), and restorer is a tiny function: mov eax, 15 / syscall.",
+  "The SIGINT handler only sets a byte flag and returns; the main loop checks the flag. Loop at most 100000 times so that the no-signal test finishes.",
+  "The SIGSEGV handler gets the ucontext in rdx. The saved rip is at [rdx + 168]: store the address of a recovery label there and return. rt_sigreturn then resumes at that label instead of re-running the faulting instruction.",
+]
+
+[constraints]
+max_instructions = 60
+must_use = ["syscall"]
+max_steps = 2000000
+
+[random]
+count = 5

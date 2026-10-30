@@ -24,13 +24,14 @@ def test_level(ring, tmp_path):
     assert check_level(LEVELS[ring], CTX, tmp_path) == []
 
 
-@pytest.mark.parametrize("ring", sorted(r for r, lv in LEVELS.items() if lv.mode == "program"))
+@pytest.mark.parametrize("ring", sorted(r for r, lv in LEVELS.items() if lv.mode == "program"
+                                         and not (lv.path / "helpers.asm").exists()))
 @needs_native
 def test_emulator_matches_native(ring, tmp_path):
     lv = LEVELS[ring]
     b = build_copy(lv, lv.reference, tmp_path)
     for test in lv.all_tests(CTX)[:8]:
-        if test.mem or test.files or test.inject:
+        if test.mem or test.files or test.inject or test.expect.get("check"):
             continue  # memory pokes, virtual files and injected faults only exist in the emulator
         result, m = run_test(lv, b, test)
         argv = test.argv or ["./solution"]

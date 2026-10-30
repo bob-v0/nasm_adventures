@@ -126,9 +126,10 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         b.listing = lst.read_text()
         return b
     objects = [obj]
-    if mode == "function":
+    extras = ([HARNESS] if mode == "function" else []) + list(helpers)
+    if extras:
         # The game's harness and the level's helper functions, linked after yours.
-        for k, extra in enumerate([HARNESS, *helpers]):
+        for k, extra in enumerate(extras):
             extra_obj = out_dir / f"helper{k}.o"
             r = _run(["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-o", str(extra_obj), str(extra)],
                      source.parent)

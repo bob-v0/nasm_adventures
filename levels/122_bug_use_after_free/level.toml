@@ -1,0 +1,21 @@
+level = 122
+slug = "bug_use_after_free"
+title = "Use After Free"
+arc = "V"
+bug = 2
+mode = "program"
+concepts = ["a freed block is not yours any more", "use after free", "double free", "poisoning and quarantine", "why it 'works' without a checker"]
+introduces = ["use-after-free detection"]
+
+hints = [
+  "Read the checker's message: it says which line touched freed memory, and which line freed it.",
+  "Both bugs have the same shape: free(node) and then read node->next. With a normal malloc the bytes are often still there, so it seems to work, until the allocator reuses the block.",
+  "In dedupe, unlink first (read r14->next, store it into r13->next) and free afterwards. In free_all, load the next pointer into r12 before calling free on the current node (keep the current one in rdi).",
+]
+
+[constraints]
+max_changed_lines = 6
+max_steps = 300000
+
+[random]
+count = 12

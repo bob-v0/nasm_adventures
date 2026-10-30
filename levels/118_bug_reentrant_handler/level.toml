@@ -1,0 +1,18 @@
+level = 118
+slug = "bug_reentrant_handler"
+title = "Reentrant Signal Handler"
+arc = "V"
+bug = 3
+mode = "program"
+concepts = ["a handler can interrupt any instruction of the main program", "reentrancy and shared state", "async-signal-safety: record in the handler, act in the main loop"]
+introduces = ["async-signal-safe", "signal sweeps"]
+
+hints = [
+  "The failing report says where the signal landed. Step there in the debugger: what was the main program in the middle of, and what does the handler change?",
+  "print_number and print_text share `out`, `out_start` and `out_len`. If the handler's print_text runs between print_number's formatting and its write, main writes the handler's bytes. Nothing the handler calls may touch state the interrupted code is using.",
+  "The safe pattern: the handler only records the signal (`inc byte [pending]`, one instruction); the main loop prints one 'signal' line per recorded signal between numbers, and once more before exiting.",
+]
+
+[constraints]
+max_changed_lines = 12
+max_steps = 20000

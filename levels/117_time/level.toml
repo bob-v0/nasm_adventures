@@ -1,0 +1,20 @@
+level = 117
+slug = "time"
+title = "Time"
+arc = "V"
+mode = "program"
+concepts = ["wall-clock vs monotonic time", "struct timespec", "measuring elapsed time", "sleeping until a deadline", "the vDSO"]
+introduces = ["clock_gettime (228)", "nanosleep (35)", "CLOCK_MONOTONIC", "struct timespec"]
+
+hints = [
+  "A timespec is two qwords: seconds, then nanoseconds. Elapsed ns = (s1 - s0) * 1_000_000_000 + (ns1 - ns0); ms = ns / 1_000_000. Use CLOCK_MONOTONIC (1) for measuring.",
+  "Rate limiting: remember when you last wrote a line. Before writing the next one, get the time; if less than 400 ms have passed, nanosleep for exactly the difference (convert ns back into a timespec: seconds = ns / 1e9, rest = ns % 1e9).",
+  "Read all of stdin first (it's short), then go line by line, one write per line (including its newline).",
+]
+
+[constraints]
+max_instructions = 120
+max_steps = 300000
+
+[random]
+count = 8

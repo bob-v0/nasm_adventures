@@ -110,3 +110,68 @@ def test_symlinks_and_nofollow():
     k.make_file("/work/link", symlink_to="/work/real.txt")
     assert k.resolve("/work/link")[0] == "/work/real.txt"
     assert k.resolve("/work/link", follow=False)[1].kind == "symlink"
+
+
+SIGNALS = r"""
+global _start
+section .text
+_start:
+    mov eax, 13
+    mov edi, 2
+    lea rsi, [act_int]
+    xor edx, edx
+    mov r10d, 8
+    syscall
+    mov eax, 13
+    mov edi, 11
+    lea rsi, [act_segv]
+    xor edx, edx
+    mov r10d, 8
+    syscall
+    xor ecx, ecx
+.spin:
+    cmp byte [got_int], 0
+    jne .caught
+    inc rcx
+    cmp rcx, 100000
+    jb .spin
+.caught:
+    mov rax, [0]
+recover:
+    mov eax, 60
+    movzx edi, byte [got_int]
+    add edi, 40
+    syscall
+on_int:
+    mov byte [got_int], 1
+    ret
+on_segv:
+    lea rax, [recover]
+    mov [rdx + 168], rax
+    ret
+restorer:
+    mov eax, 15
+    syscall
+section .data
+act_int:  dq on_int, 0x04000000, restorer, 0
+act_segv: dq on_segv, 0x04000000, restorer, 0
+got_int:  db 0
+"""
+
+
+def test_signal_delivery_and_context_editing(tmp_path):
+    """Matches real Linux (checked natively: exit 40 without SIGINT, 41 with it)."""
+    src = tmp_path / "s.asm"
+    src.write_text(SIGNALS)
+    b = build(src, tmp_path / "sb", "program")
+    for sigs, code in (([{"at": 60, "sig": 2}], 41), ([], 40)):
+        m = Machine(b, kernel=Kernel(inject=Injection(signals=sigs)))
+        assert m.run(2_000_000) == "exited" and m.exit_code == code
+
+
+def test_unhandled_signal_kills(tmp_path):
+    src = tmp_path / "k.asm"
+    src.write_text("global _start\nsection .text\n_start:\n jmp _start\n")
+    m = Machine(build(src, tmp_path / "kb", "program"),
+                kernel=Kernel(inject=Injection(signals=[{"at": 5, "sig": 15}])))
+    assert m.run() == "killed" and m.term_signal == 15

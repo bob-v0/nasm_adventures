@@ -39,8 +39,21 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          84: "rmdir", 87: "unlink", 88: "symlink", 89: "readlink", 102: "getuid",
          110: "getppid", 158: "arch_prctl", 186: "gettid", 201: "time", 217: "getdents64",
          228: "clock_gettime", 231: "exit_group", 257: "openat", 262: "newfstatat",
-         293: "pipe2", 318: "getrandom"}
+         200: "tkill", 234: "tgkill", 293: "pipe2", 318: "getrandom"}
 NUMBERS = {v: k for k, v in NAMES.items()}
+
+SIGILL, SIGFPE, SIGKILL, SIGUSR1, SIGSEGV, SIGPIPE, SIGALRM, SIGTERM, SIGCHLD = 4, 8, 9, 10, 11, 13, 14, 15, 17
+SIGINT = 2
+SIG_DFL, SIG_IGN = 0, 1
+SA_SIGINFO, SA_RESTART, SA_NODEFER, SA_RESETHAND, SA_RESTORER = 4, 0x10000000, 0x40000000, 0x80000000, 0x04000000
+SIGNAL_NAMES = {1: "SIGHUP", 2: "SIGINT", 3: "SIGQUIT", 4: "SIGILL", 6: "SIGABRT", 8: "SIGFPE",
+                9: "SIGKILL", 10: "SIGUSR1", 11: "SIGSEGV", 12: "SIGUSR2", 13: "SIGPIPE",
+                14: "SIGALRM", 15: "SIGTERM", 17: "SIGCHLD"}
+IGNORED_BY_DEFAULT = {SIGCHLD, 28, 23}   # SIGCHLD, SIGWINCH, SIGURG
+
+# The game's checked allocator: private syscall numbers used by its malloc/free helpers.
+SYS_RING_MALLOC, SYS_RING_FREE = 0x1000, 0x1001
+CHECKED_HEAP = 0x10000000
 
 HEAP_GAP = 0x1000          # first brk address = end of the program, page-aligned, + a gap
 MMAP_BASE = 0x7FFFF7000000  # mmap regions grow down from here
@@ -78,13 +91,15 @@ class Injection:
     fail: list[dict] = field(default_factory=list)     # {"call": "write", "nth": 2, "errno": 28}
     short_reads: bool = False      # read() returns fewer bytes than asked (1..max)
     short_writes: bool = False     # write() to stdout/stderr/files accepts fewer bytes
+    signals: list[dict] = field(default_factory=list)  # {"at": instruction count, "sig": 2}
     seed: str = ""
 
     @classmethod
     def from_dict(cls, d: dict | None, seed: str) -> "Injection":
         d = d or {}
         return cls(fail=list(d.get("fail", [])), short_reads=d.get("short_reads", False),
-                   short_writes=d.get("short_writes", False), seed=seed)
+                   short_writes=d.get("short_writes", False),
+                   signals=list(d.get("signals", [])), seed=seed)
 
 
 class Kernel:
@@ -111,6 +126,14 @@ class Kernel:
         self.mmaps: dict[int, int] = {}          # address -> length
         self.mmap_next = MMAP_BASE
         self.time_ns = 1_700_000_000 * 10**9    # a fixed, deterministic clock
+        self.writes: list[tuple[int, int, int]] = []   # (time_ns, fd, bytes) of every write
+        # signals
+        self.actions: dict[int, tuple[int, int, int, int]] = {}   # sig -> handler, flags, restorer, mask
+        self.blocked = 0
+        self.pending: list[int] = []
+        # the checked allocator
+        self.blocks: dict[int, dict] = {}       # address -> {size, freed, alloc_line, free_line}
+        self.checked_next = CHECKED_HEAP
 
     # ---- filesystem --------------------------------------------------------------------
 
@@ -227,6 +250,10 @@ class Kernel:
         injected = self._injected(name)
         if injected is not None:
             return injected
+        if nr == SYS_RING_MALLOC:
+            return self.ring_malloc(m, args[0])
+        if nr == SYS_RING_FREE:
+            return self.ring_free(m, args[0])
         handler = getattr(self, "sys_" + name, None)
         if handler is None:
             return -ENOSYS
@@ -267,6 +294,7 @@ class Kernel:
             return -EFAULT
         n = self._chunk(n, self.inject.short_writes)
         data = m.read(buf, n)  # like Linux: up to the first unreadable byte
+        self.writes.append((self.time_ns, fd, n))
         if f.kind == "stdout":
             self.stdout += data
         elif f.kind == "stderr":
@@ -500,3 +528,100 @@ class Kernel:
             m.set_fs_base(addr)
             return 0
         return -EINVAL
+
+    # ---- signals --------------------------------------------------------------------------------
+
+    def sys_rt_sigaction(self, m, sig, act, oldact, sigsetsize, *_):
+        if not 1 <= sig <= 64 or sig in (SIGKILL, 19) or sigsetsize != 8:
+            return -EINVAL
+        if oldact:
+            old = self.actions.get(sig, (SIG_DFL, 0, 0, 0))
+            m.kernel_write(oldact, struct.pack("<QQQQ", *old))
+        if act:
+            handler, flags, restorer, mask = struct.unpack("<QQQQ", m.read(act, 32))
+            self.actions[sig] = (handler, flags, restorer, mask)
+        return 0
+
+    def sys_rt_sigprocmask(self, m, how, nset, oset, sigsetsize, *_):
+        if sigsetsize != 8:
+            return -EINVAL
+        if oset:
+            m.kernel_write(oset, struct.pack("<Q", self.blocked))
+        if nset:
+            mask = struct.unpack("<Q", m.read(nset, 8))[0] & ~((1 << (SIGKILL - 1)) | (1 << 18))
+            if how == 0:
+                self.blocked |= mask
+            elif how == 1:
+                self.blocked &= ~mask
+            elif how == 2:
+                self.blocked = mask
+            else:
+                return -EINVAL
+        return 0
+
+    def sys_kill(self, m, pid, sig, *_):
+        if pid not in (1000, 0) and pid != MASK64:
+            return -3  # ESRCH: there is only this process
+        if sig:
+            self.raise_signal(sig)
+        return 0
+
+    def sys_tgkill(self, m, tgid, tid, sig, *_):
+        return self.sys_kill(m, tgid, sig)
+
+    def raise_signal(self, sig: int) -> None:
+        if sig not in self.pending:
+            self.pending.append(sig)
+
+    def next_deliverable(self) -> int | None:
+        for sig in self.pending:
+            if not self.blocked >> (sig - 1) & 1 or sig == SIGKILL:
+                self.pending.remove(sig)
+                return sig
+        return None
+
+    def disposition(self, sig: int) -> str:
+        handler = self.actions.get(sig, (SIG_DFL,))[0]
+        if sig == SIGKILL:
+            return "kill"
+        if handler == SIG_IGN or (handler == SIG_DFL and sig in IGNORED_BY_DEFAULT):
+            return "ignore"
+        return "kill" if handler == SIG_DFL else "handle"
+
+    # ---- the game's checked allocator -------------------------------------------------------------
+
+    def ring_malloc(self, m, size):
+        """Never reuses memory; red zones around every block; freed blocks are poisoned
+        and watched, so any later access is caught."""
+        size = max(size, 1)
+        if size > 1 << 24:
+            return 0
+        start = (self.checked_next + 16 + 15) & ~15
+        end = start + size
+        self.checked_next = end + 16
+        m.ensure_checked_heap(self.checked_next)
+        self.blocks[start] = {"size": size, "freed": False, "alloc": m.caller_line(),
+                              "free": None}
+        return start
+
+    def ring_free(self, m, addr):
+        if addr == 0:
+            return 0
+        b = self.blocks.get(addr)
+        if b is None:
+            m.memory_error(f"free() of {addr:#x}, which malloc never returned")
+            return 0
+        if b["freed"]:
+            m.memory_error(f"double free of the block at {addr:#x} (allocated at {b['alloc']}, "
+                           f"first freed at {b['free']})")
+            return 0
+        b["freed"] = True
+        b["free"] = m.caller_line()
+        m.kernel_write(addr, b"\xDD" * b["size"])
+        return 0
+
+    def checked_block(self, addr: int) -> tuple[int, dict] | None:
+        for start, b in self.blocks.items():
+            if start - 16 <= addr < start + b["size"] + 16:
+                return start, b
+        return None

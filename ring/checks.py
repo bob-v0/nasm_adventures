@@ -187,16 +187,64 @@ def run_native_test(level: Level, build: Build, test: TestCase) -> TestResult:
 def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Machine]:
     if level.mode == "native":
         return run_native_test(level, build, test), None
+    if "signal_sweep" in test.inject:
+        return _signal_sweep(level, build, test)
+    return _run_one(level, build, test)
+
+
+def _signal_sweep(level: Level, build: Build, test: TestCase):
+    """Run once without the signal, then once per sampled instruction with the signal
+    delivered right after it. The first failing delivery point is reported."""
+    sweep = test.inject["signal_sweep"]
+    base = TestCase(**{**test.__dict__, "inject": {k: v for k, v in test.inject.items()
+                                                   if k != "signal_sweep"}})
+    result, m = _run_one(level, build, base, trace=True)
+    if not result.passed:
+        result.problems.insert(0, "(without any signal)")
+        return result, m
+    trace = m.trace or []
+    last = max(1, len(trace) - sweep.get("tail", 0))
+    first = 1
+    if "after_syscall" in sweep:   # e.g. only once the handler is installed
+        first = next((r.step + 1 for r in m.syscalls if str(r).startswith(sweep["after_syscall"] + "(")), 1)
+    points = list(range(first, last + 1))
+    if len(points) > 400:
+        points = sorted({first + i * (last - first) // 399 for i in range(400)})
+    for k in points:
+        t = TestCase(**{**base.__dict__,
+                        "inject": {**base.inject, "signals": [{"at": k, "sig": sweep["sig"]}]}})
+        r, mm = _run_one(level, build, t)
+        if not r.passed:
+            addr = trace[k - 1]
+            line = build.addr_to_line.get(addr)
+            where = f"line {line}" if line else f"{addr:#x}"
+            r.problems.insert(0, f"with the signal delivered right after instruction {k} ({where}):")
+            return r, mm
+    return TestResult(test.name, test.hidden, True, [], m.steps), m
+
+
+def _run_one(level: Level, build: Build, test: TestCase,
+             trace: bool = False) -> tuple[TestResult, Machine]:
     c = level.constraints
     try:
         m = prepare_machine(build, test, poison=level.poison)
     except KeyError as e:
         return TestResult(test.name, test.hidden, False, [str(e.args[0])]), None
     initial = {n: m.reg(n) for n in GPRS}
+    if trace:
+        m.trace = []
     state = m.run(c.get("max_steps", DEFAULT_MAX_STEPS))
     problems: list[str] = []
     want_state = "exited" if level.mode == "program" else "done"
-    if state == "exited" and level.mode == "function":
+    exp = test.expect
+    if "killed" in exp:                      # the test expects death by a signal
+        want_state = "killed"
+        if state == "killed" and m.term_signal != exp["killed"]:
+            problems.append(f"expected to be killed by signal {exp['killed']}, "
+                            f"but was killed by {m.term_signal}")
+    if state == "killed" and want_state != "killed":
+        problems.append(m.fault)
+    elif state == "exited" and level.mode == "function":
         problems.append("your function ended the program (exit syscall) instead of returning")
     elif state == "fault":
         problems.append(m.fault)
@@ -205,8 +253,6 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
                         "instructions (an infinite loop, or too slow for this level's budget)")
     elif state != want_state:
         problems.append(f"ended in state {state}, expected {want_state}")
-
-    exp = test.expect
     if not problems:
         for name, want in exp.get("regs", {}).items():
             if isinstance(want, str) and want.startswith("@"):  # "@label" or "@label+off"
@@ -289,6 +335,8 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
             if used > exp["heap_max"]:
                 problems.append(f"the heap grew to {used} bytes; this workload must fit in "
                                 f"{exp['heap_max']} (reuse freed blocks)")
+    if exp.get("check") and not problems:   # the level's own checker (gen.check)
+        problems += level._gen_module().check(test, m)
     if "syscalls" in exp:
         names = [str(s).split("(")[0] for s in m.syscalls]
         if names != exp["syscalls"]:
