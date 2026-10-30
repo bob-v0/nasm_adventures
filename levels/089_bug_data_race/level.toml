@@ -1,0 +1,22 @@
+level = 89
+slug = "bug_data_race"
+title = "Data Race"
+arc = "VIII"
+bug = 2
+mode = "program"
+witness = true
+concepts = ["a data race: two threads, one location, at least one writing, nothing ordering them", "inc [mem] is a read and a write", "lost updates", "races hide in most schedules"]
+introduces = ["data race", "lost update"]
+
+hints = [
+  "Nothing is wrong in any one thread. Look for memory that several threads change: hits and bytes. What happens if two workers run `inc qword [hits]` at the same moment on two cores?",
+  "The plain schedule gives each thread long turns and may never show it. Try witnesses 1, 2, 3...: the test report also names schedules that fail.",
+  "Each update must be one indivisible read-modify-write: the lock prefix (level 90). Two lines.",
+]
+
+[constraints]
+max_changed_lines = 2
+max_steps = 600000
+
+[random]
+count = 1

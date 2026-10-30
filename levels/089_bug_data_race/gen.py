@@ -1,0 +1,18 @@
+def case(name, inject, hidden=False):
+    return {"name": name, "hidden": hidden, "inject": {"tso": True, "quantum": 60, **inject},
+            "expect": {"stdout": "hits 160 bytes 25600\n", "exit": 0}}
+
+
+def fixed_tests(ctx):
+    return [case("one schedule", {"schedule": 0}),
+            case("many schedules", {"schedule_sweep": {"count": 20}})]
+
+
+def generate(rng, count, ctx):
+    return [case("more schedules", {"schedule_sweep": {"count": 20}, "quantum": 20}, hidden=True)]
+
+
+def witness_test(w, ctx):
+    if set(w) != {"schedule"} or not isinstance(w["schedule"], int) or w["schedule"] < 0:
+        raise ValueError("the witness is a schedule number: `;! witness schedule = 7`")
+    return case("witness", {"schedule": w["schedule"]})
