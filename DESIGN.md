@@ -821,7 +821,7 @@ the internet directly.
    System V contract (callee-saved registers, rsp, DF, alignment via helpers). *Native
    mode* links with gcc (and a C harness) and runs with time/memory limits, for the
    libc levels.
-   Arc V (in progress: levels 127–116 and 112 done): the emulated Linux kernel
+   Arc V (done, levels 127–111): the emulated Linux kernel
    (files, symlinks, `brk`/`mmap`, the initial stack, signals with real signal frames,
    fault injection: failing syscalls, short reads/writes, signals at any instruction),
    a checked allocator that catches use-after-free and double free, and processes:
@@ -831,7 +831,9 @@ the internet directly.
    process changes the filesystem after each of the program's syscalls in turn).
    Stepping backwards works up to the first `fork`/`execve`. The emulator is checked
    against real Linux for signal frames, the initial stack, wait statuses, pipelines
-   and `getdents64`. Remaining: levels 115, 114, 113 (native) and the Tiny Shell boss.
+   and `getdents64`. Native levels can link as PIE or be a raw `nasm -f bin` file, and
+   levels can audit the produced binary (PIE without text relocations, GOT-only
+   relocations, ELF headers read the way the kernel reads them).
 5. **M5 – Concurrency engine:** deterministic thread/task scheduler, schedule
    exploration (random, PCT, bounded exhaustive), x86-TSO store-buffer model, race and
    lifetime detectors, multi-thread replay; Arcs VI and VIII.

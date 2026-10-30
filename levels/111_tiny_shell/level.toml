@@ -1,0 +1,22 @@
+level = 111
+slug = "tiny_shell"
+title = "Tiny Shell"
+arc = "V"
+mode = "program"
+boss = true
+concepts = ["everything in the arc: files, processes, pipes, descriptors, exit statuses", "a shell is an ordinary program", "builtins: why cd can't be a program", "reading input that other programs share"]
+introduces = ["builtins", "$?", "command lookup", "pipelines of any length"]
+
+hints = [
+  "Split the work: read a line (one byte per read: the programs you start share your stdin), split it into words in place, turn the words into stages (argv arrays ending in 0, split at `|`) plus an input and an output file, then run them. Get one command working first, then `|`, then `<` `>`, then the builtins.",
+  "A pipeline of n stages needs n-1 pipes. Before forking stage i (not the last), create its pipe. The child: stdin = the previous pipe's read end (or `< file` for stage 0), stdout = the new pipe's write end (or `> file` for the last stage), then close every pipe end it still has and execve. The parent closes the previous read end and the new write end right after the fork, and keeps only the new read end for the next stage.",
+  "cd must run in the shell itself: a child's chdir changes only the child's directory. Same for exit. After a pipeline, wait for every stage; $? is the last stage's status (exit code, or 128 + signal).",
+]
+
+[constraints]
+max_instructions = 400
+must_use = ["syscall"]
+max_steps = 6000000
+
+[random]
+count = 3
