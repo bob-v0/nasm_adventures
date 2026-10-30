@@ -19,6 +19,7 @@ jobs:
       - name: pytest
         shell: bash
         run: |
+          set +e
           pytest -q -rf --tb=short 2>&1 | tee pytest.log
           status=${PIPESTATUS[0]}
           # failures as annotations too, so they show up without opening the log
