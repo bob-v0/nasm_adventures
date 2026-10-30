@@ -1,0 +1,20 @@
+level = 77
+slug = "lock_free_stack"
+title = "Lock-Free Stack"
+arc = "VIII"
+mode = "program"
+concepts = ["lock-free: some thread always makes progress, nobody ever blocks", "one shared word, changed only by compare-and-swap", "the CAS retry loop", "linearization points"]
+introduces = ["lock-free", "Treiber stack", "linearization point"]
+
+hints = [
+  "Everything about the stack lives in one word: the top pointer. If every change to it is a single lock cmpxchg that only succeeds when the top is still what you based your change on, threads can't overwrite each other.",
+  "push: read top into rax; node.next = rax; lock cmpxchg [stack], node. If it fails, cmpxchg has put the current top in rax: set node.next again and retry.",
+  "pop: read top into rax; if 0, empty; rdx = [rax] (top.next); lock cmpxchg [stack], rdx; retry on failure (rax is refreshed). Return rax. (Reading top.next of a node another thread may already have popped is safe here only because nodes are never reused: level 76.)",
+]
+
+[constraints]
+max_instructions = 20
+max_steps = 600000
+
+[random]
+count = 1
