@@ -134,10 +134,10 @@ levels = [
 [[arc]]
 id = "VII"
 name = "Performance & Microarchitecture"
-runner = "native (bare metal or KVM for timing)"
+runner = "emu with the game's CPU model (ring/perf.py): deterministic cycle counts, the same on every machine"
 levels = [
-  { title = "Measuring", concepts = "`rdtsc`, `rdtscp`, `lfence`, variance", gate = "A reliable micro-benchmark harness" },
-  { title = "Pipelines", concepts = "latency vs throughput, dependency chains", gate = "Multiple accumulators" },
+  { title = "Measuring", dir = "measuring", concepts = "`rdtsc`, `rdtscp`, `lfence`, variance", gate = "A reliable micro-benchmark harness" },
+  { title = "Pipelines", dir = "pipelines", concepts = "latency vs throughput, dependency chains", gate = "Multiple accumulators" },
   { title = "Branch Prediction", concepts = "predictable vs random branches", gate = "Hit a cycles/element budget on random data" },
   { title = "Caches", concepts = "lines, sets, strides, alignment", gate = "Cache-blocked transpose" },
   { title = "Prefetch & TLB", concepts = "`prefetcht0`, huge pages", gate = "Faster linked-list traversal" },

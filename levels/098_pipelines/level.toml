@@ -1,0 +1,21 @@
+level = 98
+slug = "pipelines"
+title = "Pipelines"
+arc = "VII"
+mode = "function"
+entry = "ring_sum"
+perf = true
+concepts = ["latency: how long until the result is ready", "throughput: how many can start per cycle", "a dependency chain runs at the speed of its latency", "independent accumulators fill the pipeline", "floating-point addition isn't associative"]
+introduces = ["latency", "throughput", "dependency chains", "multiple accumulators", "addsd", "xorpd"]
+
+hints = [
+  "Each addsd needs the previous sum, and addsd takes 4 cycles: the loop can't beat 4 cycles per value, however idle the rest of the CPU is. The game's report says so: almost no cache misses, few mispredictions, but 0.75 instructions per cycle.",
+  "Keep four sums: xmm0 adds values 0, 4, 8..., xmm1 values 1, 5, 9..., and so on. The four chains are independent, so four additions are in flight at once. Add the four together at the end.",
+  "n isn't always a multiple of 4: loop n / 4 times over groups of four (shr rcx, 2), then add the last n % 4 (and esi, 3) one by one. Don't forget n = 0.",
+]
+
+[constraints]
+max_steps = 200000
+
+[random]
+count = 2

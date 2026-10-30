@@ -324,7 +324,7 @@ Runner: emu with the game's kernel: sockets with scripted clients, epoll, timers
 
 ### Arc VII — Performance & Microarchitecture (Levels 99–92)
 
-Runner: native (bare metal or KVM for timing). 8 levels, 1 of them bug levels.
+Runner: emu with the game's CPU model (ring/perf.py): deterministic cycle counts, the same on every machine. 8 levels, 1 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|

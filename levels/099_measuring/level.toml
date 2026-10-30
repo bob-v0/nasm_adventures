@@ -1,0 +1,21 @@
+level = 99
+slug = "measuring"
+title = "Measuring"
+arc = "VII"
+mode = "function"
+entry = "ring_measure"
+perf = true
+concepts = ["the time-stamp counter", "out-of-order execution blurs the start and the end of a measurement", "fences: lfence, rdtscp", "warm-up: cold caches and predictors", "noise only adds: take the minimum", "measurement overhead"]
+introduces = ["rdtsc", "rdtscp", "lfence", "the game's CPU model"]
+
+hints = [
+  "rdtsc returns the cycle counter in edx:eax (combine: shl rdx, 32 / or rax, rdx). On its own it can execute before earlier instructions finish, or after later ones start. lfence before it (and after it) pins it in place; rdtscp waits for everything before it.",
+  "One measurement is a sample, not an answer: the first call is slow (cold caches, untrained branch predictors), and an interrupt can land in any run. Call fn once or twice first, then time it 30-50 times and keep the SMALLEST value: noise only ever adds.",
+  "The measurement costs something too: time an empty function (just `ret`) exactly the same way, and subtract that minimum from fn's minimum. Keep the function pointer and your results in callee-saved registers: fn may clobber the rest.",
+]
+
+[constraints]
+max_steps = 400000
+
+[random]
+count = 2

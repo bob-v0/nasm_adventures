@@ -335,6 +335,8 @@ class CostModel:
             self._tlb(info, ea)
             self._line_latency(info, ea // LINE, self._unit("load", max(start, addr_ready)))
         begin = max(start, src, data if loads else start)
+        if src > start and src >= data and not info.cond_branch:
+            self._lose(info, "dependency chains (waiting for an earlier result)", src - start)
         begin = self._unit(info.unit, begin)
         done = begin + (0 if info.zero_idiom else info.latency)
         if info.fp_dest and not self.mxcsr() & 0x8040 and self._denormal(info):
@@ -535,6 +537,10 @@ class CostModel:
         c = self.counts
         lines = [f"{self.cycles} cycles, {c['instructions']} instructions "
                  f"({c['instructions'] / max(self.cycles, 1):.2f} per cycle)"]
+        chain = self.lost.get("dependency chains (waiting for an earlier result)", 0)
+        if chain >= 0.5 * self.cycles and self.counts["instructions"] / max(self.cycles, 1) < 2:
+            lines.append("  most instructions wait for the result of an earlier one: a "
+                         "dependency chain sets the pace")
         events = [("branch mispredictions", "branch mispredictions"),
                   ("L2 misses", "cache misses to memory"), ("L1 misses", "L1 cache misses"),
                   ("interrupts", "interrupts"),
@@ -549,7 +555,8 @@ class CostModel:
             if c[key] and lost >= 0.03 * self.cycles:
                 shown.append((lost, f"  {c[key]} {key} (up to ~{int(lost)} cycles)"))
         lines += [text for _, text in sorted(shown, reverse=True)]
-        for a, v in self.by_addr.most_common(2):
+        worst = self.by_addr.most_common(2)
+        for a, v in worst:
             if v >= 0.1 * self.cycles:
                 w = where(a)
                 lines.append(f"  most of it at {'line ' + str(w) if w else hex(a)}")
