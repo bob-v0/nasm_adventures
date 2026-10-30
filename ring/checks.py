@@ -454,7 +454,7 @@ def _run_one(level: Level, build: Build, test: TestCase,
                                 f"{exp['heap_max']} (reuse freed blocks)")
     note = ""
     if m.perf is not None:
-        cycles = m.perf.cycles
+        cycles = m.cycles
         per = exp.get("per")                 # [count, "element"]: also show cycles per item
         note = f"{cycles} cycles" + (f", {cycles / per[0]:.2f} per {per[1]}" if per else "")
         budget = exp.get("max_cycles")
@@ -462,7 +462,8 @@ def _run_one(level: Level, build: Build, test: TestCase,
             each = f" ({budget / per[0]:.2f} per {per[1]})" if per else ""
             problems.append(f"too slow: {note} on the game's CPU model; the budget is "
                             f"{budget} cycles{each}")
-            problems += m.perf.report(where=build.addr_to_line.get).splitlines()[1:]
+            slowest = max(m.cores.values(), key=lambda core: core.cycles)
+            problems += slowest.report(where=build.addr_to_line.get).splitlines()[1:]
     if exp.get("check") and not problems:   # the level's own checker (gen.check)
         problems += level._gen_module().check(test, m)
     if "syscalls" in exp:

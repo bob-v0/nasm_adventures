@@ -164,7 +164,7 @@ levels = [
   { title = "Weakly-Ordered Stores", dir = "bug_weak_stores", bug = 3, concepts = "non-temporal stores (`movnti`) escape TSO; publishing a flag before the data", gate = "Fix a producer/consumer that publishes garbage; `sfence` placement" },
   { title = "Condition Variables", dir = "condition_variables", concepts = "futex wait/wake, predicate loops", gate = "Bounded blocking queue" },
   { title = "Lost Wakeup II", dir = "bug_lost_wakeup_futex", bug = 3, concepts = "check-then-sleep without the futex value comparison", gate = "Consumers that hang in a few schedules out of a hundred; witness, fix, and pass the schedule search" },
-  { title = "False Sharing", bug = 2, concepts = "performance bug: unrelated data on one cache line", gate = "Per-thread counters 10× slower than expected; fix with padding" },
+  { title = "False Sharing", dir = "bug_false_sharing", bug = 2, concepts = "performance bug: unrelated data on one cache line", gate = "Per-thread counters 10× slower than expected; fix with padding" },
   { title = "Lock-Free Stack", concepts = "Treiber stack with `cmpxchg`", gate = "Push/pop under contention" },
   { title = "ABA", bug = 4, concepts = "a pointer compares equal but the node was freed and reused", gate = "Witness the ABA schedule; fix with tagged pointers and `cmpxchg16b`" },
   { title = "Memory Reclamation", bug = 4, concepts = "freeing nodes other threads may still read; hazard pointers, epoch-based reclamation", gate = "Lock-free queue with safe reclamation; the grader frees eagerly and checks every access" },

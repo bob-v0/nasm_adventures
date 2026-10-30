@@ -501,6 +501,9 @@ class Machine:
             self.uc.context_restore(t.ctx)
             t.ctx = None
             self.thread = t
+            if self.perf is not None:
+                self.perf.finish()                # (the last instruction on that core)
+                self.perf = self._core(t.tid)
         t.state = "running"
         self._slice_left = self._slice_length()
 
@@ -640,16 +643,35 @@ class Machine:
         return (ins.mnemonic, locked, any(op.type == CS_OP_MEM for op in ins.operands))
 
     def enable_perf(self, noise: int | None = None) -> None:
-        """Count cycles with the game's CPU model (ring/perf.py) from now on."""
-        from .perf import CostModel
-        self.perf = CostModel(huge=lambda a: self.kernel.is_huge(a),
-                              mxcsr=lambda: self.uc.reg_read(X.UC_X86_REG_MXCSR), noise=noise)
-        self.perf.read_reg = self.reg_any
-        self.perf.read_xmm = lambda name: self.uc.reg_read(getattr(X, f"UC_X86_REG_{name.upper()}"))
+        """Count cycles with the game's CPU model (ring/perf.py) from now on. Each thread
+        runs on its own core; `self.perf` is the running thread's."""
+        from .perf import Coherence
+        self._noise = noise
+        self.coherence = Coherence()
+        self.cores: dict[int, object] = {}
+        self.perf = self._core(self.thread.tid)
         self.uc.hook_add(UC_HOOK_MEM_READ, lambda uc, a, addr, size, v, d:
                          self.perf.on_mem("r", addr, size))
         self.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, a, addr, size, v, d:
                          self.perf.on_mem("w", addr, size))
+
+    def _core(self, tid: int):
+        from .perf import CostModel
+        core = self.cores.get(tid)
+        if core is None:
+            core = self.cores[tid] = CostModel(
+                huge=lambda a: self.kernel.is_huge(a),
+                mxcsr=lambda: self.uc.reg_read(X.UC_X86_REG_MXCSR), noise=self._noise,
+                coherence=self.coherence, core=tid)
+            core.read_reg = self.reg_any
+            core.read_xmm = lambda name: self.uc.reg_read(
+                getattr(X, f"UC_X86_REG_{name.upper()}"))
+        return core
+
+    @property
+    def cycles(self) -> int:
+        """The run's length on the CPU model: its slowest core (they run in parallel)."""
+        return max((c.cycles for c in self.cores.values()), default=0)
 
     def reg_any(self, name: str) -> int:
         return self.uc.reg_read(getattr(X, f"UC_X86_REG_{name.upper()}")) & MASK64
@@ -747,7 +769,8 @@ class Machine:
             self.state = "running"
         self._schedule(max_steps, until=lambda: self.finished)
         if self.perf is not None and self.finished:
-            self.perf.finish()
+            for core in self.cores.values():
+                core.finish()
         if self.tso is not None and self.finished:
             self.tso.drain_all()                   # the program's over: everything lands
         return self.state

@@ -22,6 +22,10 @@ The core (roughly a 2015-2020 desktop CPU, simplified):
   - line-split accesses +2 cycles, page splits +20; denormal float results +100 (unless
     MXCSR has FTZ/DAZ); partial registers: writing al/ax depends on the old rax
   - lfence and rdtscp wait for all earlier instructions; rdtsc reads the cycle counter
+  - threads: each runs on its own core (private L1/L2); a coherence directory knows who
+    holds each line. Reading a line another core has modified, or writing a line other
+    cores hold, moves it between cores: ~70 cycles. The run takes as long as the
+    slowest core.
 """
 
 from __future__ import annotations
@@ -149,6 +153,9 @@ class Cache:
 
     evicted: int | None = None      # the line the last fill pushed out, if any
 
+    def drop(self, line: int) -> None:
+        self.lines.get(line % self.sets, {}).pop(line, None)
+
     def lookup(self, line: int, fill: bool = True) -> bool:
         s = self.lines.setdefault(line % self.sets, OrderedDict())
         self.evicted = None
@@ -162,8 +169,43 @@ class Cache:
         return False
 
 
+TRANSFER = 70             # a line moved from another core's cache
+
+
+class Coherence:
+    """Which cores hold which lines (a MESI-like directory, simplified)."""
+
+    def __init__(self):
+        self.cores: dict[int, "CostModel"] = {}
+        self.modified: dict[int, int] = {}        # line -> the core that wrote it last
+        self.sharers: dict[int, set] = {}         # line -> cores that may have a copy
+
+    def read(self, core: int, line: int) -> float:
+        owner = self.modified.get(line)
+        self.sharers.setdefault(line, set()).add(core)
+        if owner is not None and owner != core:
+            del self.modified[line]               # the writer keeps a shared copy
+            return TRANSFER
+        return 0
+
+    def write(self, core: int, line: int) -> float:
+        others = self.sharers.get(line, set()) - {core}
+        owner = self.modified.get(line)
+        cost = TRANSFER if (owner is not None and owner != core) or others else 0
+        for c in others | ({owner} - {None, core}):
+            m = self.cores.get(c)
+            if m is not None:                     # their copies are invalid now
+                m.l1.drop(line)
+                m.l2.drop(line)
+                m.dirty.discard(line)
+        self.sharers[line] = {core}
+        self.modified[line] = core
+        return cost
+
+
 class CostModel:
-    def __init__(self, huge=lambda addr: False, mxcsr=lambda: 0x1F80, noise: int | None = None):
+    def __init__(self, huge=lambda addr: False, mxcsr=lambda: 0x1F80, noise: int | None = None,
+                 coherence: Coherence | None = None, core: int = 0):
         self.md = Cs(CS_ARCH_X86, CS_MODE_64)
         self.md.detail = True
         self.decoded: dict[int, Info] = {}
@@ -191,6 +233,9 @@ class CostModel:
         self.lost: Counter = Counter()               # cycles lost, by reason
         self.by_addr: Counter = Counter()            # cycles lost, by instruction address
         self.tsc_fix: tuple[int, int] | None = None  # (rdtsc value, 1 if rdtscp)
+        self.coherence, self.core = coherence, core
+        if coherence is not None:
+            coherence.cores[core] = self
         self.read_reg = None                         # set by the Machine
         self.store_buffer: deque[float] = deque()    # when each pending store leaves it
         self.cp_ready: dict[str, float] = {}         # for the critical path
@@ -406,8 +451,8 @@ class CostModel:
             done += 100
             c["denormal assists"] += 1
             self._lose(info, "denormal float results (microcode assists)", 100)
-        for a, sz in stores:
-            st = self._unit("store", max(start, addr_ready, src))
+        for a, sz in stores:                       # the data is ready when the op is done
+            st = self._unit("store", max(start, addr_ready, done if loads else src))
             self._store(info, a, sz, st)
         # the critical path: the same dataflow with unlimited units and a perfect front end
         cp = self.cp_ready
@@ -493,6 +538,13 @@ class CostModel:
         return hit
 
     def _line_latency(self, info: Info, line: int, now: float) -> float:
+        if self.coherence is not None:
+            moved = self.coherence.read(self.core, line)
+            if moved:
+                self.counts["lines from another core"] += 1
+                self._lose(info, "cache lines moving between cores (sharing)", moved)
+                self.l1.lookup(line)
+                return moved
         self._train_prefetcher(line, now)
         arriving = self.fill_ready.get(line)
         if self._l1(line, now):
@@ -588,6 +640,12 @@ class CostModel:
         first, last = addr // LINE, (addr + size - 1) // LINE
         ready = t + 1
         for ln in range(first, last + 1):
+            if self.coherence is not None:
+                moved = self.coherence.write(self.core, ln)
+                if moved:                           # ownership comes one request at a time
+                    self.counts["lines from another core"] += 1
+                    self._lose(info, "cache lines moving between cores (sharing)", moved)
+                    ready = max(ready, t + moved, self.last_commit + moved)
             self._train_prefetcher(ln, t)               # the streamer sees stores too
             arriving = self.fill_ready.get(ln)
             hit = self._l1(ln, t)
@@ -639,6 +697,7 @@ class CostModel:
         events = [("branch mispredictions", "branch mispredictions"),
                   ("L2 misses", "cache misses to memory"), ("L1 misses", "L1 cache misses"),
                   ("interrupts", "interrupts"),
+                  ("lines from another core", "cache lines moving between cores (sharing)"),
                   ("TLB misses", "TLB misses"), ("4K aliasing", "4K aliasing"),
                   ("failed store forwarding", "loads that only partly overlap an earlier store"),
                   ("line-split accesses", "accesses split across cache lines"),

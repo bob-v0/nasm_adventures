@@ -1,0 +1,22 @@
+level = 78
+slug = "bug_false_sharing"
+title = "False Sharing"
+arc = "VIII"
+bug = 2
+mode = "program"
+perf = true
+concepts = ["caches keep lines coherent between cores", "a written line moves to the writer's core", "false sharing: unrelated data on one line", "padding and alignment to cache lines"]
+introduces = ["cache coherence", "MESI", "false sharing", "padding"]
+
+hints = [
+  "Each thread has its own counter, so nothing is shared... in the program. Look at the addresses: four qwords, 8 bytes apart, all in the same 64-byte line. The report counts lines moving between cores.",
+  "Coherence works on whole lines: to write its counter, a core must own the entire line, so it takes the line away from the three others, which then take it back. Every increment moves the line.",
+  "Give each counter its own line: STRIDE = 64 (and the space reserved for them grows with it). The counters stay correct; only the layout changes.",
+]
+
+[constraints]
+max_changed_lines = 1
+max_steps = 300000
+
+[random]
+count = 1
