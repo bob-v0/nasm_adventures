@@ -1,0 +1,19 @@
+level = 87
+slug = "locks"
+title = "Locks"
+arc = "VIII"
+mode = "program"
+concepts = ["mutual exclusion", "spinlocks: xchg and pause", "spinning while the holder can't run", "futex: sleep in the kernel only when needed", "the three-state futex mutex"]
+introduces = ["spinlock", "pause", "mutex", "FUTEX_WAIT", "FUTEX_WAKE"]
+
+hints = [
+  "A spinlock waits by looping. If the thread holding the lock has been preempted (or is waiting for I/O), the spinners burn their whole time slices achieving nothing. Sleeping means futex(m, FUTEX_WAIT, value, 0): the kernel puts you to sleep only if *m still equals value.",
+  "Unlock must wake a sleeper, but a futex wake is a syscall: do it only if someone may be waiting. So the lock word needs three states: 0 free, 1 locked, 2 locked and maybe someone sleeping.",
+  "lock: cmpxchg 0 -> 1; if that worked, done. Otherwise loop: xchg the word with 2; if the old value was 0 you got the lock; else futex-wait on it with value 2. unlock: lock xadd -1; if the old value was 1 nobody waited; otherwise set it to 0 and FUTEX_WAKE 1.",
+]
+
+[constraints]
+max_steps = 1000000
+
+[random]
+count = 1
