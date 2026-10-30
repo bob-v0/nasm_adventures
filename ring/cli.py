@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sys
 from pathlib import Path
 
 from . import docs
-from .build import Build, BuildError, _inspect, build
+from .build import BuildError, _inspect
 from .checks import Report, grade
 from .level import Context, Level, all_levels
-from .progress import Progress, SaveError, dev_mode, level_dir, workspace
+from .game import build_solution, context, record_pass, setup_level, solution_path
+from .progress import Progress, SaveError, dev_mode, workspace
 
 COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 
@@ -38,21 +38,6 @@ def get_level(number: int | None, prog: Progress) -> Level:
     if not prog.unlocked(number):
         raise CliError(f"level {number} is sealed. You are at level {prog.current}.")
     return levels[number]
-
-
-def solution_path(level: Level) -> Path:
-    return level_dir(level.number) / "solution.asm"
-
-
-def build_solution(level: Level, src: Path) -> Build:
-    if not src.exists():
-        raise CliError(f"{src} does not exist. Run `ring start {level.number}` first.")
-    includes = [level.include_dir] if level.include_dir else []
-    return build(src, src.parent / ".build", level.mode, includes, level.prelude)
-
-
-def context(prog: Progress) -> Context:
-    return Context(seed=prog.seed)
 
 
 def print_report(level: Level, report: Report, show_hidden_names: bool) -> None:
@@ -130,25 +115,19 @@ def cmd_brief(args, prog: Progress) -> None:
 
 def cmd_start(args, prog: Progress) -> None:
     lv = get_level(args.level, prog)
-    d = level_dir(lv.number)
-    d.mkdir(parents=True, exist_ok=True)
     sol = solution_path(lv)
     if sol.exists() and not args.force:
         print(f"  {sol} already exists (use --force to overwrite with the starter).")
-    else:
-        shutil.copy(lv.starter, sol)
-        print(f"  created {sol}")
-    if lv.include_dir:
-        for f in lv.include_dir.iterdir():
-            shutil.copy(f, d / f.name)
-            print(f"  copied {d / f.name}")
-    lv.prepare(d, context(prog))
-    print(f"  Read the brief with `ring brief`, edit the file, then `ring test`.")
+    for line in setup_level(lv, prog, force=args.force):
+        print(f"  {line}")
+    print("  Read the brief with `ring brief`, edit the file, then `ring test`.")
 
 
 def cmd_test(args, prog: Progress, submit: bool = False) -> int:
     lv = get_level(args.level, prog)
     src = Path(args.file) if getattr(args, "file", None) else solution_path(lv)
+    if not src.exists():
+        raise CliError(f"{src} does not exist. Run `ring start {lv.number}` first.")
     try:
         b = build_solution(lv, src)
     except BuildError as e:
@@ -164,18 +143,14 @@ def cmd_test(args, prog: Progress, submit: bool = False) -> int:
     if not report.passed:
         print(c("31", "\n  The gate holds. Fix the failures above and submit again."))
         return 1
-    badges = []
-    if report.stretch and all(s.passed for s in report.stretch):
-        badges.append(f"{lv.number}:{lv.stretch.get('label', 'stretch')}")
-    first_time = not prog.completed(lv.number)
-    prog.complete(lv.number, len(report.instructions), badges, next_level=lv.number - 1)
+    result = record_pass(prog, lv, report)
     print(c("1;32", f"\n  Level {lv.number} is open."))
-    if badges:
-        print(c("33", f"  Badge earned: {lv.stretch.get('label', 'stretch goal')}"))
-    if first_time and lv.number - 1 in all_levels():
-        nxt = all_levels()[lv.number - 1]
+    for b in result.badges:
+        print(c("33", f"  Badge earned: {b}"))
+    if result.first_time and result.next_level:
+        nxt = result.next_level
         print(f"  Descending to level {nxt.number}: \"{nxt.title}\". Run `ring brief`.")
-    elif first_time:
+    elif result.first_time:
         print("  You have cleared every level that exists so far. More are being forged.")
     return 0
 
@@ -254,6 +229,11 @@ def cmd_dap(args, prog: Progress) -> None:
     serve_stdio(factory)
 
 
+def cmd_ui(args, prog: Progress) -> None:
+    from .web.server import serve
+    serve(args.host, args.port, open_browser=not args.no_browser)
+
+
 def cmd_library(args, prog: Progress) -> None:
     print("  Your library is empty. Routines you prove (starting with `itoa` in level 154)")
     print("  will be collected here for reuse in later levels.")
@@ -304,6 +284,10 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--file")
     sp.add_argument("--binary", help="debug any static x86-64 ELF instead (no source view)")
     sub.add_parser("dap", help="Debug Adapter Protocol server on stdio (for editors)")
+    sp = sub.add_parser("ui", help="play in your browser (local web front end)")
+    sp.add_argument("--host", default="127.0.0.1")
+    sp.add_argument("--port", type=int, default=8080)
+    sp.add_argument("--no-browser", action="store_true", help="don't try to open a browser")
     sub.add_parser("library", help="routines you have proven")
     sp = sub.add_parser("check-levels", help="(authors/CI) validate reference + starter of every level")
     sp.add_argument("level", nargs="?", type=int)
@@ -317,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
         prog = None if args.cmd in ("check-levels", "docs") else Progress.load()
         handlers = {"status": cmd_status, "list": cmd_list, "brief": cmd_brief,
                     "start": cmd_start, "test": cmd_test, "hint": cmd_hint, "docs": cmd_docs,
-                    "listing": cmd_listing, "debug": cmd_debug, "dap": cmd_dap,
+                    "listing": cmd_listing, "debug": cmd_debug, "dap": cmd_dap, "ui": cmd_ui,
                     "library": cmd_library, "check-levels": cmd_check_levels,
                     "submit": lambda a, pr: cmd_test(a, pr, submit=True)}
         rc = handlers[args.cmd](args, prog)

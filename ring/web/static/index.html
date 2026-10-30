@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NASM Adventures</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <button id="toggle-levels" class="icon-btn" title="Levels" aria-label="Show levels">☰</button>
+  <div class="brand">NASM&nbsp;Adventures</div>
+  <div id="where" class="where"></div>
+  <div class="spacer"></div>
+  <div id="stats" class="stats"></div>
+</header>
+
+<div class="layout">
+  <nav id="levels" class="levels" aria-label="Levels"></nav>
+
+  <section class="left">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="brief">Brief</button>
+      <button class="tab" data-tab="hints">Hints</button>
+      <button class="tab" data-tab="docs">Reference</button>
+      <button class="tab" data-tab="listing">Listing</button>
+    </div>
+    <div class="tab-body">
+      <article id="tab-brief" class="pane prose"></article>
+      <div id="tab-hints" class="pane hidden"></div>
+      <div id="tab-docs" class="pane hidden">
+        <form id="docs-form" class="docs-form">
+          <input id="docs-q" placeholder="mov, syscall, equ, registers…" autocomplete="off">
+          <button class="btn">Look up</button>
+        </form>
+        <pre id="docs-out" class="docs-out"></pre>
+      </div>
+      <div id="tab-listing" class="pane hidden">
+        <p class="muted">What NASM made of your code: line number, offset, the bytes, and your source.
+        <button id="listing-refresh" class="btn small">Refresh</button></p>
+        <pre id="listing-out" class="listing-out"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="toolbar">
+      <span id="file-name" class="file-name"></span>
+      <span id="dirty" class="dirty hidden">●</span>
+      <div class="spacer"></div>
+      <button id="btn-reset" class="btn ghost" title="Replace your code with the starter">Reset</button>
+      <button id="btn-save" class="btn ghost" title="Ctrl+S">Save</button>
+      <button id="btn-test" class="btn" title="Ctrl+Enter">Test</button>
+      <button id="btn-submit" class="btn primary" title="Run all tests, including hidden ones">Submit</button>
+    </div>
+    <div id="editor" class="editor">
+      <div id="gutter" class="gutter" aria-hidden="true"></div>
+      <div class="code-wrap">
+        <pre id="highlight" class="code highlight" aria-hidden="true"></pre>
+        <textarea id="code" class="code input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="Your solution"></textarea>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-btab="results">Results</button>
+        <button class="tab" data-btab="debug">Debugger</button>
+      </div>
+      <div id="btab-results" class="bpane"><p class="muted">Press <b>Test</b> (Ctrl+Enter) to build and run the public tests.</p></div>
+      <div id="btab-debug" class="bpane hidden">
+        <div class="dbg-bar">
+          <select id="dbg-target" title="What to run"></select>
+          <button id="dbg-start" class="btn">Start</button>
+          <span class="sep"></span>
+          <button class="btn small" data-cmd="rcontinue" title="Reverse continue (Shift+F5)">⏮</button>
+          <button class="btn small" data-cmd="back" title="Step back (Shift+F7)">◀ back</button>
+          <button class="btn small" data-cmd="step" title="Step one instruction (F7)">step ▶</button>
+          <button class="btn small" data-cmd="line" title="Step one line (F8)">line ▶▶</button>
+          <button class="btn small" data-cmd="continue" title="Continue to breakpoint or end (F5)">⏭</button>
+          <button class="btn small" data-cmd="restart" title="Restart">⟲</button>
+          <button id="dbg-stop" class="btn small ghost">Stop</button>
+          <span id="dbg-status" class="dbg-status"></span>
+        </div>
+        <div id="dbg-body" class="dbg-grid">
+          <p class="muted">Click line numbers in the editor to set breakpoints, then press <b>Start</b>.
+          Nothing runs until you step. Every step can be undone with <b>back</b>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

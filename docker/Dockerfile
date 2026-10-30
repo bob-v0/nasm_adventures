@@ -1,6 +1,7 @@
 # NASM Adventures — the official way to play.
 #   docker build -f docker/Dockerfile -t nasm-adventures .
-#   docker run --rm -it -v ~/nasm-adventures:/workspace nasm-adventures
+#   docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace nasm-adventures
+# then open the link it prints. For a shell instead: append `bash` to the run command.
 FROM debian:bookworm-slim
 
 RUN apt-get update \
@@ -23,4 +24,7 @@ RUN useradd --create-home player && mkdir /workspace && chown player /workspace 
  && printf 'set disassembly-flavor intel\n' > /home/player/.gdbinit
 USER player
 WORKDIR /workspace
-CMD ["bash", "-c", "ring status; exec bash"]
+EXPOSE 8080
+# Inside the container the server must listen on all interfaces; publish the port on
+# 127.0.0.1 only (as above). Access still requires the token in the printed link.
+CMD ["ring", "ui", "--host", "0.0.0.0", "--port", "8080", "--no-browser"]

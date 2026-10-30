@@ -109,9 +109,9 @@ nasm_adventures/
 │   ├── level.py           # level.toml loading, test generation
 │   ├── authoring.py       # level validation (reference passes, starter fails)
 │   ├── docs/              # reference database (TOML)
-│   ├── native.py, qemu.py # later: sandboxed native runner, bare-metal runner
-│   └── server/            # later: web server for ui/
-├── ui/                    # later: web front end (TypeScript, Monaco, panels)
+│   ├── game.py            # actions shared by the CLI and the web UI
+│   ├── web/               # `ring ui`: JSON API + static page (editor, tests, debugger)
+│   └── native.py, qemu.py # later: sandboxed native runner, bare-metal runner
 ├── docker/Dockerfile
 ├── levels/
 │   └── 184_hello_nasm/
@@ -690,8 +690,9 @@ no extra integration work.
 
 ### 11.2 Core panels
 
-- **Editor:** Monaco with NASM highlighting, inline assembler errors, and hover
-  documentation from the instruction reference DB.
+- **Editor:** a built-in NASM editor (highlighting, click-to-set breakpoints, assembler
+  errors on their lines, current-line marker while debugging). Monaco with hover
+  documentation is planned for M2.
 - **Level panel:** lore, lesson, spec, test results (the §6 report), hints.
 - **Registers:** values that changed since the last step are highlighted; RFLAGS is
   split into named bits, with a hover explaining why each flag changed.
@@ -759,11 +760,14 @@ possible later but out of scope for now.
 
 ## 13. Implementation roadmap
 
-1. **M1 – Engine skeleton + Arc I (done):** CLI, save file, `level.toml` loader, `emu`
-   runner with reverse stepping, grading, change budgets, terminal debugger, DAP
-   server, reference docs, Dockerfile + CI; levels 184–171 with reference solutions.
-2. **M2 – Web UI MVP:** Monaco editor, level panel, test reports, registers, memory,
-   stack, disassembly, step controls; session-token auth; VS Code launch config.
+1. **M1 – Engine, web UI and Arc I (done):** CLI, save file, `level.toml` loader,
+   `emu` runner with reverse stepping, grading, change budgets, terminal debugger, DAP
+   server, reference docs; web UI with level list, brief, built-in NASM editor
+   (highlighting, breakpoints, error lines), test/submit, hints, reference, listing and
+   a debugger (registers, flags, disassembly, memory, stack, output, stepping
+   backwards), token auth; Dockerfile + CI; levels 184–171 with reference solutions.
+2. **M2 – Richer UI:** Monaco (bundled, offline) with hover docs, topic panels as
+   arcs need them, live updates over WebSocket, VS Code launch config for the DAP server.
 3. **M3 – Arcs II–III on `emu`:** flags views, witness inputs, poisoned initial state.
 4. **M4 – Native runner:** sandbox, ABI harness, syscall tracing, gdb backend for DAP,
    fault injection (signals, failing syscalls, short reads); Arcs IV–V.

@@ -53,6 +53,9 @@ memory.
 - `ring debug` steps through your code one instruction at a time, forwards and backwards.
 - `ring docs mov` opens the reference for an instruction.
 
+In the browser these are the **Test** and **Submit** buttons and the **Listing**,
+**Reference** and **Debugger** tabs. Click a line number to set a breakpoint.
+
 ## Gate
 
 When your code finishes:

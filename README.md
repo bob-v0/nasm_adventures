@@ -7,28 +7,32 @@ hardware) or a class of bug, then seals the gate behind a program you write. See
 
 **Status:** Arc I (levels 184–171, including the first two bug levels) is playable.
 
-## Play (Docker)
+## Play in your browser (Docker)
 
 ```bash
 docker build -f docker/Dockerfile -t nasm-adventures .
-docker run --rm -it -v ~/nasm-adventures:/workspace nasm-adventures
+docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace nasm-adventures
 ```
 
-Your solutions and save file live in `~/nasm-adventures` on your machine.
+Open the link it prints (it contains an access token). Your solutions and save file
+live in `~/nasm-adventures` on your machine, so you can also edit them in your own
+editor. For a shell in the container instead, add `bash` to the end of the run command.
 
-## Play (Linux, native)
+## Play natively (Linux)
 
 Needs Python ≥ 3.11, `nasm` and `binutils` (`ld`); `gdb` is recommended.
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e .
-ring status
+ring ui          # browser
+ring status      # or play in the terminal
 ```
 
 ## Commands
 
 ```
+ring ui                play in the browser (editor, tests, debugger)
 ring status            where you are
 ring brief             lore, lesson and gate for the current level
 ring start             create levelNNN/solution.asm from the starter

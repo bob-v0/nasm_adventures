@@ -16,7 +16,8 @@ dev = ["pytest>=8"]
 ring = "ring.cli:main"
 
 [tool.setuptools]
-packages = ["ring"]
+packages = ["ring", "ring.web"]
 
 [tool.setuptools.package-data]
 ring = ["docs/*.toml"]
+"ring.web" = ["static/*"]
