@@ -56,7 +56,7 @@ $ ring hint [1|2|3]    # progressive hints, each adds heat
 $ ring docs mul        # built-in instruction reference (flags affected, encodings)
 $ ring debug           # launches gdb (user rings) or QEMU+gdb stub (bare-metal rings)
 $ ring library         # routines you've proven and may %include in later rings
-$ ring ui              # starts the web front end (see §8)
+$ ring ui              # starts the web front end (see §9)
 ```
 
 Every command is also available from the web front end; the CLI and the web UI are
