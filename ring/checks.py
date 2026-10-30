@@ -95,6 +95,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
     if perf or "max_cycles" in test.expect or "noise" in test.inject:
         m.enable_perf(noise=test.inject.get("noise"))
+        for spec in test.inject.get("warm", []):   # {"sym": ..., "size": ...}: already in L2
+            m.perf.warm(resolve(build, spec), spec["size"])
     if poison:
         # Real callers leave junk behind: registers the test doesn't set, and the
         # stack below rsp, start with garbage (deterministic per test, for replay).

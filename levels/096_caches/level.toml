@@ -1,0 +1,21 @@
+level = 96
+slug = "caches"
+title = "Caches"
+arc = "VII"
+mode = "function"
+entry = "ring_transpose"
+perf = true
+concepts = ["cache lines: memory moves in 64-byte pieces", "spatial and temporal locality", "set-associative caches and conflict misses", "strides that are powers of two", "blocking (tiling) for locality"]
+introduces = ["cache lines", "L1/L2", "associativity", "conflict misses", "loop blocking"]
+
+hints = [
+  "Reading src row by row is fine: 8 qwords per line, and the prefetcher sees the pattern. The writes go down a column of dst: every store touches a different line, n*8 = 1024 bytes after the previous one. A line holds 8 elements of the row, but you only write 1 before moving on.",
+  "Worse: with a 1024-byte stride every line maps to one of only 4 L1 sets (1024 / 64 = 16 lines apart, 64 sets), so the lines you'll need for the next column are already evicted. The report shows tens of thousands of L1 misses.",
+  "Work in 8x8 tiles: for each tile, copy its 64 elements (8 rows of src -> 8 columns of dst). The 8 lines of src and 8 lines of dst stay in L1 for the whole tile, and every line you touch gets fully used. Mind n that isn't a multiple of 8.",
+]
+
+[constraints]
+max_steps = 1500000
+
+[random]
+count = 1

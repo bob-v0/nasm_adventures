@@ -139,7 +139,7 @@ levels = [
   { title = "Measuring", dir = "measuring", concepts = "`rdtsc`, `rdtscp`, `lfence`, variance", gate = "A reliable micro-benchmark harness" },
   { title = "Pipelines", dir = "pipelines", concepts = "latency vs throughput, dependency chains", gate = "Multiple accumulators" },
   { title = "Branch Prediction", dir = "branch_prediction", concepts = "predictable vs random branches", gate = "Hit a cycles/element budget on random data" },
-  { title = "Caches", concepts = "lines, sets, strides, alignment", gate = "Cache-blocked transpose" },
+  { title = "Caches", dir = "caches", concepts = "lines, sets, strides, alignment", gate = "Cache-blocked transpose" },
   { title = "Prefetch & TLB", concepts = "`prefetcht0`, huge pages", gate = "Faster linked-list traversal" },
   { title = "Instruction Selection", concepts = "uops, macro-fusion, partial-register stalls", gate = "Speed up a hot loop ≥ 2×" },
   { title = "Performance Cliff", bug = 2, concepts = "performance bugs: 4K aliasing, cache-line splits, denormals", gate = "Find why one input size is 10× slower and fix it" },

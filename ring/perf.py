@@ -14,7 +14,8 @@ The core (roughly a 2015-2020 desktop CPU, simplified):
     prefetcht0/1/2/nta
   - TLB: 64 entries (4 KiB pages; 2 MiB huge pages), 20 cycles per miss
   - stores: a 56-entry store buffer; a store leaves it once its line is in L1 (in order),
-    and when it's full, the front end waits. L2 delivers one line per 2 cycles.
+    and when it's full, the front end waits. L2 moves one line per 2 cycles, and a
+    written (dirty) line pushed out of L1 costs one more such transfer (the write-back).
   - stores are forwarded to later loads (5 cycles), a 15-cycle stall when a load only
     partly overlaps a store, 5 cycles for 4K aliasing (same low 12 address bits)
   - line-split accesses +2 cycles, page splits +20; denormal float results +100 (unless
@@ -119,15 +120,18 @@ class Cache:
     ways: int
     lines: dict = field(default_factory=dict)        # set -> OrderedDict(line -> None)
 
+    evicted: int | None = None      # the line the last fill pushed out, if any
+
     def lookup(self, line: int, fill: bool = True) -> bool:
         s = self.lines.setdefault(line % self.sets, OrderedDict())
+        self.evicted = None
         if line in s:
             s.move_to_end(line)
             return True
         if fill:
             s[line] = None
             if len(s) > self.ways:
-                s.popitem(last=False)
+                self.evicted = s.popitem(last=False)[0]
         return False
 
 
@@ -163,6 +167,7 @@ class CostModel:
         self.read_reg = None                         # set by the Machine
         self.store_buffer: deque[float] = deque()    # when each pending store leaves it
         self.cp_ready: dict[str, float] = {}         # for the critical path
+        self.dirty: set[int] = set()                 # L1 lines written since they came in
         self.critical = 0.0
         self.last_commit = 0.0
         self.noise = None                            # "interrupts": a deterministic rng
@@ -232,6 +237,11 @@ class CostModel:
                     fp_dest, 4 if mn.endswith(("ss", "ps")) else 8)
         self.decoded[addr] = info
         return info
+
+    def warm(self, addr: int, size: int) -> None:
+        """Start with [addr, addr+size) in L2 (as if just written by the caller)."""
+        for ln in range(addr // LINE, (addr + size + LINE - 1) // LINE):
+            self.l2.lookup(ln)
 
     # ---- events from the emulator ----------------------------------------------------------
 
@@ -414,10 +424,20 @@ class CostModel:
         self._lose(info, "TLB misses", 20)
         return 20
 
+    def _l1(self, line: int, now: float) -> bool:
+        """Look up (and fill) a line in L1; writing back the dirty line it evicts."""
+        hit = self.l1.lookup(line)
+        victim = self.l1.evicted
+        if victim is not None and victim in self.dirty:
+            self.dirty.discard(victim)
+            self._unit("l2", now)
+            self.counts["write-backs"] += 1
+        return hit
+
     def _line_latency(self, info: Info, line: int, now: float) -> float:
         self._train_prefetcher(line, now)
         arriving = self.fill_ready.get(line)
-        if self.l1.lookup(line):
+        if self._l1(line, now):
             if arriving is not None and arriving > now:   # a prefetch still on its way
                 return max(4, arriving - now)
             return 4
@@ -512,7 +532,9 @@ class CostModel:
         for ln in range(first, last + 1):
             self._train_prefetcher(ln, t)               # the streamer sees stores too
             arriving = self.fill_ready.get(ln)
-            if self.l1.lookup(ln):
+            hit = self._l1(ln, t)
+            self.dirty.add(ln)
+            if hit:
                 if arriving is not None and arriving > ready:
                     ready = arriving
                 continue
