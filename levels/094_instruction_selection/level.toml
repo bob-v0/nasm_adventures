@@ -1,0 +1,21 @@
+level = 94
+slug = "instruction_selection"
+title = "Instruction Selection"
+arc = "VII"
+mode = "function"
+entry = "ring_digit_sum"
+perf = true
+concepts = ["uops: what instructions really cost", "division is slow; division by a constant isn't needed", "partial registers and false dependencies", "macro-fusion of compare and branch", "complex instructions that are slower than simple ones"]
+introduces = ["uops", "magic-number division", "movzx for loads", "macro-fusion", "loop vs dec/jnz"]
+
+hints = [
+  "div by 10 takes about 26 cycles and the divider can't start another for 24: that alone is most of the time. A division by a constant is a multiplication: for 0 <= b < 1024, b / 10 == (b * 205) >> 11. Then b % 10 = b - 10 * (b / 10), and 10q = (q + 4q) * 2 with lea and add.",
+  "mov al, [rdi] writes only the low byte of rax, so it depends on whatever rax held (a false dependency chaining the iterations together). movzx ecx, byte [rdi] writes the whole register and depends on nothing.",
+  "loop is several uops; dec rsi / jnz is one (dec and jnz fuse). And the push/pop rcx in the loop exist only because div needs ecx: without div, they can go too.",
+]
+
+[constraints]
+max_steps = 300000
+
+[random]
+count = 1

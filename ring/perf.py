@@ -45,6 +45,7 @@ _INT1 = {"mov", "movzx", "movsx", "movsxd", "add", "sub", "and", "or", "xor", "c
          "push", "pop", "bt", "bts", "btr", "btc", "movbe", "shlx", "shrx", "sarx", "rorx"}
 _TABLE = {
     "imul": (3, "mul", 1), "mul": (4, "mul", 2), "div": (40, "div", 36), "idiv": (42, "div", 57),
+    # (a 32-bit div/idiv: 26 cycles; the divider is busy for 24 cycles per division)
     "popcnt": (3, "mul", 1), "lzcnt": (3, "mul", 1), "tzcnt": (3, "mul", 1), "bsf": (3, "mul", 1),
     "bsr": (3, "mul", 1), "pdep": (3, "mul", 1), "pext": (3, "mul", 1), "crc32": (3, "mul", 1),
     "addsd": (4, "fp", 1), "addss": (4, "fp", 1), "subsd": (4, "fp", 1), "subss": (4, "fp", 1),
@@ -229,6 +230,10 @@ class CostModel:
             lat, unit, uops = 2, "alu", 2
         if mn in ("shl", "shr", "sar", "rol", "ror") and "rcx" in reads:
             lat, uops = 2, 2
+        if mn in ("div", "idiv") and ins.operands and ins.operands[0].size <= 4:
+            lat, uops = (26, 10) if mn == "div" else (26, 10)      # 32-bit: cheaper
+        if mn == "loop":
+            lat, unit, uops = 1, "branch", 7                       # slower than dec + jnz
         cond = mn.startswith("j") and mn != "jmp" or mn == "loop"
         indirect = mn in ("jmp", "call") and bool(ops) and ops[0].type != 2   # not an immediate
         info = Info(addr, ins.size, mn, frozenset(reads), frozenset(writes), frozenset(addr_regs),
