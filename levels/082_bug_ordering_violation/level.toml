@@ -1,0 +1,22 @@
+level = 82
+slug = "bug_ordering_violation"
+title = "Ordering Violation"
+arc = "VIII"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["algorithms proven for sequential consistency", "store -> load reordering breaks Dekker and Peterson", "which reordering, exactly", "the minimum fence"]
+introduces = ["Peterson's algorithm", "ordering violations"]
+
+hints = [
+  "Peterson's argument relies on each thread's stores (flag, turn) being visible before its own loads of the other's flag. That's exactly the reordering x86 allows: level 83.",
+  "Thread 0 stores flag[0] = 1 and turn = 1, both still in its store buffer, then reads flag[1]: still 0, so it enters. Thread 1 does the same in the other direction. Both inside.",
+  "Put one mfence after the two stores, before the wait loop. (Making the store to turn an xchg would do the same.) Unlock needs nothing: a store is never reordered with earlier loads or stores.",
+]
+
+[constraints]
+max_changed_lines = 2
+max_steps = 400000
+
+[random]
+count = 1
