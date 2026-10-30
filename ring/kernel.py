@@ -52,7 +52,7 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          41: "socket", 42: "connect", 43: "accept", 48: "shutdown", 49: "bind", 50: "listen",
          54: "setsockopt", 288: "accept4", 213: "epoll_create", 291: "epoll_create1",
          233: "epoll_ctl", 232: "epoll_wait", 281: "epoll_pwait", 283: "timerfd_create",
-         0x1002: "ring_choose", 0x1003: "ring_await", 0x1000: "ring_malloc", 0x1001: "ring_free",
+         28: "madvise", 0x1002: "ring_choose", 0x1003: "ring_await", 0x1000: "ring_malloc", 0x1001: "ring_free",
          286: "timerfd_settime", 287: "timerfd_gettime", 7: "poll", 290: "eventfd2"}
 NUMBERS = {v: k for k, v in NAMES.items()}
 
@@ -214,9 +214,14 @@ class Kernel(EventsMixin):
         self.events: list[str] = []             # what happened to processes, for reports
         self.fs_events: list[dict] = list(self.inject.fs_events)
         self.init_events(self.inject.peers)
+        self.huge_regions: list[tuple[int, int]] = []   # MAP_HUGETLB / MADV_HUGEPAGE
         self.sched_rng = random.Random(f"schedule:{self.inject.schedule}")
         self.awaits: list[int] = []             # task id at each await point
         self.await_fns: list[int] = []          # ...and the function that task runs
+
+    def is_huge(self, addr: int) -> bool:
+        """Is addr in memory mapped with huge (2 MiB) pages?"""
+        return any(start <= addr < start + size for start, size in self.huge_regions)
 
     def new_proc(self, ppid: int) -> Proc:
         p = Proc(self.next_pid, ppid)
@@ -660,7 +665,14 @@ class Kernel(EventsMixin):
             start = self.mmap_next
         m.map_region(start, length, prot, data)
         self.mmaps[start] = length
+        if flags & 0x40000:                              # MAP_HUGETLB
+            self.huge_regions.append((start, length))
         return start
+
+    def sys_madvise(self, m, addr, length, advice, *_):
+        if advice == 14:                                 # MADV_HUGEPAGE
+            self.huge_regions.append((addr & ~0x1FFFFF, length + (addr & 0x1FFFFF)))
+        return 0
 
     def sys_munmap(self, m, addr, length, *_):
         if addr & 0xFFF:

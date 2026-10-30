@@ -51,7 +51,8 @@ def print_report(level: Level, report: Report, show_hidden_names: bool) -> None:
         for line in report.warnings.splitlines():
             print(f"    {line}")
     for t in public:
-        print(f"  {OK if t.passed else FAIL} {t.name}")
+        note = c("2", f"   ({t.note})") if t.note else ""
+        print(f"  {OK if t.passed else FAIL} {t.name}{note}")
         for p in t.problems:
             print(f"      {p}")
     if hidden:

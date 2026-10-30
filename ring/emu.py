@@ -118,6 +118,7 @@ class Machine:
         self.syscalls: list[SyscallRecord] = []
         self.term_signal: int | None = None      # set when killed by a signal
         self.trace: list[int] | None = None      # addresses executed, when enabled
+        self.perf = None                          # the CPU cost model, when enabled
         self._redirect: str | None = None        # "sigreturn" / "deliver", requested mid-slice
         self._bad_access: int | None = None
         self._checked_mapped = 0
@@ -452,6 +453,33 @@ class Machine:
         self.steps += 1
         if self.trace is not None:
             self.trace.append(addr)
+        if self.perf is not None:
+            p = self.perf
+            info = p.decoded.get(addr) or p.decode(addr, self.read(addr, 16)
+                                                    if self.readable(addr, 16) else b"")
+            p.on_insn(info, addr)
+            if p.tsc_fix is not None:               # rdtsc ran: it reads the model's clock
+                tsc, rdtscp = p.tsc_fix
+                p.tsc_fix = None
+                self.set_reg("rax", tsc & 0xFFFFFFFF)
+                self.set_reg("rdx", tsc >> 32)
+                if rdtscp:
+                    self.set_reg("rcx", 0)
+
+    def enable_perf(self, noise: int | None = None) -> None:
+        """Count cycles with the game's CPU model (ring/perf.py) from now on."""
+        from .perf import CostModel
+        self.perf = CostModel(huge=lambda a: self.kernel.is_huge(a),
+                              mxcsr=lambda: self.uc.reg_read(X.UC_X86_REG_MXCSR), noise=noise)
+        self.perf.read_reg = self.reg_any
+        self.perf.read_xmm = lambda name: self.uc.reg_read(getattr(X, f"UC_X86_REG_{name.upper()}"))
+        self.uc.hook_add(UC_HOOK_MEM_READ, lambda uc, a, addr, size, v, d:
+                         self.perf.on_mem("r", addr, size))
+        self.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, a, addr, size, v, d:
+                         self.perf.on_mem("w", addr, size))
+
+    def reg_any(self, name: str) -> int:
+        return self.uc.reg_read(getattr(X, f"UC_X86_REG_{name.upper()}")) & MASK64
 
     def _on_invalid(self, _uc, _access, addr, _size, _value, _user) -> bool:
         self._bad_access = addr
@@ -518,6 +546,8 @@ class Machine:
         if self.state == "blocked":
             self.state = "running"
         self._schedule(max_steps, until=lambda: self.finished)
+        if self.perf is not None and self.finished:
+            self.perf.finish()
         return self.state
 
     def _schedule(self, max_steps: int, until) -> None:

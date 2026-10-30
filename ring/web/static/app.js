@@ -379,7 +379,7 @@ async function runTests(submit) {
   const mark = (ok) => ok ? '<span class="ok">✔</span>' : '<span class="bad">✘</span>';
   let html = `<div class="result-title">Level ${S.level.number} — ${esc(S.level.title)}</div>` + warningsHtml(r.warnings);
   for (const t of r.tests) {
-    html += `<div class="row">${mark(t.passed)} ${esc(t.name)}</div>`;
+    html += `<div class="row">${mark(t.passed)} ${esc(t.name)}${t.note ? ` <span class="note">(${esc(t.note)})</span>` : ""}</div>`;
     for (const p of t.problems) html += `<div class="problem">${esc(p)}</div>`;
   }
   if (r.hidden.total) {

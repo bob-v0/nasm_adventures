@@ -294,7 +294,8 @@ def _report_json(report: Report, show_hidden_names: bool) -> dict:
     failed_hidden = [t for t in hidden if not t.passed]
     return {
         "passed": report.passed,
-        "tests": [{"name": t.name, "passed": t.passed, "problems": t.problems} for t in public],
+        "tests": [{"name": t.name, "passed": t.passed, "problems": t.problems, "note": t.note}
+                  for t in public],
         "hidden": {"total": len(hidden), "passed": len(hidden) - len(failed_hidden),
                    "first_failure": ({"name": failed_hidden[0].name if show_hidden_names else "a hidden test",
                                       "problem": failed_hidden[0].problems[0]}

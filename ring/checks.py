@@ -31,6 +31,7 @@ class TestResult:
     passed: bool
     problems: list[str] = field(default_factory=list)
     steps: int = 0
+    note: str = ""            # shown next to the test's name, e.g. its cycle count
 
 
 @dataclass
@@ -86,12 +87,14 @@ def resolve(build: Build, spec: dict) -> int:
 
 
 def prepare_machine(build: Build, test: TestCase, record: bool = False,
-                    poison: bool = False) -> Machine:
+                    poison: bool = False, perf: bool = False) -> Machine:
     kernel = Kernel(test.stdin, files=test.files,
                     inject=Injection.from_dict(test.inject, seed=test.name))
     if test.userland:
         install_userland(kernel)
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
+    if perf or "max_cycles" in test.expect or "noise" in test.inject:
+        m.enable_perf(noise=test.inject.get("noise"))
     if poison:
         # Real callers leave junk behind: registers the test doesn't set, and the
         # stack below rsp, start with garbage (deterministic per test, for replay).
@@ -317,7 +320,7 @@ def _run_one(level: Level, build: Build, test: TestCase,
              trace: bool = False) -> tuple[TestResult, Machine]:
     c = level.constraints
     try:
-        m = prepare_machine(build, test, poison=level.poison)
+        m = prepare_machine(build, test, poison=level.poison, perf=level.data.get("perf", False))
     except KeyError as e:
         return TestResult(test.name, test.hidden, False, [str(e.args[0])]), None
     initial = {n: m.reg(n) for n in GPRS}
@@ -433,13 +436,24 @@ def _run_one(level: Level, build: Build, test: TestCase,
             if used > exp["heap_max"]:
                 problems.append(f"the heap grew to {used} bytes; this workload must fit in "
                                 f"{exp['heap_max']} (reuse freed blocks)")
+    note = ""
+    if m.perf is not None:
+        cycles = m.perf.cycles
+        per = exp.get("per")                 # [count, "element"]: also show cycles per item
+        note = f"{cycles} cycles" + (f", {cycles / per[0]:.2f} per {per[1]}" if per else "")
+        budget = exp.get("max_cycles")
+        if budget is not None and cycles > budget and not problems:
+            each = f" ({budget / per[0]:.2f} per {per[1]})" if per else ""
+            problems.append(f"too slow: {note} on the game's CPU model; the budget is "
+                            f"{budget} cycles{each}")
+            problems += m.perf.report(where=build.addr_to_line.get).splitlines()[1:]
     if exp.get("check") and not problems:   # the level's own checker (gen.check)
         problems += level._gen_module().check(test, m)
     if "syscalls" in exp:
         names = [str(s).split("(")[0] for s in m.syscalls]
         if names != exp["syscalls"]:
             problems.append(f"syscalls: expected {exp['syscalls']}, got {names}")
-    return TestResult(test.name, test.hidden, not problems, problems, m.steps), m
+    return TestResult(test.name, test.hidden, not problems, problems, m.steps, note), m
 
 
 def _static_checks(rules: dict, ins: list[tuple[int, str, str]], report_steps: int) -> list[Check]:
