@@ -40,7 +40,7 @@ def test_emulator_matches_native(ring, tmp_path):
     lv = LEVELS[ring]
     b = build_copy(lv, lv.reference, tmp_path)
     for test in lv.all_tests(CTX)[:8]:
-        if test.mem or test.files or test.inject or test.expect.get("check"):
+        if test.mem or test.files or test.inject or test.userland or test.expect.get("check"):
             continue  # memory pokes, virtual files and injected faults only exist in the emulator
         result, m = run_test(lv, b, test)
         argv = test.argv or ["./solution"]

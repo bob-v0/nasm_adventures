@@ -1,0 +1,21 @@
+level = 112
+slug = "directories_mmap"
+title = "Directories & mmap"
+arc = "V"
+mode = "program"
+concepts = ["directories are files of entries: getdents64", "struct linux_dirent64 and d_reclen", "recursion with a per-level buffer on the stack", "file-backed mmap: a file as memory", "fstat for the size; mmap of length 0 fails"]
+introduces = ["getdents64 (217)", "O_DIRECTORY", "d_type: DT_DIR, DT_REG", "mmap with a file descriptor", "munmap (11)", "st_size"]
+
+hints = [
+  "getdents64(fd, buf, size) fills buf with records: d_ino (8 bytes), d_off (8), d_reclen (2, offset 16), d_type (1, offset 18), then the NUL-terminated name at offset 19. Walk them with `add offset, d_reclen` until you reach the byte count it returned; call it again until it returns 0.",
+  "Recursion: keep one global path buffer and its length. Before visiting an entry, append \"/\" and the name; afterwards, put the old length back and a 0 there. Give each level of the recursion its own getdents64 buffer on the stack (sub rsp, 1024): the global path is shared, the entries are not.",
+  "For a file: open, fstat (st_size is the qword at offset 48), and only if the size isn't 0: mmap(0, size, PROT_READ = 1, MAP_PRIVATE = 2, fd, 0). Count words in the mapped bytes, munmap(addr, size), close.",
+]
+
+[constraints]
+max_instructions = 160
+must_use = ["syscall"]
+max_steps = 4000000
+
+[random]
+count = 6

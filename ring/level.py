@@ -55,6 +55,7 @@ class TestCase:
     argv: list | None = None
     env: dict = field(default_factory=dict)
     inject: dict = field(default_factory=dict)    # faults for the kernel (see kernel.Injection)
+    userland: bool = False                        # install the game's /bin utilities
 
     @classmethod
     def from_dict(cls, d: dict, hidden: bool | None = None) -> "TestCase":
@@ -68,7 +69,7 @@ class TestCase:
                          for k, v in d.get("regs", {}).items()},  # "@label" = its address
                    mem=list(d.get("mem", [])), stdin=stdin, expect=dict(d.get("expect", {})),
                    files=dict(d.get("files", {})), argv=d.get("argv"), env=dict(d.get("env", {})),
-                   inject=dict(d.get("inject", {})))
+                   inject=dict(d.get("inject", {})), userland=d.get("userland", False))
 
 
 @dataclass

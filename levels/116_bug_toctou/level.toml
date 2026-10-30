@@ -1,0 +1,22 @@
+level = 116
+slug = "bug_toctou"
+title = "Time of Check, Time of Use"
+arc = "V"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["a logical race: no shared memory, just another process changing the world between two steps", "names vs objects: a path is looked up again by every call", "check the object you use (fstat on the fd), not the name", "O_NOFOLLOW, openat"]
+introduces = ["access (21)", "fstat (5)", "struct stat: st_mode, st_uid", "O_NOFOLLOW", "setuid programs"]
+
+hints = [
+  "Between access() returning and open() running, another process can replace /tmp/report (which the user owns) with a symlink to /etc/shadow. access() saw the harmless file, open() gets the secret one. Your witness: the attacker strikes right after `access`.",
+  "Any check made on the NAME is stale by the time you use the name again. Open first, then check the file the kernel actually gave you: fstat(fd, &st) (syscall 5) fills a 144-byte struct stat. st_mode is the dword at offset 24, st_uid the dword at offset 28.",
+  "After open: allow it if st_uid == 1000 (the user's own file) or (st_mode & 4) != 0 (readable by everyone). Otherwise close the fd and refuse. The access() call can go. (Adding O_NOFOLLOW, 0o400000, to open's flags is a good extra layer.)",
+]
+
+[constraints]
+max_changed_lines = 20
+max_steps = 200000
+
+[random]
+count = 1

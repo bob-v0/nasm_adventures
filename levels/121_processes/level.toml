@@ -1,0 +1,21 @@
+level = 121
+slug = "processes"
+title = "Processes"
+arc = "V"
+mode = "program"
+concepts = ["fork copies the whole process", "execve replaces the program, keeps the process", "wait4 and exit statuses", "the child's and the parent's paths after fork"]
+introduces = ["fork (57)", "execve (59)", "wait4 (61)", "wait status encoding", "exit status 127", "zombies"]
+
+hints = [
+  "fork() returns twice: 0 in the child, the child's pid in the parent. Right after it, `test rax, rax` / `jz .child` splits the two paths.",
+  "The child: execve(path, argv, envp) with argv = [path, 0]. Build that two-word array in .bss. envp is the one you got: it starts at [rsp + 8*argc + 16] at _start. If execve returns at all, it failed: write the error line to stderr and exit(127).",
+  "The parent: wait4(pid, &status, 0, 0). If (status & 0x7f) == 0 the child exited and its code is (status >> 8) & 0xff; otherwise it was killed by signal (status & 0x7f).",
+]
+
+[constraints]
+max_instructions = 130
+must_use = ["syscall"]
+max_steps = 2000000
+
+[random]
+count = 6

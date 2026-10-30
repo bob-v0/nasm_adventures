@@ -1,0 +1,21 @@
+level = 120
+slug = "pipes"
+title = "Pipes & dup"
+arc = "V"
+mode = "program"
+concepts = ["a pipe is a kernel buffer with a read end and a write end", "dup2 makes a descriptor name another open file", "fork + dup2 + execve: redirection", "EOF on a pipe needs every write end closed", "SIGPIPE ends writers nobody reads"]
+introduces = ["pipe (22)", "pipe2 (293)", "dup2 (33)", "SIGPIPE", "deadlock"]
+
+hints = [
+  "Split argv in place: find the \"|\" string (bytes '|', 0: `cmp word [rsi], '|'`), overwrite that slot with 0. The left command's argv starts at argv[1]; the right one's starts right after the old \"|\" slot.",
+  "Each child: dup2(write end, 1) for the left one, dup2(read end, 0) for the right one, then close BOTH original pipe descriptors, then execve(argv[0], argv, envp).",
+  "The parent must close both ends too, before waiting. If any process still holds a write end, the reader never sees end-of-file; if it holds the read end, `yes` never gets SIGPIPE. The game reports either as a deadlock.",
+]
+
+[constraints]
+max_instructions = 110
+must_use = ["syscall"]
+max_steps = 4000000
+
+[random]
+count = 4

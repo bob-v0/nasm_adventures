@@ -2,8 +2,13 @@
 descriptors, memory syscalls, and fault injection (failing syscalls, short reads),
 so levels can test what real programs must survive.
 
-The kernel works on one process (the Machine). Its state is plain Python data, so
-the debugger can snapshot it at each syscall and step backwards across syscalls.
+Each process is one Machine (its own Unicorn instance) plus a Proc here holding its
+per-process kernel state (fds, signal handlers, heap...). `kernel.proc` is the process
+whose code is running; the per-process fields below are reached through it, so most
+of the kernel reads as if there were one process. The scheduler lives in emu.py.
+
+The state is plain Python data, so the debugger can snapshot it at each syscall and
+step backwards across syscalls (within one process: forks and execs end the history).
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ MASK64 = (1 << 64) - 1
 EPERM, ENOENT, EINTR, EIO, EBADF, EAGAIN, ENOMEM, EACCES, EFAULT = 1, 2, 4, 5, 9, 11, 12, 13, 14
 EEXIST, ENOTDIR, EISDIR, EINVAL, EMFILE, ENOTTY, ENOSPC, ESPIPE = 17, 20, 21, 22, 24, 25, 28, 29
 ERANGE, ENOSYS, ENOTEMPTY, ELOOP = 34, 38, 39, 40
+ESRCH, ENOEXEC, ECHILD, EPIPE, E2BIG, EXDEV = 3, 8, 10, 32, 7, 18
 ERRNO_NAMES = {v: k for k, v in globals().items() if k.startswith("E") and isinstance(v, int)}
 
 # open flags
@@ -37,7 +43,7 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          39: "getpid", 56: "clone", 57: "fork", 59: "execve", 60: "exit", 61: "wait4",
          62: "kill", 72: "fcntl", 79: "getcwd", 80: "chdir", 82: "rename", 83: "mkdir",
          84: "rmdir", 87: "unlink", 88: "symlink", 89: "readlink", 102: "getuid",
-         110: "getppid", 158: "arch_prctl", 186: "gettid", 201: "time", 217: "getdents64",
+         110: "getppid", 24: "sched_yield", 58: "vfork", 292: "dup3", 158: "arch_prctl", 186: "gettid", 201: "time", 217: "getdents64",
          228: "clock_gettime", 231: "exit_group", 257: "openat", 262: "newfstatat",
          200: "tkill", 234: "tgkill", 293: "pipe2", 318: "getrandom"}
 NUMBERS = {v: k for k, v in NAMES.items()}
@@ -59,6 +65,22 @@ HEAP_GAP = 0x1000          # first brk address = end of the program, page-aligne
 MMAP_BASE = 0x7FFFF7000000  # mmap regions grow down from here
 
 
+class Block(Exception):
+    """Raised by a syscall that must wait (an empty pipe, wait4 with live children).
+    The process is parked with rip on its `syscall`, which runs again when it's
+    scheduled next."""
+
+    def __init__(self, why: str):
+        self.why = why
+
+
+class Exec(Exception):
+    """Raised by a successful execve: the Machine loads the new image."""
+
+    def __init__(self, image: bytes, path: str, argv: list[str], env: list[str]):
+        self.image, self.path, self.argv, self.env = image, path, argv, env
+
+
 class Exit(Exception):
     """Raised by the exit syscalls; carries the status."""
 
@@ -73,6 +95,7 @@ class Inode:
     target: str = ""               # for symlinks
     mode: int = 0o644
     ino: int = 0
+    uid: int = 1000                # 0 = root: the user (uid 1000) may not access() it
 
 
 @dataclass
@@ -83,6 +106,38 @@ class OpenFile:
     writable: bool = False
     append: bool = False
     pos: int = 0
+    pipe: int = 0                  # for kind "pipe": which pipe
+    node: Inode | None = None      # the file itself: renaming or replacing the path
+                                   # doesn't change what an open descriptor refers to
+
+
+PIPE_CAPACITY = 65536
+FIRST_PID = 1000
+
+
+@dataclass
+class Proc:
+    """Per-process kernel state."""
+    pid: int
+    ppid: int
+    cwd: str = "/work"
+    fds: dict[int, OpenFile] = field(default_factory=dict)
+    cloexec: set[int] = field(default_factory=set)
+    brk_start: int = 0
+    brk: int = 0
+    mmaps: dict[int, int] = field(default_factory=dict)     # address -> length
+    mmap_next: int = MMAP_BASE
+    actions: dict[int, tuple[int, int, int, int]] = field(default_factory=dict)  # sig -> handler, flags, restorer, mask
+    blocked: int = 0
+    pending: list[int] = field(default_factory=list)
+    blocks: dict[int, dict] = field(default_factory=dict)  # checked heap: address -> {size, freed, alloc, free}
+    checked_next: int = CHECKED_HEAP
+    status: int | None = None      # wait status once it has terminated (a zombie until reaped)
+    command: str = ""
+
+
+PER_PROCESS = ("cwd", "fds", "cloexec", "brk_start", "brk", "mmaps", "mmap_next", "actions",
+               "blocked", "pending", "blocks", "checked_next")
 
 
 @dataclass
@@ -92,6 +147,8 @@ class Injection:
     short_reads: bool = False      # read() returns fewer bytes than asked (1..max)
     short_writes: bool = False     # write() to stdout/stderr/files accepts fewer bytes
     signals: list[dict] = field(default_factory=list)  # {"at": instruction count, "sig": 2}
+    fs_events: list[dict] = field(default_factory=list)  # another process changes files (see fs_event)
+    quantum: int = 500             # instructions a process runs before the next one's turn
     seed: str = ""
 
     @classmethod
@@ -99,12 +156,14 @@ class Injection:
         d = d or {}
         return cls(fail=list(d.get("fail", [])), short_reads=d.get("short_reads", False),
                    short_writes=d.get("short_writes", False),
-                   signals=list(d.get("signals", [])), seed=seed)
+                   signals=list(d.get("signals", [])), fs_events=list(d.get("fs_events", [])),
+                   quantum=d.get("quantum", 500), seed=seed)
 
 
 class Kernel:
     def __init__(self, stdin: bytes = b"", files: dict[str, bytes | str] | None = None,
                  inject: Injection | None = None, cwd: str = "/work"):
+        self.machines: dict = {}      # pid -> Machine (outside snapshots)
         self.stdin = stdin
         self.stdin_pos = 0
         self.stdout = bytearray()
@@ -117,23 +176,32 @@ class Kernel:
         for d in ("/", "/work", "/tmp", "/etc", "/home"):
             self._add(d, Inode("dir", mode=0o755))
         for path, content in (files or {}).items():
-            self.make_file(path, content)
-        self.cwd = cwd
-        self.fds: dict[int, OpenFile] = {0: OpenFile("stdin", readable=True),
-                                         1: OpenFile("stdout", writable=True),
-                                         2: OpenFile("stderr", writable=True)}
-        self.brk_start = self.brk = 0
-        self.mmaps: dict[int, int] = {}          # address -> length
-        self.mmap_next = MMAP_BASE
+            if isinstance(content, dict):   # {"text"/"hex", "uid", "mode", "symlink"}
+                if "symlink" in content:
+                    self.make_file(path, symlink_to=content["symlink"])
+                    continue
+                data = bytes.fromhex(content["hex"]) if "hex" in content else content.get("text", "")
+                self.make_file(path, data, uid=content.get("uid", 1000),
+                               mode=content.get("mode", 0o644))
+            else:
+                self.make_file(path, content)
         self.time_ns = 1_700_000_000 * 10**9    # a fixed, deterministic clock
         self.writes: list[tuple[int, int, int]] = []   # (time_ns, fd, bytes) of every write
-        # signals
-        self.actions: dict[int, tuple[int, int, int, int]] = {}   # sig -> handler, flags, restorer, mask
-        self.blocked = 0
-        self.pending: list[int] = []
-        # the checked allocator
-        self.blocks: dict[int, dict] = {}       # address -> {size, freed, alloc_line, free_line}
-        self.checked_next = CHECKED_HEAP
+        self.pipes: dict[int, bytearray] = {}
+        self.procs: dict[int, Proc] = {}
+        self.next_pid = FIRST_PID
+        self.proc = self.new_proc(FIRST_PID - 1)
+        self.proc.cwd = cwd
+        self.proc.fds = {0: OpenFile("stdin", readable=True), 1: OpenFile("stdout", writable=True),
+                         2: OpenFile("stderr", writable=True)}
+        self.events: list[str] = []             # what happened to processes, for reports
+        self.fs_events: list[dict] = list(self.inject.fs_events)
+
+    def new_proc(self, ppid: int) -> Proc:
+        p = Proc(self.next_pid, ppid)
+        self.procs[p.pid] = p
+        self.next_pid += 1
+        return p
 
     # ---- filesystem --------------------------------------------------------------------
 
@@ -143,7 +211,8 @@ class Kernel:
         self.inodes[path] = inode
         return inode
 
-    def make_file(self, path: str, content: bytes | str = b"", symlink_to: str | None = None) -> None:
+    def make_file(self, path: str, content: bytes | str = b"", symlink_to: str | None = None,
+                  uid: int = 1000, mode: int = 0o644) -> None:
         path = self.normalize(path)
         parent = path.rsplit("/", 1)[0] or "/"
         if parent not in self.inodes:
@@ -152,7 +221,7 @@ class Kernel:
             self._add(path, Inode("symlink", target=symlink_to, mode=0o777))
         else:
             data = content.encode() if isinstance(content, str) else bytes(content)
-            self._add(path, Inode("file", bytearray(data)))
+            self._add(path, Inode("file", bytearray(data), mode=mode, uid=uid))
 
     def make_dir(self, path: str) -> None:
         path = self.normalize(path)
@@ -202,10 +271,13 @@ class Kernel:
     # ---- snapshots (for stepping backwards) -------------------------------------------------
 
     def snapshot(self) -> dict:
-        return copy.deepcopy({k: v for k, v in self.__dict__.items() if k != "stdin"})
+        return copy.deepcopy({k: v for k, v in self.__dict__.items()
+                              if k not in ("stdin", "machines")})
 
     def restore(self, snap: dict) -> None:
         self.__dict__.update(copy.deepcopy(snap))
+        for pid, m in self.machines.items():    # the machines keep using the restored Procs
+            m.proc = self.procs.get(pid, m.proc)
 
     # ---- helpers ------------------------------------------------------------------------------
 
@@ -261,6 +333,31 @@ class Kernel:
             return handler(m, *args)
         except OSError as e:
             return -(e.args[0] if e.args and isinstance(e.args[0], int) else EINVAL)
+        except Block:
+            self.calls[name] -= 1     # it will be called again
+            raise
+
+    def after_syscall(self, name: str) -> None:
+        """Another process (the 'attacker' of a race level) changes the filesystem right
+        after the current process's nth call of `name`."""
+        for ev in list(self.fs_events):
+            if ev["after"] == name and ev.get("nth", 1) == self.calls.get(name, 0) \
+                    and self.proc.pid == FIRST_PID:
+                self.fs_events.remove(ev)
+                self.fs_event(ev)
+
+    def fs_event(self, ev: dict) -> None:
+        if "symlink" in ev:            # replace a path with a symlink: [path, target]
+            path, target = ev["symlink"]
+            self.inodes.pop(self.normalize(path), None)
+            self.make_file(path, symlink_to=target)
+        if "write" in ev:              # replace a path with a regular file: [path, text]
+            path, text = ev["write"]
+            self.inodes.pop(self.normalize(path), None)
+            self.make_file(path, text)
+        if "unlink" in ev:
+            self.inodes.pop(self.normalize(ev["unlink"]), None)
+        self.events.append(f"another process: {ev.get('describe', ev)}")
 
     # ---- file descriptors -------------------------------------------------------------------------
 
@@ -270,12 +367,20 @@ class Kernel:
             return -EBADF
         if f.kind == "dir":
             return -EISDIR
-        if f.kind == "stdin":
+        if f.kind == "pipe":
+            buf_ = self.pipes[f.pipe]
+            if not buf_:
+                if not self._pipe_has(f.pipe, writable=True):
+                    return 0                                   # every write end is closed: EOF
+                raise Block(f"read from an empty pipe (fd {fd})")
+            data = bytes(buf_[:self._chunk(min(count, len(buf_)), self.inject.short_reads)])
+            del buf_[:len(data)]
+        elif f.kind == "stdin":
             data = self.stdin[self.stdin_pos:self.stdin_pos + count]
             data = data[:self._chunk(len(data), self.inject.short_reads)]
             self.stdin_pos += len(data)
         else:
-            node = self.inodes.get(f.path)
+            node = f.node
             data = bytes(node.data[f.pos:f.pos + count]) if node else b""
             data = data[:self._chunk(len(data), self.inject.short_reads)]
             f.pos += len(data)
@@ -292,6 +397,14 @@ class Kernel:
         n = m.readable_prefix(buf, count)
         if count and (buf + count > m.USER_LIMIT or n == 0):
             return -EFAULT
+        if f.kind == "pipe":
+            if not self._pipe_has(f.pipe, writable=False):
+                self.raise_signal(SIGPIPE)
+                return -EPIPE
+            room = PIPE_CAPACITY - len(self.pipes[f.pipe])
+            if room == 0 and n:
+                raise Block(f"write to a full pipe (fd {fd})")
+            n = min(n, room)
         n = self._chunk(n, self.inject.short_writes)
         data = m.read(buf, n)  # like Linux: up to the first unreadable byte
         self.writes.append((self.time_ns, fd, n))
@@ -299,8 +412,10 @@ class Kernel:
             self.stdout += data
         elif f.kind == "stderr":
             self.stderr += data
+        elif f.kind == "pipe":
+            self.pipes[f.pipe] += data
         else:
-            node = self.inodes[f.path]
+            node = f.node
             if f.append:
                 f.pos = len(node.data)
             if f.pos > len(node.data):
@@ -340,16 +455,23 @@ class Kernel:
         if node.kind == "dir":
             if acc != O_RDONLY:
                 return -EISDIR
-            return self._new_fd(OpenFile("dir", full, readable=True))
+            fd = self._new_fd(OpenFile("dir", full, readable=True, node=node))
+            if flags & O_CLOEXEC:
+                self.cloexec.add(fd)
+            return fd
         if flags & O_DIRECTORY:
             return -ENOTDIR
         if flags & O_TRUNC and acc != O_RDONLY:
             node.data.clear()
-        return self._new_fd(OpenFile("file", full, readable=acc in (O_RDONLY, O_RDWR),
-                                     writable=acc in (O_WRONLY, O_RDWR),
-                                     append=bool(flags & O_APPEND)))
+        fd = self._new_fd(OpenFile("file", full, readable=acc in (O_RDONLY, O_RDWR),
+                                   writable=acc in (O_WRONLY, O_RDWR),
+                                   append=bool(flags & O_APPEND), node=node))
+        if flags & O_CLOEXEC:
+            self.cloexec.add(fd)
+        return fd
 
     def sys_close(self, m, fd, *_):
+        self.cloexec.discard(fd)
         return 0 if self.fds.pop(fd, None) is not None else -EBADF
 
     def sys_lseek(self, m, fd, offset, whence, *_):
@@ -359,7 +481,7 @@ class Kernel:
         if f.kind != "file":
             return -ESPIPE
         offset = offset - (1 << 64) if offset >> 63 else offset
-        size = len(self.inodes[f.path].data)
+        size = len(f.node.data)
         base = {0: 0, 1: f.pos, 2: size}.get(whence)
         if base is None or base + offset < 0:
             return -EINVAL
@@ -367,14 +489,17 @@ class Kernel:
         return f.pos
 
     def _stat_bytes(self, node: Inode | None, kind: str) -> bytes:
-        if node is None:  # a terminal
+        uid = 1000
+        if kind == "pipe":
+            mode, size, ino = S_IFIFO | 0o600, 0, 2
+        elif node is None:  # a terminal
             mode, size, ino = S_IFCHR | 0o620, 0, 3
         else:
             mode = {"file": S_IFREG, "dir": S_IFDIR, "symlink": S_IFLNK}[node.kind] | node.mode
             size = len(node.target) if node.kind == "symlink" else len(node.data)
-            ino = node.ino
+            ino, uid = node.ino, node.uid
         st = bytearray(144)
-        struct.pack_into("<QQQIII", st, 0, 0x803, ino, 1, mode, 1000, 1000)
+        struct.pack_into("<QQQIII", st, 0, 0x803, ino, 1, mode, uid, uid)
         struct.pack_into("<qqq", st, 48, size, 4096, (size + 511) // 512)
         for off in (72, 88, 104):
             struct.pack_into("<qq", st, off, self.time_ns // 10**9, 0)
@@ -384,7 +509,7 @@ class Kernel:
         f = self.fds.get(fd)
         if f is None:
             return -EBADF
-        node = self.inodes.get(f.path) if f.kind in ("file", "dir") else None
+        node = f.node if f.kind in ("file", "dir") else None
         m.kernel_write(statbuf, self._stat_bytes(node, f.kind))
         return 0
 
@@ -468,7 +593,7 @@ class Kernel:
             f = self.fds.get(fd)
             if f is None or f.kind != "file":
                 return -EBADF
-            data = bytes(self.inodes[f.path].data[offset:offset + length])
+            data = bytes(f.node.data[offset:offset + length])
         if flags & MAP_FIXED:
             start = addr
         else:
@@ -495,16 +620,16 @@ class Kernel:
     # ---- misc ---------------------------------------------------------------------------------
 
     def sys_getpid(self, m, *_):
-        return 1000
+        return self.proc.pid
 
     def sys_getppid(self, m, *_):
-        return 999
+        return self.proc.ppid
 
     def sys_getuid(self, m, *_):
         return 1000
 
     def sys_gettid(self, m, *_):
-        return 1000
+        return self.proc.pid
 
     def sys_clock_gettime(self, m, clock, tp, *_):
         self.time_ns += 1000                         # time moves forward a little per call
@@ -560,24 +685,43 @@ class Kernel:
         return 0
 
     def sys_kill(self, m, pid, sig, *_):
-        if pid not in (1000, 0) and pid != MASK64:
-            return -3  # ESRCH: there is only this process
+        if pid in (0, MASK64):
+            pid = self.proc.pid
+        target = self.procs.get(pid)
+        if target is None or target.status is not None:
+            return -ESRCH
+        if not 0 <= sig <= 64:
+            return -EINVAL
         if sig:
-            self.raise_signal(sig)
+            self.signal_proc(target, sig)
         return 0
 
     def sys_tgkill(self, m, tgid, tid, sig, *_):
         return self.sys_kill(m, tgid, sig)
 
     def raise_signal(self, sig: int) -> None:
-        if sig not in self.pending:
-            self.pending.append(sig)
+        self.signal_proc(self.proc, sig)
+
+    def signal_proc(self, proc: Proc, sig: int) -> None:
+        if sig not in proc.pending:
+            proc.pending.append(sig)
 
     def next_deliverable(self) -> int | None:
         for sig in self.pending:
             if not self.blocked >> (sig - 1) & 1 or sig == SIGKILL:
                 self.pending.remove(sig)
                 return sig
+        return None
+
+    def deliverable_pending(self) -> int | None:
+        """A pending, unblocked signal that isn't ignored (it interrupts a blocking call)."""
+        for sig in list(self.pending):
+            if self.blocked >> (sig - 1) & 1 and sig != SIGKILL:
+                continue
+            if self.disposition(sig) == "ignore":
+                self.pending.remove(sig)
+                continue
+            return sig
         return None
 
     def disposition(self, sig: int) -> str:
@@ -625,3 +769,275 @@ class Kernel:
             if start - 16 <= addr < start + b["size"] + 16:
                 return start, b
         return None
+
+    # ---- pipes and descriptors ------------------------------------------------------------------
+
+    def _pipe_has(self, pipe: int, writable: bool) -> bool:
+        """Does any live process still hold this pipe's write (or read) end?"""
+        for p in self.procs.values():
+            if p.status is None:
+                for f in p.fds.values():
+                    if f.kind == "pipe" and f.pipe == pipe and (f.writable if writable else f.readable):
+                        return True
+        return False
+
+    def sys_pipe(self, m, fds_addr, *_):
+        return self.sys_pipe2(m, fds_addr, 0)
+
+    def sys_pipe2(self, m, fds_addr, flags, *_):
+        if flags & ~O_CLOEXEC:
+            return -EINVAL
+        if not m.writable(fds_addr, 8):
+            return -EFAULT
+        n = len(self.pipes) + 1
+        self.pipes[n] = bytearray()
+        r = self._new_fd(OpenFile("pipe", f"pipe:[{n}]", readable=True, pipe=n))
+        try:
+            w = self._new_fd(OpenFile("pipe", f"pipe:[{n}]", writable=True, pipe=n))
+        except OSError:
+            del self.fds[r]
+            raise
+        if flags & O_CLOEXEC:
+            self.cloexec |= {r, w}
+        m.kernel_write(fds_addr, struct.pack("<ii", r, w))
+        return 0
+
+    def sys_dup(self, m, fd, *_):
+        if fd not in self.fds:
+            return -EBADF
+        return self._new_fd(self.fds[fd])
+
+    def sys_dup2(self, m, old, new, *_):
+        if old not in self.fds:
+            return -EBADF
+        if new >= 64:
+            return -EBADF
+        if old != new:
+            self.fds[new] = self.fds[old]
+            self.cloexec.discard(new)
+        return new
+
+    def sys_dup3(self, m, old, new, flags, *_):
+        if old == new or flags & ~O_CLOEXEC:
+            return -EINVAL
+        r = self.sys_dup2(m, old, new)
+        if r >= 0 and flags & O_CLOEXEC:
+            self.cloexec.add(new)
+        return r
+
+    def sys_fcntl(self, m, fd, cmd, arg, *_):
+        F_DUPFD, F_GETFD, F_SETFD, F_GETFL, F_DUPFD_CLOEXEC = 0, 1, 2, 3, 1030
+        f = self.fds.get(fd)
+        if f is None:
+            return -EBADF
+        if cmd in (F_DUPFD, F_DUPFD_CLOEXEC):
+            new = arg
+            while new in self.fds:
+                new += 1
+            if new >= 64:
+                return -EMFILE
+            self.fds[new] = f
+            if cmd == F_DUPFD_CLOEXEC:
+                self.cloexec.add(new)
+            return new
+        if cmd == F_GETFD:
+            return int(fd in self.cloexec)
+        if cmd == F_SETFD:
+            (self.cloexec.add if arg & 1 else self.cloexec.discard)(fd)
+            return 0
+        if cmd == F_GETFL:
+            return (O_RDWR if f.readable and f.writable else O_WRONLY if f.writable else O_RDONLY) \
+                | (O_APPEND if f.append else 0)
+        return -EINVAL
+
+    # ---- processes --------------------------------------------------------------------------------
+
+    def sys_fork(self, m, *_):
+        child = self.new_proc(self.proc.pid)
+        for name in PER_PROCESS:
+            setattr(child, name, copy.deepcopy(getattr(self.proc, name)))
+        child.fds = dict(self.proc.fds)          # the open files themselves are shared
+        child.pending = []
+        child.command = self.proc.command
+        m.fork(child)
+        self.events.append(f"pid {self.proc.pid} forked pid {child.pid}")
+        return child.pid
+
+    def sys_vfork(self, m, *_):
+        return self.sys_fork(m)
+
+    def sys_clone(self, m, flags, stack, *_):
+        CLONE_VM, CLONE_THREAD = 0x100, 0x10000
+        if flags & (CLONE_VM | CLONE_THREAD) or stack:
+            return -ENOSYS          # threads come later in the game
+        return self.sys_fork(m)
+
+    def _strings(self, m, addr: int) -> list[str]:
+        out = []
+        while addr:
+            if not m.readable(addr + 8 * len(out), 8):
+                raise OSError(EFAULT)
+            ptr = struct.unpack("<Q", m.read(addr + 8 * len(out), 8))[0]
+            if ptr == 0:
+                return out
+            out.append(self._cstring(m, ptr))
+            if len(out) > 256:
+                raise OSError(E2BIG)
+        return out
+
+    def sys_execve(self, m, path_addr, argv_addr, envp_addr, *_):
+        path = self._cstring(m, path_addr)
+        argv, env = self._strings(m, argv_addr), self._strings(m, envp_addr)
+        try:
+            full, node = self.resolve(path)
+        except OSError as e:
+            return -e.args[0]
+        if node is None:
+            return -ENOENT
+        if node.kind == "dir":
+            return -EACCES
+        if not node.mode & 0o111:
+            return -EACCES
+        if bytes(node.data[:4]) != b"\x7fELF":
+            return -ENOEXEC
+        for fd in sorted(self.cloexec):
+            self.fds.pop(fd, None)
+        self.cloexec = set()
+        self.actions = {s: a for s, a in self.actions.items() if a[0] == SIG_IGN}
+        self.mmaps, self.mmap_next, self.blocks = {}, MMAP_BASE, {}
+        self.checked_next = CHECKED_HEAP
+        self.proc.command = full
+        self.events.append(f"pid {self.proc.pid} executed {full} {argv[1:]}")
+        raise Exec(bytes(node.data), full, argv, env)
+
+    def process_exit(self, proc: Proc, status: int) -> None:
+        """A process terminated with a wait status: (code << 8) for exit(code), or the
+        signal number when killed. Its files close; its parent gets SIGCHLD."""
+        proc.status = status
+        proc.fds = {}
+        proc.cloexec = set()
+        for p in self.procs.values():   # orphans are adopted (by "init", which reaps them)
+            if p.ppid == proc.pid:
+                p.ppid = 1
+        parent = self.procs.get(proc.ppid)
+        if parent is not None and parent.status is None:
+            self.signal_proc(parent, SIGCHLD)
+        else:
+            self.procs.pop(proc.pid, None)  # nobody will wait for it
+
+    def sys_wait4(self, m, pid, status_addr, options, rusage, *_):
+        WNOHANG = 1
+        pid = pid - (1 << 64) if pid >> 63 else pid
+        kids = [p for p in self.procs.values() if p.ppid == self.proc.pid
+                and (pid == -1 or p.pid == pid)]
+        if not kids:
+            return -ECHILD
+        for k in kids:
+            if k.status is not None:
+                if status_addr:
+                    if not m.writable(status_addr, 4):
+                        return -EFAULT
+                    m.kernel_write(status_addr, struct.pack("<i", k.status))
+                del self.procs[k.pid]
+                return k.pid
+        if options & WNOHANG:
+            return 0
+        raise Block(f"wait4 for {'any child' if pid == -1 else f'pid {pid}'}")
+
+    def sys_sched_yield(self, m, *_):
+        m.yield_cpu()
+        return 0
+
+    # ---- more filesystem --------------------------------------------------------------------------
+
+    def sys_access(self, m, path_addr, mode, *_):
+        """Checks with the REAL user's rights (uid 1000), unlike open() in a privileged program."""
+        try:
+            _, node = self.resolve(self._cstring(m, path_addr))
+        except OSError as e:
+            return -e.args[0]
+        if node is None:
+            return -ENOENT
+        if mode and node.uid != 1000 and not node.mode & 0o004:
+            return -EACCES
+        return 0
+
+    def sys_readlink(self, m, path_addr, buf, size, *_):
+        node = self.inodes.get(self.normalize(self._cstring(m, path_addr)))
+        if node is None:
+            return -ENOENT
+        if node.kind != "symlink":
+            return -EINVAL
+        data = node.target.encode()[:size]
+        m.kernel_write(buf, data)
+        return len(data)
+
+    def sys_symlink(self, m, target_addr, path_addr, *_):
+        target, path = self._cstring(m, target_addr), self.normalize(self._cstring(m, path_addr))
+        if path in self.inodes:
+            return -EEXIST
+        self.make_file(path, symlink_to=target)
+        return 0
+
+    def sys_rename(self, m, old_addr, new_addr, *_):
+        old, new = self.normalize(self._cstring(m, old_addr)), self.normalize(self._cstring(m, new_addr))
+        node = self.inodes.get(old)
+        if node is None:
+            return -ENOENT
+        if node.kind == "dir":
+            return -EXDEV            # keep directory renames out of the model
+        self.inodes[new] = self.inodes.pop(old)
+        return 0
+
+    def sys_rmdir(self, m, path_addr, *_):
+        path = self.normalize(self._cstring(m, path_addr))
+        node = self.inodes.get(path)
+        if node is None:
+            return -ENOENT
+        if node.kind != "dir":
+            return -ENOTDIR
+        if self._children(path):
+            return -ENOTEMPTY
+        del self.inodes[path]
+        return 0
+
+    def _children(self, path: str) -> list[str]:
+        prefix = path.rstrip("/") + "/"
+        return sorted(p[len(prefix):] for p in self.inodes
+                      if p.startswith(prefix) and "/" not in p[len(prefix):] and p != path)
+
+    def sys_getdents64(self, m, fd, buf, count, *_):
+        f = self.fds.get(fd)
+        if f is None:
+            return -EBADF
+        if f.kind != "dir":
+            return -ENOTDIR
+        names = [".", ".."] + self._children(f.path)
+        out = bytearray()
+        DT = {"dir": 4, "file": 8, "symlink": 10}
+        while f.pos < len(names):
+            name = names[f.pos]
+            node = self.inodes.get(self.normalize(name, f.path))
+            ino = node.ino if node else 1
+            reclen = (19 + len(name.encode()) + 1 + 7) & ~7
+            if len(out) + reclen > count:
+                if not out:
+                    return -EINVAL
+                break
+            rec = struct.pack("<QqHB", ino, f.pos + 1, reclen, DT.get(node.kind if node else "dir", 0))
+            out += rec + name.encode() + bytes(reclen - len(rec) - len(name.encode()))
+            f.pos += 1
+        if out:
+            if not m.writable(buf, len(out)):
+                return -EFAULT
+            m.kernel_write(buf, bytes(out))
+        return len(out)
+
+
+def _per_process(name: str) -> property:
+    return property(lambda self: getattr(self.proc, name),
+                    lambda self, value: setattr(self.proc, name, value))
+
+
+for _name in PER_PROCESS:
+    setattr(Kernel, _name, _per_process(_name))

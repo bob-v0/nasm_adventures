@@ -14,7 +14,7 @@ from unicorn import x86_const as X
 
 from .build import Build
 from . import kernel as K
-from .kernel import ERRNO_NAMES, NAMES as SYSCALL_NAMES, SIGNAL_NAMES, Exit, Kernel
+from .kernel import ERRNO_NAMES, NAMES as SYSCALL_NAMES, SIGNAL_NAMES, Block, Exec, Exit, Kernel
 
 PAGE = 0x1000
 STACK_TOP = 0x7FFFFFFFF000
@@ -36,6 +36,19 @@ UCONTEXT_SIZE, SIGINFO_SIZE = 304, 128
 SIGCONTEXT_REGS = ["r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rdi", "rsi", "rbp",
                    "rbx", "rdx", "rax", "rcx", "rsp", "rip", "rflags"]
 AT_PAGESZ, AT_RANDOM, AT_NULL = 6, 25, 0
+
+
+@dataclass
+class Image:
+    """A program started by execve (not the player's build): what Machine needs of a Build."""
+    elf_bytes: bytes
+    path: str
+    entry: int = 0
+    mode: str = "program"
+    done_addr: int | None = None
+    addr_to_line: dict = field(default_factory=dict)
+    code_range: tuple[int, int] = (0, 0)
+    symbols: dict = field(default_factory=dict)
 
 
 def align_down(x: int) -> int:
@@ -81,17 +94,27 @@ class _Frame:
 
 
 class Machine:
-    """States: ready -> (running) -> done | exited | fault | limit."""
+    """One process. States: ready -> (running) -> done | exited | fault | limit | killed;
+    "blocked" while it waits in a syscall for another process.
+
+    The machine the game creates is the first process; fork() makes more, and run()
+    then schedules them all, round-robin, `quantum` instructions at a time, until the
+    first process ends. Everything is deterministic."""
 
     USER_LIMIT = USER_LIMIT
 
     def __init__(self, build: Build, stdin: bytes = b"", record: bool = False,
                  kernel: Kernel | None = None, argv: list[str] | None = None,
-                 env: dict[str, str] | None = None):
+                 env: dict[str, str] | list[str] | None = None, _proc=None):
         self.build = build
         self.kernel = kernel or Kernel(stdin)
+        self.proc = _proc or self.kernel.proc
+        self.kernel.machines[self.proc.pid] = self
         self.argv = argv or ["./solution"]
         self.env = env or {}
+        self.proc.command = self.proc.command or self.argv[0]
+        self.blocked_on = ""
+        self._yield = False
         self.syscalls: list[SyscallRecord] = []
         self.term_signal: int | None = None      # set when killed by a signal
         self.trace: list[int] | None = None      # addresses executed, when enabled
@@ -105,20 +128,27 @@ class Machine:
         self.record = record
         self.history: list[_Frame] = []
         self._frame: _Frame | None = None
+        if _proc is None:
+            self._new_cpu()
+            self._load()
+
+    def _new_cpu(self) -> None:
         self.uc = Uc(UC_ARCH_X86, UC_MODE_64)
-        self._load()
         self.uc.hook_add(UC_HOOK_INSN, self._on_syscall, None, 1, 0, X.UC_X86_INS_SYSCALL)
         self.uc.hook_add(UC_HOOK_CODE, self._count)
         self.uc.hook_add(UC_HOOK_MEM_INVALID, self._on_invalid)
-        if record:
+        if self.record:
             self.uc.hook_add(UC_HOOK_MEM_WRITE, self._on_write)
+        self._checked_mapped = 0
 
     # ---- loading -------------------------------------------------------------------
 
     def _load(self) -> None:
         perms: dict[int, int] = {}
         blobs: list[tuple[int, bytes]] = []
-        with open(self.build.elf, "rb") as fh:
+        import io
+        data = getattr(self.build, "elf_bytes", None)
+        with (io.BytesIO(data) if data is not None else open(self.build.elf, "rb")) as fh:
             elf = ELFFile(fh)
             for seg in elf.iter_segments():
                 if seg["p_type"] != "PT_LOAD":
@@ -165,7 +195,8 @@ class Machine:
             self.uc.mem_write(pos, data)
             return pos
         rand = put(bytes(range(16)))                      # AT_RANDOM points at 16 bytes
-        env_ptrs = [put(f"{k}={v}".encode() + b"\0") for k, v in self.env.items()]
+        env = self.env if isinstance(self.env, list) else [f"{k}={v}" for k, v in self.env.items()]
+        env_ptrs = [put(e.encode() + b"\0") for e in env]
         arg_ptrs = [put(a.encode() + b"\0") for a in self.argv]
         words = [len(self.argv), *arg_ptrs, 0, *env_ptrs, 0,
                  AT_PAGESZ, PAGE, AT_RANDOM, rand, AT_NULL, 0]
@@ -300,7 +331,14 @@ class Machine:
             self.syscalls.append(SyscallRecord(nr, args[:1], None))
             self.exit_code = e.status
             self.state = "exited"
-            self.set_reg("rip", rip + 2)
+            uc.emu_stop()
+            return
+        except Block as b:
+            self._on_block(rip, b.why)
+            return
+        except Exec as e:
+            self.syscalls.append(SyscallRecord(nr, args[:3], 0, step=self.steps))
+            self._exec(e)
             uc.emu_stop()
             return
         self.syscalls.append(SyscallRecord(nr, args[:3], result & MASK64, step=self.steps))
@@ -308,10 +346,95 @@ class Machine:
         self.set_reg("rax", result)
         self.set_reg("rcx", rip + 2)
         self.set_reg("r11", self.reg("rflags"))
+        self.kernel.after_syscall(SYSCALL_NAMES.get(nr, ""))
+        # (Unicorn moves rip past the `syscall` when the hook returns, even after a stop.)
         if self.kernel.pending and self.state == "running":
-            self.set_reg("rip", rip + 2)            # deliver right after this syscall
-            self._redirect = "deliver"
+            self._redirect = "deliver"              # deliver right after this syscall
             uc.emu_stop()
+        elif self._yield:
+            uc.emu_stop()
+
+    def _on_block(self, rip: int, why: str) -> None:
+        """The syscall must wait. A signal that would be delivered interrupts it
+        (EINTR, or a restart after the handler with SA_RESTART); otherwise the process
+        is parked on the `syscall` instruction, which runs again when it's scheduled."""
+        sig = self.kernel.deliverable_pending()
+        restart = sig is not None and (self.kernel.disposition(sig) == "kill" or
+                                       self.kernel.actions[sig][1] & K.SA_RESTART)
+        if sig is not None and not restart:
+            self.syscalls.append(SyscallRecord(self.reg("rax"), (), -K.EINTR & MASK64,
+                                               step=self.steps))
+            self.set_reg("rax", -K.EINTR)
+            self.set_reg("rcx", rip + 2)
+            self.set_reg("r11", self.reg("rflags"))
+            self._redirect = "deliver"
+        else:
+            self.set_reg("rip", rip - 2)           # run the syscall again later (Unicorn adds 2)
+            self.steps -= 1                        # ...and don't count it twice
+            if sig is not None:
+                self._redirect = "deliver"
+            else:
+                self.state = "blocked"
+                self.blocked_on = why
+        self.uc.emu_stop()
+
+    def yield_cpu(self) -> None:
+        self._yield = True
+
+    # ---- processes ------------------------------------------------------------------
+
+    def fork(self, child_proc) -> "Machine":
+        """A copy of this process: same memory and registers; fork returns 0 in it."""
+        child = Machine(self.build, kernel=self.kernel, argv=self.argv, env=self.env,
+                        _proc=child_proc)
+        child._new_cpu()
+        for start, last, prot in self.uc.mem_regions():
+            size = last + 1 - start
+            child.uc.mem_map(start, size, UC_PROT_READ | UC_PROT_WRITE)
+            child.uc.mem_write(start, bytes(self.uc.mem_read(start, size)))
+            child.uc.mem_protect(start, size, prot)
+        for name in REGS:
+            child.set_reg(name, self.reg(name))
+        for r in [X.UC_X86_REG_FS_BASE] + [getattr(X, f"UC_X86_REG_XMM{i}") for i in range(16)]:
+            child.uc.reg_write(r, self.uc.reg_read(r))
+        child.set_reg("rip", self.pc + 2)
+        child.set_reg("rax", 0)
+        child.set_reg("rcx", self.pc + 2)
+        child.set_reg("r11", self.reg("rflags"))
+        child._checked_mapped = self._checked_mapped
+        if self._checked_mapped:
+            child.uc.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, child._on_heap_access, None,
+                              K.CHECKED_HEAP, K.CHECKED_HEAP + (1 << 28))
+        child.steps = 0
+        child.state = "ready"
+        self._yield = True              # let the scheduler decide who runs next
+        self._end_history("fork")
+        return child
+
+    def _exec(self, e: Exec) -> None:
+        """Replace this process's memory with a new program (execve succeeded)."""
+        import io
+        with io.BytesIO(e.image) as fh:
+            entry = ELFFile(fh).header["e_entry"]
+        self.build = Image(e.image, e.path, entry=entry)
+        self.argv, self.env = e.argv, e.env
+        self._end_history("execve")
+        self._new_cpu()
+        self._load()
+
+    def _end_history(self, why: str) -> None:
+        if self.record:
+            self.record = False
+            self.history.clear()
+            self._frame = None
+            self.syscalls.append(SyscallRecord(-1, (), None,
+                                               f"--- {why}: stepping backwards stops here ---"))
+
+    def wait_status(self) -> int:
+        """How this process ended, as wait4 reports it."""
+        if self.state == "exited":
+            return (self.exit_code & 0xFF) << 8
+        return self.term_signal or 11
 
     def _on_write(self, uc: Uc, _access, addr: int, size: int, _value, _user) -> None:
         if self._frame is not None:
@@ -329,10 +452,14 @@ class Machine:
         return False
 
     def _next_injected(self) -> int | None:
+        if self.proc.pid != K.FIRST_PID:
+            return None
         due = [s["at"] for s in self.kernel.inject.signals if s["at"] > self.steps]
         return min(due) if due else None
 
     def _raise_injected(self) -> None:
+        if self.proc.pid != K.FIRST_PID:
+            return
         for s in self.kernel.inject.signals:
             if s["at"] == self.steps:
                 self.kernel.raise_signal(s["sig"])
@@ -355,36 +482,98 @@ class Machine:
         except UcError as e:
             self._fault(e)
 
-    def run(self, max_steps: int = 1_000_000) -> str:
-        """Run to completion (or until max_steps), without recording history."""
-        if self.finished:
-            return self.state
-        self.state = "running"
+    def _advance(self, budget: int) -> None:
+        """Run this process for up to `budget` instructions; stop early when it ends,
+        blocks, or yields (after fork, sched_yield)."""
         done = self.build.done_addr
-        limit = self.steps + max_steps
-        while self.state == "running":
+        end = self.steps + budget
+        self._yield = False
+        while self.state == "running" and self.steps < end and not self._yield:
             nxt = self._next_injected()
-            count = min(limit, nxt if nxt is not None else limit) - self.steps
-            if count <= 0:
-                self._between_slices()
-                if self.steps >= limit and self.state == "running":
-                    self.state = "limit"
-                continue
+            count = min(end, nxt if nxt is not None else end) - self.steps
             self._slice(done or 0, count)
             if self.state != "running":
                 break
-            stopped_for_kernel = self._redirect is not None
+            stopped_for_kernel = self._redirect is not None or self._yield
             self._between_slices()
-            if self.state != "running":
-                break
-            if not stopped_for_kernel and done is not None and self.pc == done:
+            if self.state == "running" and not stopped_for_kernel and done is not None \
+                    and self.pc == done:
                 self.state = "done"
-            elif self.steps >= limit:
-                self.state = "limit"
+        self._yield = False
+
+    def _activate(self) -> None:
+        self.kernel.proc = self.proc
+
+    def run(self, max_steps: int = 1_000_000) -> str:
+        """Run to completion (or until max_steps instructions in all processes),
+        without recording history."""
+        if self.finished:
+            return self.state
+        if self.state == "blocked":
+            self.state = "running"
+        self._schedule(max_steps, until=lambda: self.finished)
         return self.state
 
+    def _schedule(self, max_steps: int, until) -> None:
+        """Round-robin over all live processes until `until()` holds."""
+        used, turn = 0, 0
+        while not until():
+            live = [m for m in self.kernel.machines.values() if not m.finished]
+            n = turn % len(live)
+            progress, used = self._round(live[n:] + live[:n], max_steps, used, until)
+            turn += 1
+            if self.state == "ready":
+                self.state = "running"
+            if used >= max_steps and not until():
+                self.state, self.fault = "limit", None
+                return
+            if not progress and not until():
+                self._deadlock()
+                return
+        self._activate()
+
+    def _round(self, machines: list["Machine"], max_steps: int, used: int,
+               until=lambda: False) -> tuple[bool, int]:
+        """Give each process one turn. Returns (did anyone make progress, steps used)."""
+        k = self.kernel
+        progress = False
+        for m in machines:
+            if until() or m.finished or used >= max_steps:
+                continue
+            before, was_blocked, pc_before = m.steps, m.state == "blocked", m.pc
+            m.state = "running"
+            m._activate()
+            alone = len(k.machines) == 1
+            m._advance(max_steps - used if alone else min(max_steps - used, k.inject.quantum))
+            used += m.steps - before
+            if m.state == "running":
+                m.state = "ready"
+            if not (was_blocked and m.state == "blocked" and m.steps == before
+                    and m.pc == pc_before):
+                progress = True
+            if m.finished and m is not self:
+                k.process_exit(m.proc, m.wait_status())
+                del k.machines[m.proc.pid]
+        return progress, used
+
+    def _deadlock(self) -> None:
+        blocked = [m for m in self.kernel.machines.values() if m.state == "blocked"]
+        waiting = [f"pid {m.proc.pid}" + (f" ({m.proc.command})" if m.proc.command else "")
+                   + f": {m.blocked_on}" for m in blocked]
+        why = []
+        if any("empty pipe" in m.blocked_on for m in blocked):
+            why.append("A pipe read waits while ANY write end is still open, including copies "
+                       "inherited through fork: close the ends you don't use.")
+        if any("full pipe" in m.blocked_on for m in blocked):
+            why.append("A pipe write waits for room while ANY read end is still open, even if "
+                       "nobody will read it again; with no read end left it gets SIGPIPE.")
+        self.state = "fault"
+        self.fault = ("deadlock: every process is waiting for another one, forever ("
+                      + "; ".join(waiting) + ")." + "".join(" " + w for w in why))
+
     def step(self) -> bool:
-        """Execute one instruction. Returns False if the machine had already finished."""
+        """Execute one instruction. Returns False if the machine had already finished.
+        (Other processes run only while this one waits for them.)"""
         if self.finished:
             return False
         if self.record:
@@ -394,8 +583,23 @@ class Machine:
             self._frame = _Frame(self.uc.context_save(), [], [],
                                  k.snapshot() if snap else None,
                                  len(self.syscalls), self.state, self.exit_code)
-        self.state = "running"
-        self._slice(0, 1)
+        used = 0
+        while True:
+            self.state = "running"
+            self._activate()
+            self._slice(0, 1)
+            if self.state != "blocked":
+                break
+            # Let the others run until this one can go on (or nobody can).
+            others = [m for m in self.kernel.machines.values() if m is not self and not m.finished]
+            progress, used = self._round(others, 1_000_000, used)
+            if not progress:
+                self._deadlock()
+                break
+            if used >= 1_000_000:
+                self.state = "limit"
+                break
+        self._activate()
         if self.state == "running":
             self._between_slices()
         if self.state == "running":

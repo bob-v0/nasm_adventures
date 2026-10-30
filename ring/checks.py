@@ -15,6 +15,7 @@ from elftools.elf.elffile import ELFFile
 from .build import Build
 from .emu import FLAG_BITS, GPRS, Machine
 from .kernel import Injection, Kernel
+from .userland import install_userland
 from .level import Context, Level, TestCase, encode_mem, to_int
 
 DEFAULT_MAX_STEPS = 1_000_000
@@ -86,6 +87,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
                     poison: bool = False) -> Machine:
     kernel = Kernel(test.stdin, files=test.files,
                     inject=Injection.from_dict(test.inject, seed=test.name))
+    if test.userland:
+        install_userland(kernel)
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
     if poison:
         # Real callers leave junk behind: registers the test doesn't set, and the
@@ -189,7 +192,39 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
         return run_native_test(level, build, test), None
     if "signal_sweep" in test.inject:
         return _signal_sweep(level, build, test)
+    if "fs_sweep" in test.inject:
+        return _fs_sweep(level, build, test)
     return _run_one(level, build, test)
+
+
+def _fs_sweep(level: Level, build: Build, test: TestCase):
+    """Another process changes the filesystem (the kernel's fs_event): run once without
+    it, then once per syscall the program made, with the change right after that call.
+    The first point where the program goes wrong is reported."""
+    from .kernel import NAMES
+    event = test.inject["fs_sweep"]
+    base = TestCase(**{**test.__dict__, "inject": {k: v for k, v in test.inject.items()
+                                                   if k != "fs_sweep"}})
+    result, m = _run_one(level, build, base)
+    if not result.passed:
+        result.problems.insert(0, "(with no other process interfering)")
+        return result, m
+    seen: dict[str, int] = {}
+    points = []
+    for rec in m.syscalls:
+        name = NAMES.get(rec.number)
+        if name and name not in ("exit", "exit_group", "rt_sigreturn"):
+            seen[name] = seen.get(name, 0) + 1
+            points.append((name, seen[name]))
+    for name, nth in points[:200]:
+        t = TestCase(**{**base.__dict__, "inject": {
+            **base.inject, "fs_events": [{**event, "after": name, "nth": nth}]}})
+        r, mm = _run_one(level, build, t)
+        if not r.passed:
+            r.problems.insert(0, f"when another process strikes right after your call #{nth} "
+                                 f"of {name}:")
+            return r, mm
+    return TestResult(test.name, test.hidden, True, [], m.steps), m
 
 
 def _signal_sweep(level: Level, build: Build, test: TestCase):
