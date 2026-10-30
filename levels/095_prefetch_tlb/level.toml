@@ -1,0 +1,21 @@
+level = 95
+slug = "prefetch_tlb"
+title = "Prefetch & TLB"
+arc = "VII"
+mode = "function"
+entry = "ring_sum_lists"
+perf = true
+concepts = ["pointer chasing: each address depends on the last load", "memory-level parallelism: many misses in flight", "interleaving independent work", "the TLB: address translations are cached too", "huge pages", "software prefetch and when it helps"]
+introduces = ["memory-level parallelism", "TLB", "huge pages", "madvise (28)", "MADV_HUGEPAGE", "prefetcht0"]
+
+hints = [
+  "In one list, a node's address is in the node before: the next load can't even start until the last one returns from memory, 200 cycles later. The CPU could have many misses in flight, but a single list gives it only one.",
+  "The lists don't depend on each other. Keep the k current pointers in an array, and in each round advance every list by one node. The k loads in a round are independent, so their misses overlap. Stop when a whole round finds every list finished.",
+  "The pool spans 1024 pages of 4 KiB and the TLB holds 64 translations: almost every node also misses in the TLB. madvise(pool, 4 MiB, MADV_HUGEPAGE = 14) (syscall 28) asks for 2 MiB pages. Try it, and compare the report before and after: which cost really mattered?",
+]
+
+[constraints]
+max_steps = 400000
+
+[random]
+count = 1

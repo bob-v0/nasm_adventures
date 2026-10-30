@@ -12,7 +12,8 @@ The core (roughly a 2015-2020 desktop CPU, simplified):
   - caches: L1 32 KiB (8-way), L2 1 MiB (16-way), 64-byte lines, LRU; memory 200 cycles,
     one line per 4 cycles; a stride prefetcher (16 lines ahead, within a 4 KiB page);
     prefetcht0/1/2/nta
-  - TLB: 64 entries (4 KiB pages; 2 MiB huge pages), 20 cycles per miss
+  - TLB: 64 entries (4 KiB pages; 2 MiB huge pages); a miss needs the one page walker
+    for 20 cycles
   - stores: a 56-entry store buffer; a store leaves it once its line is in L1 (in order),
     and when it's full, the front end waits. L2 moves one line per 2 cycles, and a
     written (dirty) line pushed out of L1 costs one more such transfer (the write-back).
@@ -60,7 +61,7 @@ _TABLE = {
     "pause": (140, "alu", 4), "shld": (3, "mul", 1), "shrd": (3, "mul", 1),
 }
 _UNITS = {"alu": 4, "branch": 2, "load": 2, "store": 1, "mul": 1, "div": 1 / 24, "fp": 2,
-          "fdiv": 1 / 4, "vec": 3, "serial": 1, "mem": 1 / 4, "l2": 1 / 2}
+          "fdiv": 1 / 4, "vec": 3, "serial": 1, "mem": 1 / 4, "l2": 1 / 2, "walk": 1 / 20}
 STORE_BUFFER = 56
 _FUSES = {"cmp", "test", "add", "sub", "and", "inc", "dec"}
 _ZERO_IDIOMS = {"xor", "sub", "pxor", "xorps", "xorpd", "vpxor", "vxorps", "psubd"}
@@ -347,7 +348,7 @@ class CostModel:
             data = max(data, t + lat)
         if info.mnemonic.startswith("prefetch") and info.mem and self.read_reg:
             ea = self._address(info)
-            self._tlb(info, ea)
+            self._tlb(info, ea, start)
             self._line_latency(info, ea // LINE, self._unit("load", max(start, addr_ready)))
         begin = max(start, src, data if loads else start)
         begin = self._unit(info.unit, begin)
@@ -412,7 +413,7 @@ class CostModel:
             self.front = max(self.front, done + MISPREDICT)
             self._lose(info, "branch mispredictions", MISPREDICT)
 
-    def _tlb(self, info: Info, addr: int) -> float:
+    def _tlb(self, info: Info, addr: int, now: float = 0.0) -> float:
         page = addr >> (21 if self.huge(addr) else 12) << 1 | self.huge(addr)
         if page in self.tlb:
             self.tlb.move_to_end(page)
@@ -421,8 +422,9 @@ class CostModel:
         if len(self.tlb) > 64:
             self.tlb.popitem(last=False)
         self.counts["TLB misses"] += 1
-        self._lose(info, "TLB misses", 20)
-        return 20
+        walk = self._unit("walk", now) - now + 20     # one walker: walks queue up
+        self._lose(info, "TLB misses", walk)
+        return walk
 
     def _l1(self, line: int, now: float) -> bool:
         """Look up (and fill) a line in L1; writing back the dirty line it evicts."""
@@ -493,7 +495,7 @@ class CostModel:
     def _load_latency(self, info: Info, addr: int, size: int, now: float) -> float:
         c = self.counts
         c["loads"] += 1
-        extra = self._tlb(info, addr)
+        extra = self._tlb(info, addr, now)
         first, last = addr // LINE, (addr + size - 1) // LINE
         lat = max(self._line_latency(info, ln, now) for ln in range(first, last + 1))
         if first != last:
@@ -526,7 +528,7 @@ class CostModel:
         """A store executes at t, then waits in the store buffer until its line is in L1
         (fetched from L2 or memory: 'read for ownership'); stores leave in order."""
         self.counts["stores"] += 1
-        self._tlb(info, addr)
+        self._tlb(info, addr, t)
         first, last = addr // LINE, (addr + size - 1) // LINE
         ready = t + 1
         for ln in range(first, last + 1):

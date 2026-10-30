@@ -332,7 +332,7 @@ Runner: emu with the game's CPU model (ring/perf.py): deterministic cycle counts
 | 98 | Pipelines | latency vs throughput, dependency chains | Multiple accumulators |
 | 97 | Branch Prediction | predictable vs random branches | Hit a cycles/element budget on random data |
 | 96 | Caches | lines, sets, strides, alignment | Cache-blocked transpose |
-| 95 | Prefetch & TLB | `prefetcht0`, huge pages | Faster linked-list traversal |
+| 95 | Prefetch & TLB | `prefetcht0`, huge pages | Faster linked-list traversal: many misses in flight |
 | 94 | Instruction Selection | uops, macro-fusion, partial-register stalls | Speed up a hot loop ≥ 2× |
 | 93 | **Bug:** Performance Cliff ◆◆ | performance bugs: 4K aliasing, cache-line splits, denormals | Find why one input size is 10× slower and fix it |
 | 92 | Fast Hash Map ★ | everything in the arc | Open-addressing map hitting an ops/sec target |
