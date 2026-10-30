@@ -1,0 +1,21 @@
+level = 148
+slug = "sorting"
+title = "Sorting"
+arc = "III"
+mode = "fragment"
+concepts = ["insertion sort", "nested loops with a shifting inner loop", "signed comparison of array elements", "stable sorting"]
+introduces = []
+
+hints = [
+  "Insertion sort: for i = 1 .. n-1, take x = arr[i] and slide larger elements one slot to the right until you find where x belongs, then store x there. The part before i is always sorted.",
+  "Inner loop: j = i; while j > 0 and arr[j-1] > x (SIGNED: jg/jle): arr[j] = arr[j-1]; j--. Then arr[j] = x. Guard n = 0 and n = 1.",
+  "mov r8d, 1 / .outer: cmp r8, rsi / jae .done / mov rax, [arr + r8*8] / mov r9, r8 / .inner: test r9, r9 / jz .place / mov rdx, [arr + r9*8 - 8] / cmp rdx, rax / jle .place / mov [arr + r9*8], rdx / dec r9 / jmp .inner / .place: mov [arr + r9*8], rax / inc r8 / jmp .outer / .done:",
+]
+
+[constraints]
+max_instructions = 30
+preserve = ["rsp", "rsi"]
+max_steps = 400000
+
+[random]
+count = 12

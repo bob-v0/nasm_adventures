@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import difflib
 import random
+import struct
 import re
 from dataclasses import dataclass, field
 
@@ -89,8 +90,21 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
     for name, value in test.regs.items():
         m.set_reg(name, value)
     for spec in test.mem:
-        m.write(resolve(build, spec), encode_mem(spec))
+        if "ptr" in spec:  # an address: "label", "label+off", or a number (0 = null)
+            data = struct.pack("<Q", symbol_value(build, spec["ptr"]))
+        else:
+            data = encode_mem(spec)
+        m.write(resolve(build, spec), data)
     return m
+
+
+def symbol_value(build: Build, ref) -> int:
+    if isinstance(ref, int):
+        return ref
+    sym, _, off = str(ref).partition("+")
+    if sym not in build.symbols:
+        raise KeyError(f"label `{sym}` is not defined")
+    return build.symbols[sym] + (int(off, 0) if off else 0)
 
 
 def _show(b: bytes, limit: int = 64) -> str:
@@ -151,7 +165,12 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
             except KeyError as e:
                 problems.append(str(e.args[0]))
                 continue
-            want = encode_mem(spec)
+            try:
+                want = (struct.pack("<Q", symbol_value(build, spec["ptr"])) if "ptr" in spec
+                        else encode_mem(spec))
+            except KeyError as e:
+                problems.append(str(e.args[0]))
+                continue
             got = m.read(addr, len(want)) if m.readable(addr, len(want)) else b""
             if got != want:
                 label = spec.get("sym", hex(addr)) + (f"+{spec['offset']}" if spec.get("offset") else "")

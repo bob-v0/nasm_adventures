@@ -72,6 +72,15 @@ def explain(message: str, line: str) -> str | None:
     if "instruction expected" in m:
         return ("NASM didn't recognize the first word as an instruction or directive. Check the "
                 "spelling. If it's meant to be a label, it needs a colon (`loop_start:`).")
+    match = re.search(r"label `([^']+)' inconsistently redefined", message)
+    if match:
+        name = match.group(1)
+        if "." in name:
+            owner, local = name.rsplit(".", 1)
+            return (f"`.{local}` is a local label, so it belongs to the last ordinary label above "
+                    f"it: here `{owner}` (a struc's fields count too). It clashes with an existing "
+                    f"`{name}`. Rename your `.{local}`, e.g. `.{local}_loop`.")
+        return f"`{name}` is defined twice. Each label name can be used only once."
     match = re.search(r"symbol `([^']+)' not defined", message)
     if match:
         name = match.group(1)

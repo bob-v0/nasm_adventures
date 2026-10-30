@@ -1,0 +1,22 @@
+level = 144
+slug = "bug_assumed_zero"
+title = "Assumed Zero"
+arc = "III"
+bug = 2
+mode = "fragment"
+concepts = ["uninitialized registers", "code that works by accident", "partial-register writes, again", "poisoned test state"]
+introduces = ["poisoned registers"]
+
+hints = [
+  "Start the debugger and look at the registers before the first instruction runs: they're full of junk. Which registers does the code read before writing them?",
+  "Three counters are incremented but never set to 0 first. And `mov dl, [rsi]` sets only 8 bits of rdx, but `add rbx, rdx` adds all 64.",
+  "Add xor eax,eax / xor ebx,ebx / xor ecx,ecx at the top, and change `mov dl, [rsi]` to `movzx edx, byte [rsi]`.",
+]
+
+[constraints]
+max_changed_lines = 4
+poison = true
+max_steps = 3000
+
+[random]
+count = 40

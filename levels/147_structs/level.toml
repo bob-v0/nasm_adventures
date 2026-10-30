@@ -1,0 +1,20 @@
+level = 147
+slug = "structs"
+title = "Structs"
+arc = "III"
+mode = "fragment"
+concepts = ["records with named fields", "field offsets and padding", "linked lists and null pointers", "initialized records with istruc"]
+introduces = ["struc", "endstruc", "istruc", "at", "iend", "Name_size"]
+
+hints = [
+  "Define the layout once: `struc Person` / `.next: resq 1` / `.age: resd 1` / `.flags: resb 1` / `resb 3` (padding) / `.name: resb 16` / `endstruc`. NASM then knows Person.age = 8, Person_size = 32, and so on.",
+  "In .data: `newbie: istruc Person` / `at Person.age, dd 99` / `at Person.flags, db 1` / `at Person.name, db \"zed\", 0` / `iend`. Link it in front: newbie.next = [head], then [head] = newbie.",
+  "Walk: rsi = [head]; while rsi != 0: use [rsi + Person.age] (a dword: mov r9d, ...), test byte [rsi + Person.flags], 1, ...; rsi = [rsi + Person.next].",
+]
+
+[constraints]
+max_instructions = 40
+max_steps = 2000
+
+[random]
+count = 30

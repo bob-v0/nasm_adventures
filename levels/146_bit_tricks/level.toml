@@ -1,0 +1,26 @@
+level = 146
+slug = "bit_tricks"
+title = "Bit Tricks"
+arc = "III"
+mode = "fragment"
+concepts = ["two's complement tricks", "x & -x and x & (x - 1)", "rounding to powers of two with lzcnt", "branch-free absolute difference"]
+introduces = ["blsi", "blsr"]
+
+hints = [
+  "In two's complement, -x = ~x + 1: the lowest set bit of x stays, everything above it flips. So x & -x keeps only that bit, and x & (x - 1) clears it. A power of two has exactly one bit set.",
+  "Next power of two ≥ x: shift 1 left by the bit length of x - 1, which is 64 - lzcnt(x - 1). For x = 1, x - 1 = 0, lzcnt gives 64, and the shift is 0. The count must be in cl.",
+  "|x - y| unsigned without jumps: compute both x - y and y - x, then cmovb picks the right one (CF from the subtraction x - y tells you x < y).",
+]
+
+[constraints]
+max_instructions = 26
+banned_prefixes = ["j", "loop"]
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 1000
+
+[stretch]
+label = "Hacker's Delight"
+max_instructions = 20
+
+[random]
+count = 60

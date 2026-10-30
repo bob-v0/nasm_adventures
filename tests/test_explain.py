@@ -15,6 +15,7 @@ from ring.explain import explain
     ("push eax", "instruction not supported in 64-bit mode", "push rax"),
     ("foo rax, 1", "parser: instruction expected", "colon"),
     ("jmp .dnoe", "symbol `_start.dnoe' not defined", "case-sensitive"),
+    (".next:", "label `Person.next' inconsistently redefined", "belongs to the last ordinary label"),
 ])
 def test_explanations(line, message, expect):
     assert expect in explain(message, line)

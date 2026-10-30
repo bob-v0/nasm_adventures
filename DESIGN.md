@@ -810,9 +810,11 @@ the internet directly.
    …) rendered for the browser or the terminal, plus the Terminal tab and web hardening.
 2. **M2 – Richer UI:** Monaco (bundled, offline) with hover docs, topic panels as
    arcs need them, live updates over WebSocket, VS Code launch config for the DAP server.
-3. **M3 – Arcs II–III on `emu`:** Arc II done (levels 170–157), with flag
-   expectations and witness inputs (`;! witness …` lines checked against the original
-   program). Remaining: Arc III, poisoned initial state for "Assumed Zero".
+3. **M3 – Arcs II–III on `emu` (done):** levels 170–143. Flag expectations, witness
+   inputs (`;! witness …` lines checked against the original program), poisoned
+   initial state (from level 144 on), symbol and pointer expectations, branch-free
+   checks, the player's library (`itoa`, `atoi`), and plain-language explanations of
+   NASM errors and warnings (warnings are now shown, not swallowed).
 4. **M4 – Native runner:** sandbox, ABI harness, syscall tracing, gdb backend for DAP,
    fault injection (signals, failing syscalls, short reads); Arcs IV–V.
 5. **M5 – Concurrency engine:** deterministic thread/task scheduler, schedule

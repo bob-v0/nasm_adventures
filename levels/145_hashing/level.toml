@@ -1,0 +1,21 @@
+level = 145
+slug = "hashing"
+title = "Hashing"
+arc = "III"
+mode = "fragment"
+concepts = ["hash functions", "FNV-1a: xor and multiply", "checksums and CRCs", "special-purpose instructions"]
+introduces = ["crc32"]
+
+hints = [
+  "FNV-1a: h = 0xcbf29ce484222325; for each byte b: h = (h xor b) * 0x100000001b3 (mod 2^64). Both constants are 64-bit, so load them into registers with mov first.",
+  "CRC-32C with the `crc32` instruction: start with ecx = 0xFFFFFFFF, do `crc32 ecx, byte [rsi]` for each byte, and finish with `not ecx`. Writing ecx zero-extends into rcx (and rbx if you move it there).",
+  "One loop can do both: movzx edx, byte [rsi] / test dl, dl / jz .done / xor rax, rdx / imul rax, r8 / crc32 ebx, dl / inc rsi.",
+]
+
+[constraints]
+max_instructions = 24
+must_use = ["crc32", "imul"]
+max_steps = 3000
+
+[random]
+count = 40

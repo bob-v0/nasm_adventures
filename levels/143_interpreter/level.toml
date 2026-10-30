@@ -1,0 +1,22 @@
+level = 143
+slug = "interpreter"
+title = "The Interpreter"
+arc = "III"
+boss = true
+mode = "fragment"
+concepts = ["writing an interpreter", "matching brackets", "a dispatch loop", "everything in Arc III"]
+introduces = []
+
+hints = [
+  "State: ip (index into program), dp (index into tape), k (input position), n (output length). Clear the 4096-byte tape first (rep stosb). Then loop: load program[ip], stop at NUL, dispatch on the character, ip++.",
+  "`[` when the cell is 0: scan forward to the matching `]` with a depth counter (+1 for `[`, -1 for `]`). `]` when the cell is non-zero: scan backwards to the matching `[` the same way.",
+  "A 256-entry jump table indexed by the character is fast and tidy, with every unused entry pointing at 'skip'. A chain of cmp/je works too. `,` past the end of the input stores 0.",
+]
+
+[constraints]
+max_instructions = 120
+poison = true
+max_steps = 600000
+
+[random]
+count = 10
