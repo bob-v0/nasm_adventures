@@ -1,0 +1,21 @@
+level = 61
+slug = "fma"
+title = "FMA"
+arc = "IX"
+mode = "function"
+entry = "ring_exp"
+perf = true
+concepts = ["fused multiply-add: a·b + c with one rounding", "the three forms: 132, 213, 231", "evaluating a polynomial: Horner's rule", "range reduction: e^x = 2^k · e^r", "building 2^k in the exponent field with integer instructions", "ULPs: measuring error in units of the last place", "masked loads and stores for the tail (vmaskmovps)"]
+introduces = ["vfmadd132ps / 213 / 231", "vfnmadd231ps", "vroundps", "vcvtps2dq / vcvtdq2ps", "vpslld / vpaddd on floats", "vmaskmovps", "ULP"]
+
+hints = [
+  "Range reduction: k = round(x / ln 2) (vmulps by 1/ln2, then vroundps with imm 0), r = x − k·ln 2. Then e^x = 2^k · e^r with |r| ≤ 0.35, where a polynomial is accurate. Do r in two steps with FMA: r = x − k·ln2hi, then r = r − k·ln2lo, with ln2hi = 0.693359375 (exactly representable, 10 bits) and ln2lo = −2.12194440e−4: vfnmadd231ps ymm_r, ymm_k, [ln2hi] computes r − k·ln2hi with one rounding.",
+  "e^r ≈ 1 + r + r²/2! + ... + r⁷/7!. Horner's rule: p = c7; p = p·r + c6; ...; p = p·r + 1; p = p·r + 1. Each step is one vfmadd213ps p, r, [c]: p = p·r + c. Constants for all 8 lanes: `times 8 dd 0.5` in .rodata, aligned 32.",
+  "2^k without computing it: a float's exponent field is bits 23-30, so adding k << 23 to p's bits multiplies p by 2^k (vcvtps2dq for the integer k, vpslld by 23, vpaddd). For the last n % 8 values: vmaskmovps loads and stores only the lanes whose mask is set (a mask from vpcmpgtd of n % 8 against 0, 1, ..., 7), so nothing past the end is touched. vzeroupper at the end.",
+]
+
+[constraints]
+max_steps = 200000
+
+[random]
+count = 2

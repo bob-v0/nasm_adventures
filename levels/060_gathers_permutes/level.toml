@@ -1,0 +1,21 @@
+level = 60
+slug = "gathers_permutes"
+title = "Gathers & Permutes"
+arc = "IX"
+mode = "function"
+entry = "ring_blit_mirrored"
+perf = true
+concepts = ["gathers: one load per lane, from addresses in a vector", "the gather mask: which lanes, and why it's consumed", "lane-crossing permutes: vpermd and its index vector", "in-lane vs cross-lane shuffles in AVX2", "widening bytes to dwords: vpmovzxbd", "gathers aren't magic: they cost as many loads as lanes"]
+introduces = ["vpgatherdd (VSIB addressing)", "vpermd / vpermq / vperm2i128", "vpmovzxbd", "the 128-bit lanes of AVX2"]
+
+hints = [
+  "vpmovzxbd ymm1, [rdi] reads 8 bytes and widens each to a dword: 8 palette indexes. vpgatherdd ymm0, [rcx + ymm1*4], ymm2 loads palette[index] for each lane whose mask (ymm2) has its top bit set, and clears the mask as it goes, so set it to all-ones (vpcmpeqd ymm2, ymm2, ymm2) before every gather.",
+  "The 8 colours are in sprite order; on the screen they go backwards. vpermd ymm0, ymm_idx, ymm0 sets lane i to lane idx[i] of ymm0: with idx = 7, 6, ..., 0 (a constant in .rodata) that reverses them, across the two 128-bit halves (which vpshufd and vpshufb can't cross).",
+  "Write each reversed block of 8 just below the previous one, starting from dst + 4n and going down. The last n % 8 pixels: a scalar loop, continuing downward. vzeroupper before returning.",
+]
+
+[constraints]
+max_steps = 200000
+
+[random]
+count = 2

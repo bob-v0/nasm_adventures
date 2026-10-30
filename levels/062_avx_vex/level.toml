@@ -1,0 +1,21 @@
+level = 62
+slug = "avx_vex"
+title = "AVX & VEX"
+arc = "IX"
+mode = "function"
+entry = "ring_saxpy"
+perf = true
+concepts = ["AVX: 256-bit ymm registers, eight floats", "the VEX encoding: three operands, no alignment rules", "VEX zeroes the upper bits; legacy SSE leaves them", "vzeroupper before returning to code that may use SSE", "runtime dispatch: cpuid, OSXSAVE and xgetbv", "cpuid clobbers rbx"]
+introduces = ["ymm0-ymm15", "vmulps / vaddps / vmovups (3-operand)", "vbroadcastss", "vzeroupper", "cpuid leaf 1 (AVX, OSXSAVE, FMA bits)", "xgetbv"]
+
+hints = [
+  "Detecting AVX takes three answers: cpuid with eax = 1 says the CPU has it (ecx bit 28) and that the OS uses xsave (ecx bit 27, OSXSAVE); then xgetbv with ecx = 0 returns the XCR0 register in eax, and bits 1 and 2 (SSE and AVX state) must both be set: the OS saves ymm registers on context switches. cpuid also overwrites ebx, which is callee-saved: keep rbx somewhere first.",
+  "The AVX loop: vbroadcastss ymm1, xmm0 (a in all 8 lanes) once; then per 8 elements vmulps ymm2, ymm1, [rsi] / vaddps ymm2, ymm2, [rdi] / vmovups [rdi], ymm2. No alignment needed with VEX memory operands. The SSE loop is the same with 4 lanes (shufps xmm0, xmm0, 0 to broadcast).",
+  "Before returning from the AVX path, vzeroupper: it clears the upper halves of all ymm registers so the caller's legacy SSE code doesn't pay for them. And don't use FMA (vfmadd...) just because there's AVX: it's a separate cpuid bit (ecx bit 12), and some AVX CPUs don't have it.",
+]
+
+[constraints]
+max_steps = 300000
+
+[random]
+count = 2
