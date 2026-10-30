@@ -79,6 +79,35 @@ def _rewrite_errors(text: str, gen_name: str, player_name: str, offset: int) -> 
     return re.sub(re.escape(gen_name) + r":(\d+):", fix, text)
 
 
+def _link_errors(stderr: str, gen_name: str, player_name: str, offset: int, text: str,
+                 mode: str) -> str:
+    """ld's messages, pointing at the player's lines, with explanations."""
+    lines = []
+    for ln in _rewrite_errors(stderr, gen_name, player_name, offset).strip().splitlines():
+        if mode == "fragment" and ln.endswith("in function `_start':"):
+            continue        # _start is the game's wrapper around a fragment, not the player's
+        lines.append(re.sub(r"^\S*/(" + re.escape(player_name) + r":\d+:)", r"\1", ln))
+    out = []
+    source_lines = text.splitlines()
+    for ln in lines:
+        out.append(ln)
+        m = re.match(re.escape(player_name) + r":(\d+):.*relocation truncated to fit: "
+                     r"R_X86_64_(8|16|32)\b", ln)
+        if m:
+            n, bits = int(m.group(1)), m.group(2)
+            src = source_lines[n - 1].split(";")[0].strip() if 1 <= n <= len(source_lines) else ""
+            out.append(f"    why: {f'`{src}` uses' if src else 'this line uses'} a label's ADDRESS "
+                       f"as {'an' if bits == '8' else 'a'} {bits}-bit number, and addresses don't fit in {bits} bits (they're "
+                       "around 0x400000 and up). If you meant the value stored AT the label, "
+                       "use brackets with a size, e.g. `movzx ebx, byte [label+7]`. If you meant "
+                       "the address, use a 64-bit register: `lea rbx, [label]`.")
+    msg = "\n".join(out) or "link failed"
+    if "entry symbol _start" in stderr or "undefined reference to `_start'" in stderr:
+        msg += ("\nhint: the program needs an entry point. Add `global _start` and a "
+                "`_start:` label where execution should begin.")
+    return msg
+
+
 def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
           prelude: Path | None = None, defines: dict[str, str] | None = None,
           helpers: list[Path] = (), entry: str | None = None,
@@ -138,11 +167,8 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
             objects.append(extra_obj)
     r = _run(["ld", "-o", str(elf), *map(str, objects)], source.parent)
     if r.returncode != 0 or "cannot find entry symbol" in r.stderr:
-        hint = ""
-        if "_start" in r.stderr:
-            hint = ("\nhint: the program needs an entry point. Add `global _start` and a "
-                    "`_start:` label where execution should begin.")
-        raise BuildError((r.stderr.strip() or "link failed") + hint)
+        raise BuildError(_link_errors(r.stderr, str(asm_input), source.name, line_offset, text,
+                                      mode))
 
     b = _inspect(elf, source, mode, player_object=obj, entry_name=entry)
     b.warnings = msgs

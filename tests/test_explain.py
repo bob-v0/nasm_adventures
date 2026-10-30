@@ -34,3 +34,17 @@ def test_warnings_are_kept_on_successful_builds(tmp_path):
     src.write_text("xor rcx, 0x8000000000000000\n")
     b = build(src, tmp_path / "b", "fragment")
     assert "solution.asm:1: warning" in b.warnings and "why:" in b.warnings
+
+
+def test_address_in_a_small_register_is_explained(tmp_path):
+    """Linker errors point at the player's line; no bogus `_start` hint in fragments."""
+    import pytest
+    from ring.build import BuildError, build
+    src = tmp_path / "s.asm"
+    src.write_text("nop\nmov bl, greeting+7\nsection .data\ngreeting: db 'Hello', 0\n")
+    with pytest.raises(BuildError) as e:
+        build(src, tmp_path / "b", "fragment")
+    msg = str(e.value)
+    assert msg.startswith("s.asm:2:") and "R_X86_64_8" in msg
+    assert "`mov bl, greeting+7` uses a label's ADDRESS as an 8-bit number" in msg
+    assert "_start" not in msg and "ring_generated" not in msg
