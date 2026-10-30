@@ -842,8 +842,15 @@ the internet directly.
    which ready task runs next and whether to cancel at each await point, so the grader
    sweeps schedules (a failing schedule number is a witness) and cancels at every await.
    The checked allocator watches every message and session for leaks and use after free.
-   Remaining for Arc VIII: threads (`clone`), schedule exploration at instruction level
-   (random, PCT, bounded exhaustive), the x86-TSO store-buffer model, race detection.
+   Arc VIII in progress (levels 91–84 done): threads share one Unicorn instance (each
+   with its own saved registers), `clone`/`futex`/thread exit and join, a thread
+   scheduler (plain round-robin, or numbered random interleavings with random slice
+   lengths, used for sweeps and witnesses), and x86-TSO store buffers (`ring/tso.py`:
+   per-thread pending stores overlaid on memory while the thread runs, commits at
+   schedule-chosen points, drained by locked instructions, `xchg`, `mfence` and syscalls;
+   non-temporal stores weakly ordered until `sfence`). Deadlocks name the futexes each
+   thread sleeps on. Remaining: levels 83–72, a happens-before race detector, multi-core
+   costs (false sharing) in the CPU model.
 6. **M6 – Performance, SIMD, machine code:** Arc VII done (levels 99–92), graded on the
    game's deterministic CPU model (`ring/perf.py`) instead of wall-clock time, so
    results are identical on every host (Docker, CI, ARM, a browser): a 4-wide

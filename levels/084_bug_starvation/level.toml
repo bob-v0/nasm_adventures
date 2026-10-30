@@ -1,0 +1,22 @@
+level = 84
+slug = "bug_starvation"
+title = "Livelock & Starvation"
+arc = "VIII"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["progress guarantees: deadlock-free isn't starvation-free", "unfair locks: whoever is quickest wins", "bounded waiting", "ticket locks: FIFO with two counters", "livelock: everyone active, nobody progressing"]
+introduces = ["starvation", "bounded waiting", "ticket lock", "livelock"]
+
+hints = [
+  "Nothing is wrong with mutual exclusion here. Watch who gets the lock: the thread that just unlocked is already running and its next xchg comes first, while the waiters only notice the lock is free when they next look. It can win again and again.",
+  "Bounded waiting means: once you ask, at most N others get in before you. A test-and-set lock has no notion of who asked first, so it can't promise that.",
+  "Ticket lock, like a deli counter: two counters, next_ticket and now_serving. acquire: my = lock xadd next_ticket, 1; spin (pause) until now_serving == my. release: now_serving += 1 (only the holder writes it). Strictly first come, first served.",
+]
+
+[constraints]
+max_changed_lines = 14
+max_steps = 800000
+
+[random]
+count = 1
