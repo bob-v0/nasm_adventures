@@ -14,6 +14,7 @@ from elftools.elf.elffile import ELFFile
 
 from .build import Build
 from .emu import FLAG_BITS, GPRS, Machine
+from .kernel import Injection, Kernel
 from .level import Context, Level, TestCase, encode_mem, to_int
 
 DEFAULT_MAX_STEPS = 1_000_000
@@ -83,7 +84,9 @@ def resolve(build: Build, spec: dict) -> int:
 
 def prepare_machine(build: Build, test: TestCase, record: bool = False,
                     poison: bool = False) -> Machine:
-    m = Machine(build, stdin=test.stdin, record=record)
+    kernel = Kernel(test.stdin, files=test.files,
+                    inject=Injection.from_dict(test.inject, seed=test.name))
+    m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
     if poison:
         # Real callers leave junk behind: registers the test doesn't set, and the
         # stack below rsp, start with garbage (deterministic per test, for replay).
@@ -111,6 +114,15 @@ def symbol_value(build: Build, ref) -> int:
     if sym not in build.symbols:
         raise KeyError(f"label `{sym}` is not defined")
     return build.symbols[sym] + (int(off, 0) if off else 0)
+
+
+def _compare(stream: str, want: bytes, got: bytes) -> str:
+    """Describe a stream mismatch; for long outputs, say where they diverge."""
+    if len(want) <= 64 and len(got) <= 64:
+        return f"{stream}: expected {_show(want)}, got {_show(got)}"
+    i = next((k for k, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
+    return (f"{stream}: expected {len(want)} bytes, got {len(got)}; they first differ at byte {i} "
+            f"(expected {_show(want[i:i + 24])}, got {_show(got[i:i + 24]) if i < len(got) else 'the end'})")
 
 
 def _show(b: bytes, limit: int = 64) -> str:
@@ -166,7 +178,7 @@ def run_native_test(level: Level, build: Build, test: TestCase) -> TestResult:
             want = want.encode()
         got = getattr(r, stream)
         if want is not None and got != want:
-            problems.append(f"{stream}: expected {_show(want)}, got {_show(got)}")
+            problems.append(_compare(stream, want, got))
     if "exit" in exp and not r.signal and r.exit_code != exp["exit"]:
         problems.append(f"exit status: expected {exp['exit']}, got {r.exit_code}")
     return TestResult(test.name, test.hidden, not problems, problems, 0)
@@ -251,7 +263,7 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
                 want = want.encode()
             got = bytes(getattr(m, stream))
             if want is not None and got != want:
-                problems.append(f"{stream}: expected {_show(want)}, got {_show(got)}")
+                problems.append(_compare(stream, want, got))
         for name, want in exp.get("symbols", {}).items():
             got = build.symbols.get(name)
             if got is None:
@@ -260,6 +272,23 @@ def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Ma
                 problems.append(f"`{name}`: expected {to_int(want)}, got {got}")
         if "exit" in exp and m.exit_code != exp["exit"]:
             problems.append(f"exit status: expected {exp['exit']}, got {m.exit_code}")
+        for path, want in exp.get("files", {}).items():
+            got = m.kernel.file_text(path)
+            if want is None:
+                if got is not None:
+                    problems.append(f"{path} should not exist")
+            elif got != (want.encode() if isinstance(want, str) else bytes.fromhex(want["hex"])):
+                problems.append(f"{path}: expected {_show(want.encode() if isinstance(want, str) else bytes.fromhex(want['hex']))}, "
+                                + (f"got {_show(got)}" if got is not None else "but it doesn't exist"))
+        if "fds_open" in exp and sorted(m.kernel.fds) != sorted(exp["fds_open"]):
+            leaked = sorted(set(m.kernel.fds) - set(exp["fds_open"]))
+            problems.append(f"file descriptors still open at exit: {sorted(m.kernel.fds)}"
+                            + (f" (leaked: {leaked}; close what you open)" if leaked else ""))
+        if "heap_max" in exp:
+            used = (m.kernel.brk - m.kernel.brk_start) + sum(m.kernel.mmaps.values())
+            if used > exp["heap_max"]:
+                problems.append(f"the heap grew to {used} bytes; this workload must fit in "
+                                f"{exp['heap_max']} (reuse freed blocks)")
     if "syscalls" in exp:
         names = [str(s).split("(")[0] for s in m.syscalls]
         if names != exp["syscalls"]:

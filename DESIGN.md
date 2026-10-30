@@ -282,27 +282,27 @@ Runner: emu in function mode (the game calls your functions); native for the lib
 
 ### Arc V — Linux Userland (Levels 127–111)
 
-Runner: native. 17 levels, 5 of them bug levels.
+Runner: emu with the game's emulated Linux kernel (files, memory, signals, processes, fault injection); native for PIE, dynamic linking and hand-made ELF. 17 levels, 5 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
-| 127 | Files | `openat`, `read`, `write`, `close`, `lseek`, -errno | `cat` with error messages |
-| 126 | argv, envp, auxv | the initial stack at `_start` | Print args, find $HOME and AT_PAGESZ |
-| 125 | Heap | `brk`, `mmap`, `munmap` | Bump allocator, then a free-list malloc/free |
-| 124 | **Bug:** Short Reads, Short Writes ◆◆ | `read`/`write` may transfer less than asked; EINTR | A copier that works on files but corrupts data through pipes |
-| 123 | **Bug:** Ignored Errors ◆◆ | negative rax used as a length, leaked file descriptors | Fix error paths; the grader injects failures |
-| 122 | **Bug:** Use After Free ◆◆ | use-after-free and double free; poisoning and quarantine to detect them | Find both bugs in a program using your allocator; add detection |
-| 121 | Processes | `fork`, `execve`, `wait4` | Run a command and report its status |
-| 120 | Pipes & dup | `pipe2`, `dup2` | Implement `a | b` |
-| 119 | Signals | `rt_sigaction`, `SA_RESTORER`, `rt_sigreturn` | Handle SIGINT and SIGSEGV |
-| 118 | **Bug:** Reentrant Signal Handler ◆◆◆ | reentrancy: a handler interrupts the code it calls (malloc, buffered output), clobbers errno | Make a handler async-signal-safe; the grader delivers signals at every instruction |
-| 117 | Time | `clock_gettime`, vDSO, `nanosleep` | Stopwatch |
-| 116 | **Bug:** Time of Check, Time of Use ◆◆◆ | logical race with another process: check-then-use on file paths | Win the race with a witness, then fix with `openat`/`O_NOFOLLOW`/`fstat` |
-| 115 | Position Independence | RIP-relative addressing, PIE, `default rel` | Pass a relocation audit |
-| 114 | Dynamic Linking | GOT, PLT, lazy binding | Call libc through the GOT |
-| 113 | ELF by Hand | ELF64 headers with `nasm -f bin` | Smallest valid ELF that exits 42 |
-| 112 | Directories & mmap | `getdents64`, file-backed `mmap` | `ls -R` and a word counter |
-| 111 | Tiny Shell ★ | everything in the arc | Shell with pipes, redirection and `cd` |
+| 127 | Files | `open`, `read`, `write`, `close`, read loops, -errno results | Copy a file, count its lines, report a missing file |
+| 126 | argv, envp, auxv | the initial stack at `_start`: argc, argv, envp, the auxiliary vector | Print the arguments, $HOME and the page size |
+| 125 | Heap | `brk`, `mmap`, block headers, free lists, alignment | A malloc/free that survives a workload and reuses memory |
+| 124 | **Bug:** Short Reads, Short Writes ◆◆ | `read`/`write` may transfer less than asked | A copier that works on files but loses data through pipes |
+| 123 | **Bug:** Ignored Errors ◆◆ | negative rax used as an fd or a length, leaked file descriptors | Handle every failure; the kernel injects them |
+| 122 | **Bug:** Use After Free ◆◆ | use-after-free and double free; poisoning and quarantine | The game's checked allocator catches both; fix the program |
+| 121 | Processes | `fork`, `execve`, `wait4`, exit statuses | Run commands and report how they exited |
+| 120 | Pipes & dup | `pipe2`, `dup2`, closing the ends you don't use | Implement `a | b` |
+| 119 | Signals | `rt_sigaction`, `SA_RESTORER`, `rt_sigreturn`, the signal frame | Handle SIGINT, and recover from SIGSEGV by editing the saved context |
+| 118 | **Bug:** Reentrant Signal Handler ◆◆◆ | reentrancy: a handler interrupts the code it calls; errno and shared buffers | Make a handler async-signal-safe; the kernel delivers the signal at every instruction |
+| 117 | Time | `clock_gettime`, `nanosleep`, the vDSO | A stopwatch and a rate limiter |
+| 116 | **Bug:** Time of Check, Time of Use ◆◆◆ | logical race with another process: check-then-use on file paths | Show the race with a witness schedule, then fix with `openat`/`O_NOFOLLOW`/`fstat` |
+| 115 | Position Independence | RIP-relative addressing, PIE, `default rel`, relocations | Build a PIE that passes a relocation audit (native) |
+| 114 | Dynamic Linking | the GOT, the PLT, lazy binding, `ld.so` | Call libc through the GOT yourself (native) |
+| 113 | ELF by Hand | ELF64 headers and program headers with `nasm -f bin` | The smallest valid ELF that exits 42 (native) |
+| 112 | Directories & mmap | `getdents64`, file-backed `mmap` | Walk a directory tree and count words in mapped files |
+| 111 | Tiny Shell ★ | everything in the arc | A shell with pipes, redirection, `cd` and exit statuses |
 
 ### Arc VI — Events, Tasks & Actors (one thread) (Levels 110–100)
 
@@ -501,7 +501,7 @@ taught, from easy to very hard:
 | Category | Levels (tier) |
 |---|---|
 | State & encoding | Garbage in the High Bits ◆, Clobbered by the Kernel ◆, Signed or Unsigned? ◆, Silent Overflow ◆◆, Off by One ◆, Assumed Zero ◆◆ |
-| Contracts & memory safety | Broken Contract ◆◆, Unchecked Length ◆◆, Dangling Frame ◆◆, Short Reads ◆◆, Ignored Errors ◆◆, Use After Free ◆◆, Tail Overrun ◆◆, Wrong Segment ◆◆, Triple Fault Hunt ◆◆ |
+| Contracts & memory safety | Broken Contract ◆◆, Unchecked Length ◆◆, Dangling Frame ◆◆, Short Reads, Short Writes ◆◆, Ignored Errors ◆◆, Use After Free ◆◆, Tail Overrun ◆◆, Wrong Segment ◆◆, Triple Fault Hunt ◆◆ |
 | Reentrancy | Reentrant Signal Handler ◆◆◆, Reentrancy at Await Points ◆◆◆, Interrupt Reentrancy ◆◆◆, swapgs Confusion ◆◆◆◆ |
 | Logical races | Time of Check, Time of Use ◆◆◆, Logical Race ◆◆◆ |
 | Data races & atomicity | Data Race ◆◆, Torn Read ◆◆ |
@@ -537,10 +537,10 @@ Concurrency is taught in three passes, each with its own bugs:
 | 137 | IV | Broken Contract | ◆◆ medium | ABI violations: clobbered callee-saved registers, a misaligned stack |
 | 133 | IV | Unchecked Length | ◆◆ medium | copying without a bounds check corrupts neighbouring data |
 | 132 | IV | Dangling Frame | ◆◆ medium | lifetime: pointers to a callee's locals die at `ret` |
-| 124 | V | Short Reads, Short Writes | ◆◆ medium | `read`/`write` may transfer less than asked; EINTR |
-| 123 | V | Ignored Errors | ◆◆ medium | negative rax used as a length, leaked file descriptors |
-| 122 | V | Use After Free | ◆◆ medium | use-after-free and double free; poisoning and quarantine to detect them |
-| 118 | V | Reentrant Signal Handler | ◆◆◆ hard | reentrancy: a handler interrupts the code it calls (malloc, buffered output), clobbers errno |
+| 124 | V | Short Reads, Short Writes | ◆◆ medium | `read`/`write` may transfer less than asked |
+| 123 | V | Ignored Errors | ◆◆ medium | negative rax used as an fd or a length, leaked file descriptors |
+| 122 | V | Use After Free | ◆◆ medium | use-after-free and double free; poisoning and quarantine |
+| 118 | V | Reentrant Signal Handler | ◆◆◆ hard | reentrancy: a handler interrupts the code it calls; errno and shared buffers |
 | 116 | V | Time of Check, Time of Use | ◆◆◆ hard | logical race with another process: check-then-use on file paths |
 | 105 | VI | Reentrancy at Await Points | ◆◆◆ hard | state read before an await is stale after it; invariants across suspension |
 | 104 | VI | Lost Wakeup | ◆◆◆ hard | a waker registered after the event already fired; check-then-wait |

@@ -1,0 +1,21 @@
+level = 124
+slug = "bug_short_io"
+title = "Short Reads, Short Writes"
+arc = "V"
+bug = 2
+mode = "program"
+concepts = ["read and write may transfer fewer bytes than asked", "pipes, terminals and sockets deliver data in pieces", "loops on both sides of a copy"]
+introduces = ["short reads", "short writes"]
+
+hints = [
+  "Watch the syscall log in the debugger for the 'through a pipe' test: what did read return, compared with what was available? And write?",
+  "read returning fewer bytes than requested isn't the end: only 0 is. write returning fewer than requested means the rest still has to be written.",
+  "Two loops: an outer one that reads until read returns 0, and an inner one that writes the chunk until all of it is written (advance the pointer, decrease the count by what write returned).",
+]
+
+[constraints]
+max_changed_lines = 16
+max_steps = 2000000
+
+[random]
+count = 8

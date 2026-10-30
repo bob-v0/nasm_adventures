@@ -51,6 +51,10 @@ class TestCase:
     mem: list[dict] = field(default_factory=list)
     stdin: bytes = b""
     expect: dict = field(default_factory=dict)
+    files: dict = field(default_factory=dict)     # path -> contents, in the virtual filesystem
+    argv: list | None = None
+    env: dict = field(default_factory=dict)
+    inject: dict = field(default_factory=dict)    # faults for the kernel (see kernel.Injection)
 
     @classmethod
     def from_dict(cls, d: dict, hidden: bool | None = None) -> "TestCase":
@@ -62,7 +66,9 @@ class TestCase:
         return cls(name=d["name"], hidden=d.get("hidden", False) if hidden is None else hidden,
                    regs={k: v if isinstance(v, str) and v.startswith("@") else to_int(v)
                          for k, v in d.get("regs", {}).items()},  # "@label" = its address
-                   mem=list(d.get("mem", [])), stdin=stdin, expect=dict(d.get("expect", {})))
+                   mem=list(d.get("mem", [])), stdin=stdin, expect=dict(d.get("expect", {})),
+                   files=dict(d.get("files", {})), argv=d.get("argv"), env=dict(d.get("env", {})),
+                   inject=dict(d.get("inject", {})))
 
 
 @dataclass

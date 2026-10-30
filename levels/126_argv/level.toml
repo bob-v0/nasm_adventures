@@ -1,0 +1,20 @@
+level = 126
+slug = "argv"
+title = "argv, envp, auxv"
+arc = "V"
+mode = "program"
+concepts = ["what the kernel puts on the stack at _start", "argc and argv", "the environment", "the auxiliary vector"]
+introduces = ["argc", "argv", "envp", "auxv", "AT_PAGESZ"]
+
+hints = [
+  "At _start, [rsp] = argc, [rsp + 8] = argv[0], ..., then a 0, then the envp pointers, then a 0, then the auxv (type, value) pairs ending with type 0. Each argv/envp entry is a pointer to a C string.",
+  "Matching HOME: an environment string is \"NAME=value\". It's HOME only if it starts with exactly the five bytes 'HOME='. HOMEBREW=... and HOM=... must not match. The value starts right after the '='.",
+  "Auxv: after envp's terminating 0, walk the pairs until you find type 6 (AT_PAGESZ) and print its value in decimal. You need a strlen to write each string; exit with argc - 1.",
+]
+
+[constraints]
+max_instructions = 90
+max_steps = 20000
+
+[random]
+count = 20

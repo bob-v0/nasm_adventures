@@ -1,0 +1,21 @@
+level = 123
+slug = "bug_ignored_errors"
+title = "Ignored Errors"
+arc = "V"
+bug = 2
+mode = "program"
+concepts = ["every syscall can fail", "-errno is not a valid fd or length", "error paths must release resources", "fault injection"]
+introduces = ["fault injection"]
+
+hints = [
+  "Go through every syscall and ask: what does the code do if this returns -errno? Then check the error tests in the debugger's syscall log: the failing call shows its errno.",
+  "Four checks are wrong or missing: the first open compares with 0 (errors are negative, and 0 is a valid fd), the second open isn't checked at all, a negative read result is treated as a length, and write isn't checked. And three error paths exit without closing the files.",
+  "Use `test rax, rax` + `js`. Route the error paths through `fail_closing`, which closes both files; closing an invalid (negative) fd just returns EBADF.",
+]
+
+[constraints]
+max_changed_lines = 10
+max_steps = 200000
+
+[random]
+count = 6

@@ -12,6 +12,7 @@ from unicorn import (UC_ARCH_X86, UC_HOOK_CODE, UC_HOOK_INSN, UC_HOOK_MEM_WRITE,
 from unicorn import x86_const as X
 
 from .build import Build
+from .kernel import ERRNO_NAMES, NAMES as SYSCALL_NAMES, Exit, Kernel
 
 PAGE = 0x1000
 STACK_TOP = 0x7FFFFFFFF000
@@ -26,11 +27,8 @@ REGS = {name: getattr(X, f"UC_X86_REG_{name.upper()}") for name in GPRS + ["rip"
 FLAG_BITS = [("CF", 0), ("PF", 2), ("AF", 4), ("ZF", 6), ("SF", 7), ("TF", 8),
              ("IF", 9), ("DF", 10), ("OF", 11)]
 
-SYS_READ, SYS_WRITE, SYS_EXIT, SYS_EXIT_GROUP = 0, 1, 60, 231
-ENOSYS, EBADF, EFAULT = 38, 9, 14
-
-SYSCALL_NAMES = {SYS_READ: "read", SYS_WRITE: "write", SYS_EXIT: "exit",
-                 SYS_EXIT_GROUP: "exit_group"}
+SYSCALL_INSN = b"\x0f\x05"
+AT_PAGESZ, AT_RANDOM, AT_NULL = 6, 25, 0
 
 
 def align_down(x: int) -> int:
@@ -50,6 +48,8 @@ class SyscallRecord:
     def __str__(self) -> str:
         name = SYSCALL_NAMES.get(self.number, f"syscall_{self.number}")
         res = "" if self.result is None else f" = {_signed(self.result)}"
+        if self.result is not None and -4096 < _signed(self.result) < 0:
+            res += f" ({ERRNO_NAMES.get(-_signed(self.result), 'error')})"
         return f"{name}({', '.join(hex(a) for a in self.args)}){res}"
 
 
@@ -62,9 +62,8 @@ class _Frame:
     """Undo record for one executed instruction."""
     context: object
     writes: list[tuple[int, bytes]] = field(default_factory=list)
-    stdout_len: int = 0
-    stderr_len: int = 0
-    stdin_pos: int = 0
+    undo: list = field(default_factory=list)     # callables undoing memory-map changes
+    kernel: dict | None = None                   # kernel snapshot, taken before a syscall
     syscalls_len: int = 0
     state: str = "ready"
     exit_code: int | None = None
@@ -73,12 +72,15 @@ class _Frame:
 class Machine:
     """States: ready -> (running) -> done | exited | fault | limit."""
 
-    def __init__(self, build: Build, stdin: bytes = b"", record: bool = False):
+    USER_LIMIT = USER_LIMIT
+
+    def __init__(self, build: Build, stdin: bytes = b"", record: bool = False,
+                 kernel: Kernel | None = None, argv: list[str] | None = None,
+                 env: dict[str, str] | None = None):
         self.build = build
-        self.stdin = stdin
-        self.stdin_pos = 0
-        self.stdout = bytearray()
-        self.stderr = bytearray()
+        self.kernel = kernel or Kernel(stdin)
+        self.argv = argv or ["./solution"]
+        self.env = env or {}
         self.syscalls: list[SyscallRecord] = []
         self.exit_code: int | None = None
         self.state = "ready"
@@ -118,6 +120,8 @@ class Machine:
             self.uc.mem_write(addr, data)
         for page, prot in perms.items():
             self.uc.mem_protect(page, PAGE, prot)
+        if perms:   # the heap (brk) starts right after the program's last page
+            self.kernel.brk_start = self.kernel.brk = max(perms) + PAGE
 
         self.uc.mem_map(STACK_TOP - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE)
         if self.build.mode == "program":
@@ -134,12 +138,20 @@ class Machine:
         self.uc.reg_write(REGS["rflags"], 0x202)
 
     def _linux_initial_stack(self) -> int:
-        """argc=1, argv={"./solution", NULL}, envp={NULL}, auxv={AT_PAGESZ, AT_NULL}."""
-        name = b"./solution\0"
-        str_addr = STACK_TOP - 0x100
-        self.uc.mem_write(str_addr, name)
-        words = [1, str_addr, 0, 0, 6, PAGE, 0, 0]
-        rsp = (str_addr - 8 * len(words) - 0x40) & ~0xF
+        """The stack Linux builds for a new program: strings at the top, then (from rsp
+        upwards) argc, argv[] + NULL, envp[] + NULL, auxv pairs ending with AT_NULL."""
+        pos = STACK_TOP - 16
+        def put(data: bytes) -> int:
+            nonlocal pos
+            pos -= len(data)
+            self.uc.mem_write(pos, data)
+            return pos
+        rand = put(bytes(range(16)))                      # AT_RANDOM points at 16 bytes
+        env_ptrs = [put(f"{k}={v}".encode() + b"\0") for k, v in self.env.items()]
+        arg_ptrs = [put(a.encode() + b"\0") for a in self.argv]
+        words = [len(self.argv), *arg_ptrs, 0, *env_ptrs, 0,
+                 AT_PAGESZ, PAGE, AT_RANDOM, rand, AT_NULL, 0]
+        rsp = (pos - 8 * len(words) - 64) & ~0xF          # argc is 16-byte aligned
         self.uc.mem_write(rsp, struct.pack(f"<{len(words)}Q", *words))
         return rsp
 
@@ -188,6 +200,63 @@ class Machine:
                 addr = last + 1
         return False
 
+    def readable_prefix(self, addr: int, size: int) -> int:
+        return self._readable_prefix(addr, size)
+
+    def writable(self, addr: int, size: int) -> bool:
+        return self._covered(addr, size, UC_PROT_WRITE)
+
+    def kernel_write(self, addr: int, data: bytes) -> None:
+        """A write done by the kernel on the program's behalf (recorded for undo)."""
+        if self._frame is not None:
+            self._frame.writes.append((addr, self.read(addr, len(data))))
+        self.write(addr, data)
+
+    def map_region(self, start: int, length: int, prot: int, data: bytes = b"") -> None:
+        self.uc.mem_map(start, length, UC_PROT_READ | UC_PROT_WRITE)
+        if data:
+            self.uc.mem_write(start, data)
+        self.uc.mem_protect(start, length, prot & 7)
+        if self._frame is not None:
+            self._frame.undo.append(lambda: self.uc.mem_unmap(start, length))
+
+    def unmap_region(self, start: int, length: int) -> None:
+        for page in range(start, start + length, PAGE):
+            prot = next((p for a, b, p in self.uc.mem_regions() if a <= page <= b), None)
+            if prot is None:
+                continue
+            data = self.read(page, PAGE) if prot & UC_PROT_READ else bytes(PAGE)
+            self.uc.mem_unmap(page, PAGE)
+            if self._frame is not None:
+                self._frame.undo.append(lambda page=page, prot=prot, data=data: (
+                    self.uc.mem_map(page, PAGE, UC_PROT_READ | UC_PROT_WRITE),
+                    self.uc.mem_write(page, data), self.uc.mem_protect(page, PAGE, prot)))
+
+    def protect_region(self, start: int, length: int, prot: int) -> None:
+        old = [(page, p) for page in range(start, start + length, PAGE)
+               for a, b, p in self.uc.mem_regions() if a <= page <= b]
+        self.uc.mem_protect(start, length, prot & 7)
+        if self._frame is not None:
+            self._frame.undo.append(lambda: [self.uc.mem_protect(pg, PAGE, p) for pg, p in old])
+
+    def resize_region(self, start: int, old_end: int, new_end: int) -> None:
+        old_top, new_top = align_up(old_end), align_up(new_end)
+        if new_top > old_top:
+            self.map_region(old_top, new_top - old_top, UC_PROT_READ | UC_PROT_WRITE)
+        elif new_top < old_top:
+            self.unmap_region(new_top, old_top - new_top)
+
+    def set_fs_base(self, addr: int) -> None:
+        self.uc.reg_write(X.UC_X86_REG_FS_BASE, addr)
+
+    @property
+    def stdout(self) -> bytearray:
+        return self.kernel.stdout
+
+    @property
+    def stderr(self) -> bytearray:
+        return self.kernel.stderr
+
     @property
     def pc(self) -> int:
         return self.reg("rip")
@@ -202,49 +271,20 @@ class Machine:
         rip = self.reg("rip")
         nr = self.reg("rax")
         args = tuple(self.reg(r) for r in ("rdi", "rsi", "rdx", "r10", "r8", "r9"))
-        result: int | None
-        if nr == SYS_WRITE:
-            fd, buf, count = args[:3]
-            n = self._readable_prefix(buf, count)
-            if fd not in (1, 2):
-                result = -EBADF
-            elif count and (buf + count > USER_LIMIT or n == 0):
-                result = -EFAULT
-            else:
-                # Like Linux: copy up to the first unreadable byte, return a short count.
-                (self.stdout if fd == 1 else self.stderr).extend(self.read(buf, n))
-                result = n
-        elif nr == SYS_READ:
-            fd, buf, count = args[:3]
-            chunk = self.stdin[self.stdin_pos:self.stdin_pos + count]
-            if fd != 0:
-                result = -EBADF
-            elif chunk and not self._writable(buf, len(chunk)):
-                result = -EFAULT
-            else:
-                if chunk:
-                    if self._frame is not None:
-                        self._frame.writes.append((buf, self.read(buf, len(chunk))))
-                    self.write(buf, chunk)
-                self.stdin_pos += len(chunk)
-                result = len(chunk)
-        elif nr in (SYS_EXIT, SYS_EXIT_GROUP):
+        try:
+            result = self.kernel.syscall(self, nr, args)
+        except Exit as e:
             self.syscalls.append(SyscallRecord(nr, args[:1], None))
-            self.exit_code = args[0] & 0xFF
+            self.exit_code = e.status
             self.state = "exited"
             self.set_reg("rip", rip + 2)
             uc.emu_stop()
             return
-        else:
-            result = -ENOSYS
         self.syscalls.append(SyscallRecord(nr, args[:3], result & MASK64))
         # The kernel returns in rax and clobbers rcx (return rip) and r11 (rflags).
         self.set_reg("rax", result)
         self.set_reg("rcx", rip + 2)
         self.set_reg("r11", self.reg("rflags"))
-
-    def _writable(self, addr: int, size: int) -> bool:
-        return self._covered(addr, size, UC_PROT_WRITE)
 
     def _on_write(self, uc: Uc, _access, addr: int, size: int, _value, _user) -> None:
         if self._frame is not None:
@@ -283,8 +323,10 @@ class Machine:
         if self.finished:
             return False
         if self.record:
-            self._frame = _Frame(self.uc.context_save(), [], len(self.stdout), len(self.stderr),
-                                 self.stdin_pos, len(self.syscalls), self.state, self.exit_code)
+            at_syscall = self.readable(self.pc, 2) and self.read(self.pc, 2) == SYSCALL_INSN
+            self._frame = _Frame(self.uc.context_save(), [], [],
+                                 self.kernel.snapshot() if at_syscall else None,
+                                 len(self.syscalls), self.state, self.exit_code)
         self.state = "running"
         try:
             self.uc.emu_start(self.pc, 0, count=1)
@@ -302,13 +344,14 @@ class Machine:
         if not self.history:
             return False
         f = self.history.pop()
+        for undo in reversed(f.undo):
+            undo()
         for addr, old in reversed(f.writes):
             self.uc.mem_write(addr, old)
         self.uc.context_restore(f.context)
-        del self.stdout[f.stdout_len:]
-        del self.stderr[f.stderr_len:]
+        if f.kernel is not None:
+            self.kernel.restore(f.kernel)
         del self.syscalls[f.syscalls_len:]
-        self.stdin_pos = f.stdin_pos
         self.state = f.state
         self.exit_code = f.exit_code
         self.fault = None

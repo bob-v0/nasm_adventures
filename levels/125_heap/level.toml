@@ -1,0 +1,22 @@
+level = 125
+slug = "heap"
+title = "Heap"
+arc = "V"
+mode = "function"
+entry = "ring_workload"
+library = "malloc"
+concepts = ["getting memory from the kernel: brk and mmap", "block headers", "free lists", "alignment", "fragmentation"]
+introduces = ["brk (12)", "mmap (9)", "malloc", "free"]
+
+hints = [
+  "Put a 16-byte header before every block: its size, and (when free) a pointer to the next free block. malloc returns header + 16, which stays 16-byte aligned if every block size is a multiple of 16. free(p) finds the header at p - 16.",
+  "malloc: first look through the free list for a block that's big enough (unlink it and return it); only if none fits, grow the heap: brk(0) gives the current end, brk(end + size) extends it.",
+  "Reuse alone may not be enough: if you hand a 2000-byte free block to a 20-byte request, split it and put the rest back on the free list. free(NULL) must do nothing.",
+]
+
+[constraints]
+max_instructions = 120
+max_steps = 4000000
+
+[random]
+count = 6

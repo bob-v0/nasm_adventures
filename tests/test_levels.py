@@ -29,11 +29,13 @@ def test_level(ring, tmp_path):
 def test_emulator_matches_native(ring, tmp_path):
     lv = LEVELS[ring]
     b = build_copy(lv, lv.reference, tmp_path)
-    for test in lv.all_tests(CTX)[:5]:
-        if test.mem:
-            continue  # memory pokes only exist in the emulator
+    for test in lv.all_tests(CTX)[:8]:
+        if test.mem or test.files or test.inject:
+            continue  # memory pokes, virtual files and injected faults only exist in the emulator
         result, m = run_test(lv, b, test)
-        native = subprocess.run([str(b.elf)], input=test.stdin, capture_output=True, timeout=5)
+        argv = test.argv or ["./solution"]
+        native = subprocess.run(argv, executable=str(b.elf), input=test.stdin, capture_output=True,
+                                timeout=5, env=test.env, cwd=b.elf.parent)
         assert bytes(m.stdout) == native.stdout
         assert bytes(m.stderr) == native.stderr
         assert m.exit_code == native.returncode

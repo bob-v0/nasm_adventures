@@ -1,0 +1,20 @@
+level = 127
+slug = "files"
+title = "Files"
+arc = "V"
+mode = "program"
+concepts = ["file descriptors as handles", "open flags and modes", "read until 0 (end of file)", "errors are negative return values", "closing what you open"]
+introduces = ["open (2)", "close (3)", "O_RDONLY, O_WRONLY, O_CREAT, O_TRUNC", "file modes (0644)", "errno"]
+
+hints = [
+  "open(path, flags, mode) returns a new file descriptor, or -errno. Check the sign of rax: `test rax, rax` / `js .failed`. The exit status wanted is the errno, i.e. -rax.",
+  "Read in a loop: read(in, buf, 4096) returns how many bytes it got, 0 at the end of the file. Write each chunk to out, and count the 10s in it, until read returns 0.",
+  "out.txt: open with O_WRONLY | O_CREAT | O_TRUNC = 1 | 0o100 | 0o1000 and mode 0o644. NASM writes octal as 0o644 or 644q. Close both descriptors before you exit.",
+]
+
+[constraints]
+max_instructions = 70
+max_steps = 600000
+
+[random]
+count = 12
