@@ -360,7 +360,7 @@ Runner: emu: threads share one emulated CPU under the game's scheduler (numbered
 | 77 | Lock-Free Stack | Treiber stack with `cmpxchg` | Push/pop under contention |
 | 76 | **Bug:** ABA ◆◆◆◆ | a pointer compares equal but the node was freed and reused | Witness the ABA schedule; fix with tagged pointers and `cmpxchg16b` |
 | 75 | **Bug:** Memory Reclamation ◆◆◆◆ | freeing nodes other threads may still read; hazard pointers, epoch-based reclamation | Lock-free stack with hazard pointers; the checked allocator watches every access |
-| 74 | Actors Across Threads | a multi-threaded actor runtime, MPSC mailboxes, work stealing | Run Arc VI's actors on N worker threads |
+| 74 | Actors Across Threads | a multi-threaded actor runtime, MPSC mailboxes, work stealing | Mailboxes and scheduling for actors on several worker threads |
 | 73 | **Bug:** Lifetimes Across Actors ◆◆◆◆ | an actor released by one worker while another still dispatches to it; refcount release ordering | Fix with refcounts + acquire/release ordering or epochs |
 | 72 | Lock-Free Actor Runtime ★ | everything in the arc | Passes schedule exploration, the TSO model, the race detector and a native stress test |
 

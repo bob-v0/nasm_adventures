@@ -1,0 +1,19 @@
+level = 74
+slug = "actors_threads"
+title = "Actors Across Threads"
+arc = "VIII"
+mode = "program"
+concepts = ["an actor runtime on many threads", "multi-producer single-consumer mailboxes", "an actor runs on one thread at a time: the scheduled flag", "the lost-message race when an actor goes idle", "ordering per sender"]
+introduces = ["MPSC queues", "actor scheduling"]
+
+hints = [
+  "Mailbox: many threads send, only the actor's current runner receives. Senders can push onto a lock-free stack (level 77's push). The runner takes the WHOLE stack at once with xchg [mailbox], 0, then reverses that list so the oldest message comes first.",
+  "A 'scheduled' flag makes sure an actor is queued or running at most once: a sender does xchg flag, 1 and only calls runq_push if it was 0. actor_run handles batches until the mailbox is empty.",
+  "The hard part is going idle: clear the flag, then check the mailbox one last time. A sender may have pushed after your last look but seen the flag still set (so it didn't schedule you). If the mailbox isn't empty, xchg the flag back to 1; if that returns 0 it's yours again. Mind store -> load ordering between clearing the flag and reading the mailbox (level 83).",
+]
+
+[constraints]
+max_steps = 1500000
+
+[random]
+count = 1
