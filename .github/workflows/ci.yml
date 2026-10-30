@@ -16,7 +16,14 @@ jobs:
       - run: pip install -e '.[dev]'
       - run: python3 tools/gen_curriculum.py --check
       - run: ring check-levels
-      - run: pytest -q
+      - name: pytest
+        shell: bash
+        run: |
+          pytest -q -rf --tb=short 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          # failures as annotations too, so they show up without opening the log
+          grep -E "^(FAILED|E  )" pytest.log | head -30 | sed 's/^/::error::/' || true
+          exit $status
 
   docker:
     runs-on: ubuntu-latest
