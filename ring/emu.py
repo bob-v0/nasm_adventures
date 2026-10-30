@@ -312,7 +312,7 @@ class Machine:
 
     @property
     def finished(self) -> bool:
-        return self.state in ("done", "exited", "fault", "limit", "killed")
+        return self.state in ("done", "exited", "fault", "limit", "killed", "idle")
 
     # ---- syscalls -----------------------------------------------------------------
 
@@ -528,8 +528,9 @@ class Machine:
                 self.state, self.fault = "limit", None
                 return
             if not progress and not until():
-                self._deadlock()
-                return
+                if self._all_waiting():
+                    return
+                continue
         self._activate()
 
     def _round(self, machines: list["Machine"], max_steps: int, used: int,
@@ -556,6 +557,19 @@ class Machine:
                 del k.machines[m.proc.pid]
         return progress, used
 
+    def _all_waiting(self) -> bool:
+        """Nobody can run. If time can move on to the next event, do that (False: go on).
+        Otherwise the run ends: "idle" when a server has served all its clients, else a
+        deadlock (True)."""
+        k = self.kernel
+        if k.peers_done:
+            self.state = "idle"
+            return True
+        if k.advance_time():
+            return False
+        self._deadlock()
+        return True
+
     def _deadlock(self) -> None:
         blocked = [m for m in self.kernel.machines.values() if m.state == "blocked"]
         waiting = [f"pid {m.proc.pid}" + (f" ({m.proc.command})" if m.proc.command else "")
@@ -568,6 +582,11 @@ class Machine:
             why.append("A pipe write waits for room while ANY read end is still open, even if "
                        "nobody will read it again; with no read end left it gets SIGPIPE.")
         self.state = "fault"
+        if self.kernel.peers:
+            self.fault = ("everything stopped: the program waits ("
+                          + "; ".join(waiting) + ") and so do the clients: "
+                          + "; ".join(self.kernel.peer_report()))
+            return
         self.fault = ("deadlock: every process is waiting for another one, forever ("
                       + "; ".join(waiting) + ")." + "".join(" " + w for w in why))
 
@@ -593,8 +612,7 @@ class Machine:
             # Let the others run until this one can go on (or nobody can).
             others = [m for m in self.kernel.machines.values() if m is not self and not m.finished]
             progress, used = self._round(others, 1_000_000, used)
-            if not progress:
-                self._deadlock()
+            if not progress and self._all_waiting():
                 break
             if used >= 1_000_000:
                 self.state = "limit"

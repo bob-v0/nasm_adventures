@@ -18,6 +18,8 @@ import random
 import struct
 from dataclasses import dataclass, field
 
+from .kernel_events import EventsMixin
+
 MASK64 = (1 << 64) - 1
 
 # errno values (Linux x86-64)
@@ -45,7 +47,11 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          84: "rmdir", 87: "unlink", 88: "symlink", 89: "readlink", 102: "getuid",
          110: "getppid", 24: "sched_yield", 58: "vfork", 292: "dup3", 158: "arch_prctl", 186: "gettid", 201: "time", 217: "getdents64",
          228: "clock_gettime", 231: "exit_group", 257: "openat", 262: "newfstatat",
-         200: "tkill", 234: "tgkill", 293: "pipe2", 318: "getrandom"}
+         200: "tkill", 234: "tgkill", 293: "pipe2", 318: "getrandom",
+         41: "socket", 42: "connect", 43: "accept", 48: "shutdown", 49: "bind", 50: "listen",
+         54: "setsockopt", 288: "accept4", 213: "epoll_create", 291: "epoll_create1",
+         233: "epoll_ctl", 232: "epoll_wait", 281: "epoll_pwait", 283: "timerfd_create",
+         286: "timerfd_settime", 287: "timerfd_gettime", 7: "poll", 290: "eventfd2"}
 NUMBERS = {v: k for k, v in NAMES.items()}
 
 SIGILL, SIGFPE, SIGKILL, SIGUSR1, SIGSEGV, SIGPIPE, SIGALRM, SIGTERM, SIGCHLD = 4, 8, 9, 10, 11, 13, 14, 15, 17
@@ -109,6 +115,9 @@ class OpenFile:
     pipe: int = 0                  # for kind "pipe": which pipe
     node: Inode | None = None      # the file itself: renaming or replacing the path
                                    # doesn't change what an open descriptor refers to
+    nonblock: bool = False         # O_NONBLOCK: EAGAIN instead of waiting
+    ref: object = None             # sockets, timers, epoll: which kernel object
+    addr: tuple | None = None      # a bound socket's address
 
 
 PIPE_CAPACITY = 65536
@@ -133,6 +142,7 @@ class Proc:
     blocks: dict[int, dict] = field(default_factory=dict)  # checked heap: address -> {size, freed, alloc, free}
     checked_next: int = CHECKED_HEAP
     status: int | None = None      # wait status once it has terminated (a zombie until reaped)
+    deadline: int | None = None    # a blocking call with a timeout gives up at this time
     command: str = ""
 
 
@@ -149,6 +159,7 @@ class Injection:
     signals: list[dict] = field(default_factory=list)  # {"at": instruction count, "sig": 2}
     fs_events: list[dict] = field(default_factory=list)  # another process changes files (see fs_event)
     quantum: int = 500             # instructions a process runs before the next one's turn
+    peers: list[dict] = field(default_factory=list)  # scripted clients (see kernel_events)
     seed: str = ""
 
     @classmethod
@@ -157,10 +168,10 @@ class Injection:
         return cls(fail=list(d.get("fail", [])), short_reads=d.get("short_reads", False),
                    short_writes=d.get("short_writes", False),
                    signals=list(d.get("signals", [])), fs_events=list(d.get("fs_events", [])),
-                   quantum=d.get("quantum", 500), seed=seed)
+                   quantum=d.get("quantum", 500), peers=list(d.get("peers", [])), seed=seed)
 
 
-class Kernel:
+class Kernel(EventsMixin):
     def __init__(self, stdin: bytes = b"", files: dict[str, bytes | str] | None = None,
                  inject: Injection | None = None, cwd: str = "/work"):
         self.machines: dict = {}      # pid -> Machine (outside snapshots)
@@ -196,6 +207,7 @@ class Kernel:
                          2: OpenFile("stderr", writable=True)}
         self.events: list[str] = []             # what happened to processes, for reports
         self.fs_events: list[dict] = list(self.inject.fs_events)
+        self.init_events(self.inject.peers)
 
     def new_proc(self, ppid: int) -> Proc:
         p = Proc(self.next_pid, ppid)
@@ -319,6 +331,7 @@ class Kernel:
         name = NAMES.get(nr, f"syscall_{nr}")
         if name in ("exit", "exit_group"):
             raise Exit(args[0] & 0xFF)
+        self.tick()
         injected = self._injected(name)
         if injected is not None:
             return injected
@@ -330,12 +343,15 @@ class Kernel:
         if handler is None:
             return -ENOSYS
         try:
-            return handler(m, *args)
+            result = handler(m, *args)
         except OSError as e:
-            return -(e.args[0] if e.args and isinstance(e.args[0], int) else EINVAL)
+            result = -(e.args[0] if e.args and isinstance(e.args[0], int) else EINVAL)
         except Block:
             self.calls[name] -= 1     # it will be called again
+            self.time_ns -= 1000      # ...and waiting isn't a syscall's worth of time
             raise
+        self.proc.deadline = None
+        return result
 
     def after_syscall(self, name: str) -> None:
         """Another process (the 'attacker' of a race level) changes the filesystem right
@@ -367,11 +383,19 @@ class Kernel:
             return -EBADF
         if f.kind == "dir":
             return -EISDIR
-        if f.kind == "pipe":
+        if f.kind == "conn":
+            data = self.read_conn(f, fd, count)
+        elif f.kind == "timer":
+            data = self.read_timer(f, fd, count)
+        elif f.kind in ("socket", "listen", "epoll"):
+            return -EINVAL if f.kind != "socket" else -107   # ENOTCONN
+        elif f.kind == "pipe":
             buf_ = self.pipes[f.pipe]
             if not buf_:
                 if not self._pipe_has(f.pipe, writable=True):
                     return 0                                   # every write end is closed: EOF
+                if f.nonblock:
+                    return -EAGAIN
                 raise Block(f"read from an empty pipe (fd {fd})")
             data = bytes(buf_[:self._chunk(min(count, len(buf_)), self.inject.short_reads)])
             del buf_[:len(data)]
@@ -403,8 +427,14 @@ class Kernel:
                 return -EPIPE
             room = PIPE_CAPACITY - len(self.pipes[f.pipe])
             if room == 0 and n:
+                if f.nonblock:
+                    return -EAGAIN
                 raise Block(f"write to a full pipe (fd {fd})")
             n = min(n, room)
+        elif f.kind == "conn":
+            n = self.write_conn(f, fd, n)
+        elif f.kind in ("socket", "listen", "epoll", "timer"):
+            return -EINVAL if f.kind != "socket" else -107
         n = self._chunk(n, self.inject.short_writes)
         data = m.read(buf, n)  # like Linux: up to the first unreadable byte
         self.writes.append((self.time_ns, fd, n))
@@ -414,6 +444,8 @@ class Kernel:
             self.stderr += data
         elif f.kind == "pipe":
             self.pipes[f.pipe] += data
+        elif f.kind == "conn":
+            self.conns[f.ref].to_client += data
         else:
             node = f.node
             if f.append:
@@ -468,11 +500,16 @@ class Kernel:
                                    append=bool(flags & O_APPEND), node=node))
         if flags & O_CLOEXEC:
             self.cloexec.add(fd)
+        self.fds[fd].nonblock = bool(flags & 0o4000)
         return fd
 
     def sys_close(self, m, fd, *_):
         self.cloexec.discard(fd)
-        return 0 if self.fds.pop(fd, None) is not None else -EBADF
+        f = self.fds.pop(fd, None)
+        if f is None:
+            return -EBADF
+        self.file_closed(f)
+        return 0
 
     def sys_lseek(self, m, fd, offset, whence, *_):
         f = self.fds.get(fd)
@@ -492,6 +529,10 @@ class Kernel:
         uid = 1000
         if kind == "pipe":
             mode, size, ino = S_IFIFO | 0o600, 0, 2
+        elif kind in ("socket", "listen", "conn"):
+            mode, size, ino = 0o140000 | 0o777, 0, 4
+        elif kind in ("epoll", "timer"):
+            mode, size, ino = 0o600, 0, 5
         elif node is None:  # a terminal
             mode, size, ino = S_IFCHR | 0o620, 0, 3
         else:
@@ -632,7 +673,6 @@ class Kernel:
         return self.proc.pid
 
     def sys_clock_gettime(self, m, clock, tp, *_):
-        self.time_ns += 1000                         # time moves forward a little per call
         m.kernel_write(tp, struct.pack("<qq", self.time_ns // 10**9, self.time_ns % 10**9))
         return 0
 
@@ -774,6 +814,8 @@ class Kernel:
 
     def _pipe_has(self, pipe: int, writable: bool) -> bool:
         """Does any live process still hold this pipe's write (or read) end?"""
+        if writable and pipe in self.peer_pipes:
+            return True
         for p in self.procs.values():
             if p.status is None:
                 for f in p.fds.values():
@@ -785,7 +827,7 @@ class Kernel:
         return self.sys_pipe2(m, fds_addr, 0)
 
     def sys_pipe2(self, m, fds_addr, flags, *_):
-        if flags & ~O_CLOEXEC:
+        if flags & ~(O_CLOEXEC | 0o4000):
             return -EINVAL
         if not m.writable(fds_addr, 8):
             return -EFAULT
@@ -799,6 +841,7 @@ class Kernel:
             raise
         if flags & O_CLOEXEC:
             self.cloexec |= {r, w}
+        self.fds[r].nonblock = self.fds[w].nonblock = bool(flags & 0o4000)
         m.kernel_write(fds_addr, struct.pack("<ii", r, w))
         return 0
 
@@ -847,7 +890,10 @@ class Kernel:
             return 0
         if cmd == F_GETFL:
             return (O_RDWR if f.readable and f.writable else O_WRONLY if f.writable else O_RDONLY) \
-                | (O_APPEND if f.append else 0)
+                | (O_APPEND if f.append else 0) | (0o4000 if f.nonblock else 0)
+        if cmd == 4:                                    # F_SETFL: O_APPEND and O_NONBLOCK
+            f.append, f.nonblock = bool(arg & O_APPEND), bool(arg & 0o4000)
+            return 0
         return -EINVAL
 
     # ---- processes --------------------------------------------------------------------------------
@@ -901,7 +947,9 @@ class Kernel:
         if bytes(node.data[:4]) != b"\x7fELF":
             return -ENOEXEC
         for fd in sorted(self.cloexec):
-            self.fds.pop(fd, None)
+            f = self.fds.pop(fd, None)
+            if f is not None:
+                self.file_closed(f)
         self.cloexec = set()
         self.actions = {s: a for s, a in self.actions.items() if a[0] == SIG_IGN}
         self.mmaps, self.mmap_next, self.blocks = {}, MMAP_BASE, {}
@@ -914,8 +962,10 @@ class Kernel:
         """A process terminated with a wait status: (code << 8) for exit(code), or the
         signal number when killed. Its files close; its parent gets SIGCHLD."""
         proc.status = status
-        proc.fds = {}
+        closed, proc.fds = proc.fds, {}
         proc.cloexec = set()
+        for f in closed.values():
+            self.file_closed(f)
         for p in self.procs.values():   # orphans are adopted (by "init", which reaps them)
             if p.ppid == proc.pid:
                 p.ppid = 1

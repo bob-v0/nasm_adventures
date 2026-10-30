@@ -281,6 +281,14 @@ def _run_one(level: Level, build: Build, test: TestCase,
         if state == "killed" and m.term_signal != exp["killed"]:
             problems.append(f"expected to be killed by signal {exp['killed']}, "
                             f"but was killed by {m.term_signal}")
+    if m.kernel.peers and "killed" not in exp:   # a server: it runs until its clients are done
+        want_state = exp.get("end", "idle")
+        if state in ("idle", "exited"):
+            problems += m.kernel.peer_report()
+        if state == "exited" and want_state == "idle" and not m.kernel.peers_done:
+            problems.append(f"the server exited (status {m.exit_code}) while clients were "
+                            "still talking to it")
+            state = want_state
     if state == "killed" and want_state != "killed":
         problems.append(m.fault)
     elif state == "exited" and level.mode == "function":
