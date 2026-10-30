@@ -1,0 +1,16 @@
+level = 113
+slug = "elf_by_hand"
+title = "ELF by Hand"
+arc = "V"
+mode = "native"
+link = "bin"
+concepts = ["what execve actually reads", "the ELF header", "program headers (segments) vs section headers", "file offsets vs virtual addresses", "org and $$ in nasm -f bin"]
+introduces = ["nasm -f bin", "org", "$$", "ELF64 header", "PT_LOAD", "p_offset, p_vaddr, p_filesz, p_memsz"]
+
+hints = [
+  "After the magic: db 2, 1, 1, 0 and `times 8 db 0` (16 bytes so far). Then dw 2 (ET_EXEC), dw 0x3E (x86-64), dd 1. Then dq _start (with org 0x400000, labels are already the run-time addresses), dq phdr - $$ (a file offset: 64), dq 0, dd 0.",
+  "The last 12 bytes of the header: dw 64 (header size), dw 56 (program header size), dw 1 (one of them), dw 0, 0, 0 (no section headers). Check: `phdr` must be at offset 64. `xxd solution` or `readelf -h solution` in the terminal shows what you built.",
+  "One PT_LOAD maps the whole file: dd 1 (PT_LOAD), dd 5 (R+X), dq 0 (from file offset 0), dq $$, dq $$ (to 0x400000), then dq FILE_SIZE twice and dq 0x1000. Define `FILE_SIZE equ $ - $$` at the very end of the file.",
+]
+
+[constraints]

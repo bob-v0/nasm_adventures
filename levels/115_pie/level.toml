@@ -1,0 +1,21 @@
+level = 115
+slug = "pie"
+title = "Position Independence"
+arc = "V"
+mode = "native"
+link = "pie"
+concepts = ["ASLR: the program is loaded at a different address every run", "RIP-relative addressing", "relocations: what the linker and the loader patch", "the PLT for calls into shared libraries", "text relocations and why read-only data can't hold addresses", "jump tables of offsets"]
+introduces = ["default rel", "[rel label]", "wrt ..plt", "R_X86_64_RELATIVE", "DT_TEXTREL", "PIE"]
+
+hints = [
+  "Start with `default rel` at the top: then `[label]` means `[rip + (label - next instruction)]`. But `[days + rax*8]` has an index register, and RIP-relative addressing can't have one: `lea rcx, [days]` first, then `mov rdi, [rcx + rax*8]`.",
+  "`mov edi, work` puts an absolute 32-bit address in the instruction: use `lea rdi, [work]`. Calls into libc must go through the PLT: `call puts wrt ..plt`.",
+  "The tables in .rodata hold absolute addresses, which the loader would have to patch (a text relocation). Move `days` to .data (the loader patches it there, that's fine), and make `kinds` a table of offsets: `dd main.weekday - kinds, ...` (outside main, a local label needs its full name); then `movsxd rdx, [rcx + rax*4]` / `add rdx, rcx` / `jmp rdx`.",
+]
+
+[constraints]
+max_instructions = 45
+must_call = ["puts"]
+
+[random]
+count = 4

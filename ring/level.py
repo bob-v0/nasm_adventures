@@ -128,7 +128,8 @@ class Level:
         helpers = self.path / "helpers.asm"
         return {"include_dirs": [self.include_dir] if self.include_dir else [],
                 "prelude": self.prelude, "helpers": [helpers] if helpers.exists() else [],
-                "entry": self.data.get("entry"), "c_sources": sorted(self.path.glob("*.c"))}
+                "entry": self.data.get("entry"), "c_sources": sorted(self.path.glob("*.c")),
+                "link": self.data.get("link", "")}
 
     def _gen_module(self):
         p = self.path / "gen.py"

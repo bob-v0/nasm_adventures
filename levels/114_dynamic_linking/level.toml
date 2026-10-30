@@ -1,0 +1,20 @@
+level = 114
+slug = "dynamic_linking"
+title = "Dynamic Linking"
+arc = "V"
+mode = "native"
+link = "pie"
+concepts = ["shared libraries are loaded at run time, at random addresses", "ld.so, the dynamic linker", "the GOT: a table of addresses the loader fills in", "the PLT: stubs that jump through the GOT", "lazy binding vs BIND_NOW", "dlsym"]
+introduces = ["wrt ..got", "call [rel f wrt ..got]", "R_X86_64_GOTPCREL", "R_X86_64_PLT32", ".got / .got.plt", "dlsym (RTLD_DEFAULT)"]
+
+hints = [
+  "`[rel puts wrt ..got]` is a memory operand: the GOT slot that ld.so fills with puts's address. So `call [rel puts wrt ..got]` calls puts with one indirect call, and `mov rax, [rel puts wrt ..got]` loads its address.",
+  "Replace each `call f wrt ..plt` with `call [rel f wrt ..got]`. Nothing else about the call changes: same arguments, same alignment, al = 0 for printf.",
+  "The comparison: `lea rcx, [puts wrt ..plt]` is the address of the PLT stub in YOUR program, not of puts in libc, so it never equals dlsym's answer. Compare rax with the GOT slot: `cmp rax, [rel puts wrt ..got]`.",
+]
+
+[constraints]
+max_instructions = 45
+
+[random]
+count = 4

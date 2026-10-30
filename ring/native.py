@@ -7,6 +7,7 @@ non-x86 host the program runs under qemu-x86_64 user-mode emulation if it's inst
 
 from __future__ import annotations
 
+import errno
 import platform
 import resource
 import shutil
@@ -42,6 +43,7 @@ class NativeResult:
     exit_code: int | None
     signal: int | None
     timed_out: bool
+    error: str = ""          # the kernel refused to start it (execve failed)
 
 
 def run(exe: Path, stdin: bytes, args: list[str] = ()) -> NativeResult:
@@ -51,5 +53,9 @@ def run(exe: Path, stdin: bytes, args: list[str] = ()) -> NativeResult:
                            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"})
     except subprocess.TimeoutExpired as e:
         return NativeResult(e.stdout or b"", e.stderr or b"", None, None, True)
+    except OSError as e:                # e.g. ENOEXEC: not a valid executable
+        return NativeResult(b"", b"", None, None, False,
+                            f"the kernel refused to run it: execve failed with "
+                            f"{errno.errorcode.get(e.errno, e.errno)} ({e.strerror})")
     sig = -p.returncode if p.returncode < 0 else None
     return NativeResult(p.stdout, p.stderr, None if sig else p.returncode, sig, False)

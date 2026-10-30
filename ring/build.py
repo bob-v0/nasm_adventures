@@ -111,11 +111,13 @@ def _link_errors(stderr: str, gen_name: str, player_name: str, offset: int, text
 def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
           prelude: Path | None = None, defines: dict[str, str] | None = None,
           helpers: list[Path] = (), entry: str | None = None,
-          c_sources: list[Path] = ()) -> Build:
+          c_sources: list[Path] = (), link: str = "") -> Build:
     """Assemble `source` into a static ELF in `out_dir`.
 
     mode="fragment": wrap the player's text (see WRAP_HEAD) and append `prelude`.
     mode="program":  assemble the player's file as-is; it must define _start.
+    mode="native":   link with gcc (link="pie" for a position-independent executable),
+                     or link="bin": the player writes the whole file (`nasm -f bin`).
     """
     source, out_dir = source.resolve(), out_dir.resolve()
     if not shutil.which("nasm") or not shutil.which("ld"):
@@ -134,7 +136,10 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         asm_input, line_offset = source, 0
 
     obj, elf, lst = out_dir / "solution.o", out_dir / "solution", out_dir / "solution.lst"
-    cmd = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
+    if link == "bin":    # no linker: NASM's output is the executable, headers and all
+        cmd = ["nasm", "-f", "bin", "-l", str(lst), "-o", str(elf)]
+    else:
+        cmd = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
     for d in [source.parent, *include_dirs]:
         cmd += ["-I", str(d).rstrip("/") + "/"]
     for k, v in (defines or {}).items():
@@ -148,7 +153,13 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
 
     if mode == "native":
         # Linked by gcc with the C library (and the level's C harness, if any).
-        exe = _link_native(obj, out_dir / "solution", c_sources, source)
+        if link == "bin":
+            elf.chmod(0o755)
+            exe, obj = elf, None
+        else:
+            exe, link_warnings = _link_native(obj, out_dir / "solution", c_sources, source,
+                                              pie=link == "pie")
+            msgs = "\n".join(m for m in (msgs.strip(), link_warnings) if m)
         b = Build(elf=exe, source=source, mode=mode, entry=0, symbols={}, sections={},
                   code_range=(0, 0), player_object=obj)
         b.warnings = msgs
@@ -178,20 +189,34 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
     return b
 
 
-def _link_native(obj: Path, exe: Path, c_sources: list[Path], source: Path) -> Path:
+def _link_native(obj: Path, exe: Path, c_sources: list[Path], source: Path,
+                 pie: bool = False) -> tuple[Path, str]:
     if not shutil.which("gcc"):
         raise BuildError("gcc is needed for this level (use the Docker image, see README).")
-    r = _run(["gcc", "-no-pie", "-z", "noexecstack", "-O1", "-o", str(exe), str(obj),
-              *map(str, c_sources)], source.parent)
+    r = _run(["gcc", "-pie" if pie else "-no-pie", "-z", "noexecstack", "-O1", "-o", str(exe),
+              str(obj), *map(str, c_sources)], source.parent)
     if r.returncode != 0:
-        msg = r.stderr.strip()
+        msg = r.stderr.strip().replace("/usr/bin/ld: ", "ld: ").replace(str(obj), "solution.o")
+        if "can not be used when making a PIE object" in msg:
+            msg += ("\n    why: an absolute 32-bit address (`mov edi, label`, `[label]` without "
+                    "`rel`, `dd label`) can't work in a program that may be loaded anywhere. "
+                    "Use RIP-relative addressing: `default rel` at the top, `lea rdi, [label]`, "
+                    "and `call func wrt ..plt` for library functions.")
         if "undefined reference to `main'" in msg:
             msg += "\n    why: a C program starts at `main`. Add `global main` and a `main:` label."
         elif "undefined reference" in msg:
             msg += ("\n    why: something that is called isn't defined: check the spelling, "
                     "`global` for your functions and `extern` for library ones.")
         raise BuildError(msg)
-    return exe
+    warnings = "\n".join(ln.replace("/usr/bin/ld: ", "ld: ").replace(str(obj), "solution.o")
+                         for ln in r.stderr.strip().splitlines())
+    if "relocation in read-only section" in warnings:
+        warnings += ("\n    why: something in a read-only section (.text or .rodata) holds an "
+                     "absolute address, like a table of `dq label`s. The loader must patch it "
+                     "after choosing the load address, so that memory can't stay read-only "
+                     "(a 'text relocation'). Put pointer tables in .data, or store offsets "
+                     "(`dd label - table`) instead of addresses.")
+    return exe, warnings
 
 
 def _inspect(elf_path: Path, source: Path, mode: str, player_object: Path | None = None,

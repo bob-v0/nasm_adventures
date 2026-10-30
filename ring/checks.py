@@ -60,6 +60,8 @@ class Report:
 def disassemble(build: Build) -> list[tuple[int, str, str]]:
     """(address, mnemonic, operands) for the player's code."""
     if build.mode == "native":
+        if build.player_object is None:   # a flat file written with `nasm -f bin`
+            return []
         with open(build.player_object, "rb") as fh:  # dynamically linked: read the object
             sec = ELFFile(fh).get_section_by_name(".text")
             code, start = (sec.data() if sec else b""), 0
@@ -167,6 +169,8 @@ def run_native_test(level: Level, build: Build, test: TestCase) -> TestResult:
     from . import native
     r = native.run(build.elf, test.stdin, test.expect.get("args", []))
     problems: list[str] = []
+    if r.error:
+        return TestResult(test.name, test.hidden, False, [r.error], 0)
     if r.timed_out:
         problems.append(f"did not finish within {native.TIMEOUT_S} seconds")
     elif r.signal:
@@ -490,5 +494,8 @@ def grade(level: Level, build: Build, tests: list[TestCase], ctx: Context | None
         r.checks.append(Check(f"≤ {n} changed lines (vs. the original)", used <= n, f"you: {used}"))
     if level.data.get("witness"):
         r.checks += _witness_checks(level, build, ctx or Context())
+    gen = level._gen_module()
+    if gen is not None and hasattr(gen, "audit"):   # the level's own checks of the binary
+        r.checks += [Check(*c) for c in gen.audit(build)]
     r.stretch = _static_checks(level.stretch, ins, r.max_steps)
     return r
