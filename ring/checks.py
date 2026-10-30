@@ -93,6 +93,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
     if test.userland:
         install_userland(kernel)
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
+    if test.inject.get("tso"):
+        m.enable_tso()
     if perf or "max_cycles" in test.expect or "noise" in test.inject:
         m.enable_perf(noise=test.inject.get("noise"))
         for spec in test.inject.get("warm", []):   # {"sym": ..., "size": ...}: already in L2
@@ -230,8 +232,9 @@ def _schedule_sweep(level: Level, build: Build, test: TestCase):
     for s in range(count + 1):
         r, m = _run_one(level, build, _without(test, "schedule_sweep", schedule=s))
         if not r.passed:
-            r.problems.insert(0, "with the plain schedule (ready tasks in order):" if s == 0 else
-                              f"with schedule {s} (one of {count} task orders the game tried):")
+            r.problems.insert(0, "with the plain schedule (threads/tasks take turns in order):"
+                              if s == 0 else f"with schedule {s} (one of {count} interleavings "
+                              "the game tried):")
             return r, m
     return TestResult(test.name, test.hidden, True, [], m.steps if m else 0), m
 

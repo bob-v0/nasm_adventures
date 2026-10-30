@@ -139,6 +139,7 @@ class Machine:
         self.term_signal: int | None = None      # set when killed by a signal
         self.trace: list[int] | None = None      # addresses executed, when enabled
         self.perf = None                          # the CPU cost model, when enabled
+        self.tso = None                           # per-thread store buffers, when enabled
         self.cycle_limit = 0                      # stop once the model passes this many cycles
         self._redirect: str | None = None        # "sigreturn" / "deliver", requested mid-slice
         self._bad_access: int | None = None
@@ -446,6 +447,8 @@ class Machine:
     def _thread_exit(self) -> None:
         t = self.thread
         t.state = "exited"
+        if self.tso is not None:
+            self.tso.drain(t.tid)
         if t.clear_tid and self.writable(t.clear_tid, 4):   # how pthread_join waits
             self.kernel_write(t.clear_tid, b"\0\0\0\0")
             self.kernel.futex_wake(t.clear_tid, 1)
@@ -480,9 +483,21 @@ class Machine:
         cur = self.thread
         if cur.state == "running":
             cur.state = "ready"
+        if self.tso is not None:
+            k = self.kernel
+            for th in self.threads:               # some pending stores become visible now
+                n = self.tso.pending(th.tid)
+                if n:                              # (a buffer drains over many cycles)
+                    if k.inject.schedule == 0:
+                        self.tso.commit(th.tid, n)
+                    elif k.sched_rng.random() < 0.3:
+                        self.tso.commit(th.tid, k.sched_rng.randint(1, n))
+                    self.tso.commit_weak(th.tid, k.sched_rng)
         if t is not cur:
             if cur.state != "exited":
                 cur.ctx = self.uc.context_save()
+            if self.tso is not None:
+                self.tso.switch(cur.tid, t.tid)
             self.uc.context_restore(t.ctx)
             t.ctx = None
             self.thread = t
@@ -575,6 +590,11 @@ class Machine:
         self.steps += 1
         if self.trace is not None:
             self.trace.append(addr)
+        if self.tso is not None:
+            kind = self._tso_kinds.get(addr)
+            if kind is None:
+                kind = self._tso_kinds[addr] = self._classify(addr)
+            self.tso.before_insn(self.thread.tid, *kind)
         if self.perf is not None:
             p = self.perf
             info = p.decoded.get(addr) or p.decode(addr, self.read(addr, 16)
@@ -590,6 +610,29 @@ class Machine:
                 self.set_reg("rdx", tsc >> 32)
                 if rdtscp:
                     self.set_reg("rcx", 0)
+
+    def enable_tso(self) -> None:
+        """Model x86-TSO store buffers for this process's threads (ring/tso.py)."""
+        from .tso import TSO
+        self.tso = TSO(self)
+        self.tso.running = self.thread.tid
+        self._tso_kinds: dict[int, tuple] = {}
+        self.uc.hook_add(UC_HOOK_MEM_WRITE, lambda uc, a, addr, size, value, d:
+                         self.tso.on_store(self.thread.tid, addr, size, value)
+                         if self.threaded else None)
+
+    def _classify(self, addr: int) -> tuple[str, bool, bool]:
+        """(mnemonic, has a lock prefix, has a memory operand) of the instruction at addr."""
+        from capstone import CS_ARCH_X86, CS_MODE_64, CS_OP_MEM, Cs
+        if not hasattr(self, "_cs"):
+            self._cs = Cs(CS_ARCH_X86, CS_MODE_64)
+            self._cs.detail = True
+        ins = next(self._cs.disasm(self.read(addr, 16) if self.readable(addr, 16) else b"", addr),
+                   None)
+        if ins is None:
+            return ("?", False, False)
+        locked = 0xF0 in ins.prefix
+        return (ins.mnemonic, locked, any(op.type == CS_OP_MEM for op in ins.operands))
 
     def enable_perf(self, noise: int | None = None) -> None:
         """Count cycles with the game's CPU model (ring/perf.py) from now on."""
@@ -694,6 +737,8 @@ class Machine:
         self._schedule(max_steps, until=lambda: self.finished)
         if self.perf is not None and self.finished:
             self.perf.finish()
+        if self.tso is not None and self.finished:
+            self.tso.drain_all()                   # the program's over: everything lands
         return self.state
 
     def _schedule(self, max_steps: int, until) -> None:

@@ -149,9 +149,9 @@ levels = [
 [[arc]]
 id = "VIII"
 name = "Threads & the Memory Model"
-runner = "emu with deterministic thread scheduler + x86-TSO model; native for stress"
+runner = "emu: threads share one emulated CPU under the game's scheduler (numbered, replayable schedules), an x86-TSO store-buffer model, and the CPU model for false sharing"
 levels = [
-  { title = "Threads", concepts = "`clone` with your own stacks, `futex` join", gate = "N threads summing ranges" },
+  { title = "Threads", dir = "threads", concepts = "`clone` with your own stacks, `futex` join", gate = "N threads summing ranges" },
   { title = "Atomics", concepts = "`lock` prefix, `xadd`, `xchg`, `cmpxchg`", gate = "A correct shared counter" },
   { title = "Data Race", bug = 2, concepts = "`inc [counter]` is read-modify-write; lost updates", gate = "Make the race visible with a witness schedule, then fix it" },
   { title = "Torn Read", bug = 2, concepts = "non-atomic 128-bit and cache-line-split accesses; `cmpxchg16b`", gate = "Fix a two-word snapshot that sometimes mixes old and new halves" },

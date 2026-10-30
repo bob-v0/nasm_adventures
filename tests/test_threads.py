@@ -169,3 +169,94 @@ def test_deadlock_is_reported(tmp_path):
     m = run(tmp_path, DEADLOCK.replace("lock:", "lock_:").replace("call lock", "call lock_")
             .replace("jmp lock", "jmp lock_"), {"quantum": 50})
     assert m.state == "fault" and "deadlock" in m.fault and "thread" in m.fault, m.fault
+
+
+@pytest.mark.parametrize("schedule", range(1, 8))
+def test_tso_makes_unlocked_inc_lose_updates_and_lock_fixes_it(tmp_path, schedule):
+    def runs(inc):
+        src = THREADS.replace("{inc}", inc).replace("{n}", "50")
+        (tmp_path / "s.asm").write_text(src)
+        b = build(tmp_path / "s.asm", tmp_path / "b", "program")
+        m = Machine(b, kernel=Kernel(inject=Injection.from_dict({"schedule": schedule, "quantum": 30}, "t")))
+        m.enable_tso()
+        m.run(2_000_000)
+        return m
+    locked = runs("lock inc qword [counter]")
+    assert (locked.state, locked.exit_code) == ("exited", 200), locked.fault
+    plain = runs("inc qword [counter]")
+    assert plain.state == "exited"
+    pytest.lost = getattr(pytest, "lost", set()) | {plain.exit_code < 200}
+
+
+def test_some_schedule_lost_an_update():
+    assert True in getattr(pytest, "lost", set())
+
+
+DEKKER = r"""
+; store-buffer litmus test: x = 1; r1 = y   ||   y = 1; r2 = x.  Exit status r1*2 + r2.
+global _start
+section .text
+_start:
+    mov eax, 56
+    mov edi, 0x100 | 0x200 | 0x400 | 0x800 | 0x10000 | 0x100000 | 0x200000
+    lea rsi, [stack + 4096]
+    lea rdx, [tid]
+    lea r10, [tid]
+    xor r8d, r8d
+    syscall
+    test rax, rax
+    jz other
+    mov dword [x], 1
+    {fence}
+    mov eax, [y]
+    mov [r1], eax
+.join:
+    mov edx, [tid]
+    test edx, edx
+    jz .done
+    mov eax, 202
+    lea rdi, [tid]
+    xor esi, esi
+    xor r10d, r10d
+    syscall
+    jmp .join
+.done:
+    mov edi, [r1]
+    add edi, edi
+    add edi, [r2]
+    mov eax, 231
+    syscall
+other:
+    mov dword [y], 1
+    {fence}
+    mov eax, [x]
+    mov [r2], eax
+    mov eax, 60
+    xor edi, edi
+    syscall
+section .bss
+alignb 64
+x: resd 16
+y: resd 16
+r1: resd 1
+r2: resd 1
+tid: resd 1
+stack: resb 4096
+"""
+
+
+def _dekker(tmp_path, fence, schedule):
+    (tmp_path / "s.asm").write_text(DEKKER.replace("{fence}", fence))
+    b = build(tmp_path / "s.asm", tmp_path / "b", "program")
+    m = Machine(b, kernel=Kernel(inject=Injection.from_dict({"schedule": schedule, "quantum": 10}, "t")))
+    m.enable_tso()
+    m.run(100_000)
+    assert m.state == "exited", m.fault
+    return m.exit_code
+
+
+def test_store_load_reordering_is_observable_and_mfence_forbids_it(tmp_path):
+    seen = {_dekker(tmp_path, "nop", s) for s in range(1, 40)}
+    assert 0 in seen                      # both read 0: each store was still in its buffer
+    fenced = {_dekker(tmp_path, "mfence", s) for s in range(1, 40)}
+    assert 0 not in fenced

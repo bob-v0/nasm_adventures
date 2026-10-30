@@ -339,7 +339,7 @@ Runner: emu with the game's CPU model (ring/perf.py): deterministic cycle counts
 
 ### Arc VIII — Threads & the Memory Model (Levels 91–72)
 
-Runner: emu with deterministic thread scheduler + x86-TSO model; native for stress. 20 levels, 12 of them bug levels.
+Runner: emu: threads share one emulated CPU under the game's scheduler (numbered, replayable schedules), an x86-TSO store-buffer model, and the CPU model for false sharing. 20 levels, 12 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|

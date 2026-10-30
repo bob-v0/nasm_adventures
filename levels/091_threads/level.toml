@@ -1,0 +1,20 @@
+level = 91
+slug = "threads"
+title = "Threads"
+arc = "VIII"
+mode = "function"
+entry = "ring_parallel_sum"
+concepts = ["a thread: same memory, its own registers and stack", "clone and its flags", "a thread's first instruction is right after clone", "thread exit vs process exit", "joining: CLONE_CHILD_CLEARTID and futex"]
+introduces = ["clone (56)", "CLONE_VM, CLONE_THREAD, ...", "futex (202)", "FUTEX_WAIT", "exit vs exit_group"]
+
+hints = [
+  "clone(flags, stack, ptid, ctid, tls) returns twice like fork: the new thread's tid in the caller, 0 in the new thread, which starts right after the syscall with rsp = stack and every other register copied. So put its job's address in a callee-saved register (say r12) before calling clone, and the new thread will find it there.",
+  "Flags: CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM (0x100 | 0x200 | 0x400 | 0x800 | 0x10000 | 0x40000), plus CLONE_PARENT_SETTID (0x100000) and CLONE_CHILD_CLEARTID (0x200000) with ptid = ctid = &job.tid: the kernel stores the tid there before clone returns, and zeroes it (and wakes a futex waiter) when the thread ends. Each thread needs its own stack: pass the TOP of it.",
+  "A worker ends with exit (60), which ends only that thread (exit_group, 231, would end everything). To join: while job.tid != 0, futex(&job.tid, FUTEX_WAIT = 0, the tid you just read, 0). Only add up the results after every thread has been joined.",
+]
+
+[constraints]
+max_steps = 400000
+
+[random]
+count = 2
