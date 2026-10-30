@@ -1,6 +1,6 @@
 ; Level 174 — Debugger Eyes
 ;
-; 1. Find the key: ring debug --binary vault   (or: gdb ./vault)
+; 1. Find the key: run the program `vault` in the debugger (or: gdb ./vault)
 ; 2. Write its 8 bytes to stdout, then exit(0).
 
 global _start

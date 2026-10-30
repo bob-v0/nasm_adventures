@@ -7,7 +7,7 @@ concepts = ["binary, octal, decimal, hexadecimal", "NASM numeric constants", "ch
 introduces = ["0x / h / 0b / 0o / q literals", "underscores in numbers", "'char' constants", "mov r64, imm64"]
 
 hints = [
-  "`ring docs literals` lists every way NASM can write a number. You don't need to convert anything by hand.",
+  "Every way NASM can write a number is listed in {{docs literals}}. You don't need to convert anything by hand.",
   "rax: write 0b1010_1010 eight times in a row (64 bits). rbx: 'NASM' in single quotes is a number. rcx: -1.",
   "mov rax, 0b10101010_10101010_10101010_10101010_10101010_10101010_10101010_10101010\nmov rbx, 'NASM'\nmov rcx, -1\nmov rdx, 0o755\nmov rsi, 1_000_000_000_000\nmov rdi, 0BEEFh",
 ]

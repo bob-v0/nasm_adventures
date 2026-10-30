@@ -20,4 +20,4 @@ packages = ["ring", "ring.web"]
 
 [tool.setuptools.package-data]
 ring = ["docs/*.toml"]
-"ring.web" = ["static/*"]
+"ring.web" = ["static/*", "static/vendor/*"]

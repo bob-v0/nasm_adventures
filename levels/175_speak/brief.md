@@ -50,5 +50,5 @@ Constraint: at most 30 instructions.
 
 ## Try this
 
-Run your program outside the game: `./solution 2>/dev/null` hides stderr, and
-`./solution >/dev/null` hides stdout. Separate streams are the reason fd 2 exists.
+Run your program outside the game, in {{terminal}}: `./solution 2>/dev/null` hides
+stderr, and `./solution >/dev/null` hides stdout. Separate streams are the reason fd 2 exists.

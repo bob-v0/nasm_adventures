@@ -7,7 +7,7 @@ concepts = ["8/16/32-bit register views", "zero-extension vs sign-extension", "t
 introduces = ["al ah ax eax", "r8b r8w r8d", "movzx", "movsx", "movsxd"]
 
 hints = [
-  "Look at `ring docs registers`. al is the low 8 bits of rax, ax the low 16, eax the low 32, ah bits 8–15.",
+  "Look at {{docs registers}}. al is the low 8 bits of rax, ax the low 16, eax the low 32, ah bits 8–15.",
   "movzx fills the upper bits with zeros; movsx/movsxd copy the sign bit into them. Writing a 32-bit register (mov edi, eax) zeroes the upper 32 bits by itself.",
   "movzx ebx, al / movsx rcx, ax / movsxd rdx, eax / movzx esi, ah / mov edi, eax / mov r8, rax then mov r8b, 0x7F",
 ]

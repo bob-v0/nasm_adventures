@@ -17,7 +17,7 @@ _start:                ; the linker makes this the entry point
     syscall            ; ask the kernel to do it
 ```
 
-The game builds it like this. You can do the same yourself:
+The game builds it like this. You can do the same yourself in {{terminal}}:
 
 ```
 nasm -f elf64 -g -F dwarf solution.asm -o solution.o     ; text -> object file
@@ -49,13 +49,13 @@ with 256 looks like 0 to the shell.
 ## Lesson: falling off the end
 
 A CPU has no notion of "the end of the program". It executes whatever bytes come
-next. Run `ring test` on the empty starter: `_start` points at an address where
+next. Run {{test}} on the empty starter: `_start` points at an address where
 there is no code at all, and the program dies with a **segmentation fault**.
 
 If you write a few instructions but forget `exit`, the CPU runs past your last
 instruction into the padding that follows. Zero bytes decode as `add [rax], al`,
 which writes to whatever address rax holds, usually crashing as well. Try it in
-`ring debug` and use `dis` to see the zeros being decoded as instructions.
+{{debug}} and watch the disassembly: the zeros are decoded as instructions.
 
 ## Gate
 

@@ -1,7 +1,11 @@
 """The web API, end to end over HTTP."""
 
+import base64
+import http.cookiejar
 import json
+import socket
 import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
@@ -33,8 +37,49 @@ def test_requires_token(ui):
     with pytest.raises(urllib.error.HTTPError) as e:
         ui("state", token="wrong")
     assert e.value.code == 403
-    with urllib.request.urlopen(f"{ui.base}/?token={ui.token}") as r:
+    # The token moves from the URL into a cookie via a redirect.
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    with opener.open(f"{ui.base}/?token={ui.token}") as r:
+        assert r.url == f"{ui.base}/"
         assert b"NASM Adventures" in r.read()
+        assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]
+        assert r.headers["Referrer-Policy"] == "no-referrer"
+
+
+def test_rejects_cross_origin_posts(ui):
+    req = urllib.request.Request(f"{ui.base}/api/state?token={ui.token}", method="POST",
+                                 data=b"{}", headers={"Origin": "https://evil.example"})
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(req)
+    assert e.value.code == 403
+
+
+def _ws_frame(payload: bytes) -> bytes:
+    mask = b"\x01\x02\x03\x04"
+    masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+    assert len(payload) < 126
+    return bytes([0x81, 0x80 | len(payload)]) + mask + masked
+
+
+def test_terminal_runs_commands_in_the_level_folder(ui):
+    ui("open", {"level": 184})
+    host, port = ui.base.removeprefix("http://").split(":")
+    sock = socket.create_connection((host, int(port)), timeout=10)
+    key = base64.b64encode(b"0123456789abcdef").decode()
+    sock.sendall((f"GET /ws/terminal?level=184&token={ui.token} HTTP/1.1\r\nHost: {host}:{port}\r\n"
+                  f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                  "Sec-WebSocket-Version: 13\r\n\r\n").encode())
+    out = b""
+    while b"\r\n\r\n" not in out:
+        out += sock.recv(4096)
+    assert out.startswith(b"HTTP/1.1 101")
+    sock.sendall(_ws_frame(json.dumps({"type": "input", "data": "pwd; echo MARK$((6*7))\n"}).encode()))
+    deadline = time.time() + 10
+    while b"MARK42" not in out and time.time() < deadline:
+        out += sock.recv(65536)
+    sock.close()
+    assert b"MARK42" in out and b"level184" in out
 
 
 def test_play_first_level(ui):

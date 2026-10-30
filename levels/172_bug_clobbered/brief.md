@@ -13,10 +13,10 @@ unrelated code.
 
 Every `syscall` hands control to the kernel and back. You learned in level 176 that
 some registers do not survive the trip. This program assumes they do. Step over a
-`syscall` in `ring debug` and compare `regs` before and after.
+`syscall` in {{debug}} and compare the registers before and after.
 
-Tip: `s` steps over the whole `syscall`, because the kernel's work happens in one
-step. `back` takes you to just before it again.
+Tip: one **step** goes over the whole `syscall`, because the kernel's work happens in
+one step. **back** takes you to just before it again.
 
 ## Gate
 

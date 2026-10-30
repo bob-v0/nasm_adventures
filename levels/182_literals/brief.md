@@ -32,7 +32,7 @@ Two hex digits make exactly one byte, so programmers use hex all the time.
 ```
 
 `mov` with a 64-bit register takes a full 64-bit constant. NASM uses the shortest
-encoding that gives the same result, which `ring listing` shows.
+encoding that gives the same result, which {{listing}} shows.
 
 ## Gate
 
@@ -51,5 +51,5 @@ Constraint: at most 6 instructions.
 
 ## Try this
 
-In the debugger (`ring debug`), use `regs` to see each value in hex.
+In {{debug}}, step to the end and read each register in hex.
 `0xAAAA_AAAA_AAAA_AAAA` and your binary pattern are the same bits.

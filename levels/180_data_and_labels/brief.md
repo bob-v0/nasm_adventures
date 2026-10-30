@@ -70,5 +70,5 @@ Constraint: at most 8 instructions.
 
 ## Try this
 
-In `ring debug`, use `x greeting 16` to see your string as bytes, and `q8 slot` to
-watch it fill in.
+In {{debug}}, show the memory at `greeting` to see your string as bytes, and at
+`slot` to watch it fill in as you step.

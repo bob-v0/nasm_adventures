@@ -701,7 +701,11 @@ no extra integration work.
 - **Stack:** return addresses, saved `rbp` values and 16-byte alignment marked.
 - **Disassembly:** next to the source, with current-instruction tracking.
 - **Execution controls:** step, step over, continue, run to cursor, and step back
-  (`emu` levels only).
+  (`emu` levels only). Breakpoints by line (click the gutter) or by `*address`/label.
+- **Terminal:** a real shell in the level's folder (xterm.js over a WebSocket to a
+  pseudo-terminal). Program levels leave `./solution` there after **Test**, so
+  `strace`, `objdump` and `gdb` work in the browser. Inside Docker the shell is the
+  container's; see §12.2 for public hosting.
 
 ### 11.3 Topic panels (unlocked as levels introduce them)
 
@@ -755,8 +759,44 @@ docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace \
 | Network exposure | The UI can build and run code: bind to `127.0.0.1` only and require a per-session token in the URL (as Jupyter does). |
 | Image size (~0.5–1 GB) | Slim Debian base, multi-stage build. |
 
-A hosted multi-user version (one container per player with resource limits) is
-possible later but out of scope for now.
+### 12.2 Public hosting
+
+The game must be hostable publicly. The rule that makes this safe: **a player's code,
+programs and shell only ever run inside that player's own sandbox.** The single-user
+server (`ring ui`) is the unit that runs inside the sandbox. It is never exposed to
+the internet directly.
+
+```
+ browser ──HTTPS──► gateway ──► per-player sandbox (one per signed-in player)
+                    · sign-in (OAuth)        · the same Docker image, running `ring ui`
+                    · routes /p/<player>/…   · gVisor (runsc) or a Firecracker microVM
+                    · rate limits, quotas    · no outbound network
+                    · starts/stops sandboxes · CPU, memory, pids, disk limits
+                                             · persistent volume: /workspace (solutions, save)
+                                             · stopped when idle, restarted on next visit
+```
+
+- **Why per-player sandboxes:** the game runs untrusted code by design. Emulated
+  levels run inside the engine's Python process, native levels run real binaries,
+  and the Terminal tab is a full shell. An emulator bug, a fork bomb or a crypto miner
+  must only ever hurt the player's own box.
+- **Gateway:** handles accounts and sessions, so `ring ui`'s single-user token is not
+  the authentication on a public host. The gateway sets `RING_UI_TOKEN` per sandbox
+  and attaches it to proxied requests. It also enforces request rates and the number
+  of live sandboxes.
+- **Terminal:** on by default locally. Operators can turn it off (`RING_TERMINAL=0`)
+  for a cheaper deployment where only emulated levels are offered.
+- **Cheaper tier (optional):** Arcs I–III could run fully in the browser via
+  WebAssembly (§11.4), with no server execution at all, and the server would only
+  store progress.
+- **Already in the engine:** constant-time token checks; the token moves from the
+  URL to an HttpOnly, SameSite=Strict cookie on first load; same-origin checks on API
+  calls and the terminal WebSocket; a strict Content-Security-Policy (no third-party
+  scripts; xterm.js is bundled); `Referrer-Policy: no-referrer`; a 1 MB request limit;
+  instruction limits on every emulated run; a cap on live debug sessions.
+- **Still to build for hosting:** the gateway, sandbox orchestration, per-player
+  CPU-time accounting for long debug sessions, and moving per-level secrets (e.g. the
+  vault seed) server-side, so a player can't read another player's.
 
 ## 13. Implementation roadmap
 
@@ -766,6 +806,8 @@ possible later but out of scope for now.
    (highlighting, breakpoints, error lines), test/submit, hints, reference, listing and
    a debugger (registers, flags, disassembly, memory, stack, output, stepping
    backwards), token auth; Dockerfile + CI; levels 184–171 with reference solutions.
+   Since then: briefs and hints name actions with placeholders (`{{test}}`, `{{debug}}`,
+   …) rendered for the browser or the terminal, plus the Terminal tab and web hardening.
 2. **M2 – Richer UI:** Monaco (bundled, offline) with hover docs, topic panels as
    arcs need them, live updates over WebSocket, VS Code launch config for the DAP server.
 3. **M3 – Arcs II–III on `emu`:** Arc II done (levels 170–157), with flag

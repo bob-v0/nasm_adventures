@@ -67,5 +67,5 @@ Constraints: at most 6 instructions. Run-time arithmetic (`add`, `sub`, `mul`, `
 
 ## Try this
 
-`ring listing` shows the bytes your `%rep` block produced. Look for `mov ebx, 0x41`:
+{{listing}} shows the bytes your `%rep` block produced. Look for `mov ebx, 0x41`:
 NASM computed the poem length and put the result straight into the instruction.

@@ -8,7 +8,7 @@ it and tells you there is nothing to see. There is.*
 A **debugger** pauses a program and lets you inspect it: one instruction at a time,
 or stopping at a **breakpoint** you set. Three tools, from simplest to most capable:
 
-**objdump** shows the code without running it:
+**objdump** shows the code without running it. In {{terminal}}:
 
 ```
 objdump -d -M intel ./vault
@@ -16,19 +16,13 @@ objdump -d -M intel ./vault
   ...      address   instruction bytes   the decoded instruction
 ```
 
-**ring debug** is the game's own debugger, with stepping backwards:
+**The game's debugger** ({{debug}}) can run any program, and step backwards. Choose
+`program: vault` as what to run. It shows the disassembly, registers and memory. Set a
+breakpoint at an address such as `*0x401040`, continue to it, and read the registers.
+**back** undoes a step. (From a plain terminal: `ring debug --binary vault`, then
+`dis 30`, `break *0x401040`, `c`, `regs`, `back`.)
 
-```
-ring debug --binary vault      # any static x86-64 ELF
-(ring) dis 30                  # disassemble 30 instructions from rip
-(ring) break *0x401040         # stop when rip reaches this address
-(ring) c                       # continue until a breakpoint
-(ring) regs                    # all registers; changed ones are marked
-(ring) x 0x402000 32           # hex dump of memory
-(ring) back                    # undo the last instruction
-```
-
-**gdb** is the standard debugger on Linux, worth learning now:
+**gdb** is the standard debugger on Linux, worth learning now. In {{terminal}}:
 
 ```
 gdb ./vault
@@ -42,12 +36,12 @@ gdb ./vault
 (gdb) x/4gx 0x402000           # 4 qwords in hex
 ```
 
-`ring docs gdb` has a cheat sheet. gdb needs an x86-64 Linux host. `ring debug` works
-everywhere.
+For a gdb cheat sheet, see {{docs gdb}}. gdb needs an x86-64 machine (on Apple
+Silicon it can't run the vault); the game's debugger works everywhere.
 
 ## Gate
 
-`ring start` built a file `vault` in your level174 folder. Its key is unique to you.
+When you opened this level, the game built a file `vault` in your level174 folder. Its key is unique to you.
 The vault computes a 64-bit key in `r12`, then executes `xor r12, r12` to wipe it.
 The key never appears in memory.
 

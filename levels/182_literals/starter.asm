@@ -1,7 +1,7 @@
 ; Level 182 — Speaking in Numbers
 ;
 ; Load six registers. Write each number in the notation that fits it best.
-; See `ring docs literals`.
+; The Reference tab (look up `literals`) lists every notation.
 ;
 ;   rax = 10101010 repeated eight times (binary)
 ;   rbx = 'NASM' as a character constant

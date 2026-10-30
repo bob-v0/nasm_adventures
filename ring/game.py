@@ -41,7 +41,14 @@ def build_solution(level: Level, src: Path) -> Build:
     if not src.exists():
         raise BuildError(f"{src} does not exist. Start the level first.")
     includes = [level.include_dir] if level.include_dir else []
-    return build(src, src.parent / ".build", level.mode, includes, level.prelude)
+    b = build(src, src.parent / ".build", level.mode, includes, level.prelude)
+    if level.mode == "program":
+        # Whole programs are real Linux executables: put one next to the source so the
+        # player can run, strace and gdb it.
+        exe = src.parent / src.stem
+        shutil.copy(b.elf, exe)
+        exe.chmod(0o755)
+    return b
 
 
 @dataclass

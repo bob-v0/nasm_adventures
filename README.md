@@ -16,7 +16,12 @@ docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace nasm-
 
 Open the link it prints (it contains an access token). Your solutions and save file
 live in `~/nasm-adventures` on your machine, so you can also edit them in your own
-editor. For a shell in the container instead, add `bash` to the end of the run command.
+editor. The **Terminal** tab gives you a shell in the current level's folder (inside the
+container), where `./solution`, `gdb`, `strace` and `objdump` work.
+
+`ring ui` is a single-player server. Don't expose it to the internet. For public
+hosting, run one container per player behind a gateway (see DESIGN.md §12.2).
+`--no-terminal` (or `RING_TERMINAL=0`) disables the shell.
 
 ## Play natively (Linux)
 
@@ -32,7 +37,7 @@ ring status      # or play in the terminal
 ## Commands
 
 ```
-ring ui                play in the browser (editor, tests, debugger)
+ring ui                play in the browser (editor, tests, debugger, terminal)
 ring status            where you are
 ring brief             lore, lesson and gate for the current level
 ring start             create levelNNN/solution.asm from the starter

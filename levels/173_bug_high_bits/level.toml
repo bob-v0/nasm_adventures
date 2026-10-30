@@ -8,7 +8,7 @@ concepts = ["your first bug hunt", "partial-register writes keep stale upper bit
 introduces = ["bug levels", "change budgets"]
 
 hints = [
-  "Run `ring debug`, `break` on the line of the second `syscall`, `c`, then `regs`. Is rdx really the length of the name?",
+  "In {{debug}}, set a breakpoint on the line of the second `syscall`, continue to it, and read the registers. Is rdx really the length of the name?",
   "`mov al, [name_len]` only replaces the lowest 8 bits of rax. The other 56 bits are still whatever rax held before. The badge width has the same problem with r8w.",
   "Use zero-extending loads: movzx eax, byte [name_len] and movzx r8d, word [badge_w].",
 ]

@@ -47,14 +47,12 @@ in a small program, runs it on an emulated x86-64 CPU starting at your first lin
 and stops when execution reaches your last line. Then it checks the registers and
 memory.
 
-- `ring test` builds your code and runs the tests you can see.
-- `ring submit` also runs hidden tests and opens the next level if everything passes.
-- `ring listing` shows the bytes NASM produced for each of your lines. Try it.
-- `ring debug` steps through your code one instruction at a time, forwards and backwards.
-- `ring docs mov` opens the reference for an instruction.
-
-In the browser these are the **Test** and **Submit** buttons and the **Listing**,
-**Reference** and **Debugger** tabs. Click a line number to set a breakpoint.
+- {{test}} builds your code and runs the tests you can see.
+- {{submit}} also runs hidden tests and opens the next level if everything passes.
+- {{listing}} shows the bytes NASM produced for each of your lines. Try it.
+- {{debug}} steps through your code one instruction at a time, forwards and
+  backwards. In the editor, click a line number to set a breakpoint.
+- To learn what an instruction does, see {{docs mov}}.
 
 ## Gate
 
@@ -68,6 +66,6 @@ Stretch goal: exactly 2 instructions.
 
 ## Try this
 
-Run `ring listing`. NASM encoded your `mov rax, 42` as `B8 2A 00 00 00`, which is
+Open {{listing}}. NASM encoded your `mov rax, 42` as `B8 2A 00 00 00`, which is
 `mov eax, 42`: 5 bytes instead of the 10 that a 64-bit constant needs. That is still
 correct, and level 181 explains why.

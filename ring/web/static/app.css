@@ -185,3 +185,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .right { min-height: 90vh; }
   .stats { display: none; }
 }
+
+/* ---- terminal ---- */
+.term-pane { padding: 0; display: flex; flex-direction: column; }
+.term-intro { padding: 10px 14px; }
+.term { flex: 1; min-height: 0; padding: 6px 0 0 8px; background: #0b0d10; }
+.term .xterm { height: 100%; }
+.dbg-break { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px;
+  font: 12.5px var(--mono); width: 230px; }
+.hint-text { white-space: pre-wrap; margin-top: 6px; }

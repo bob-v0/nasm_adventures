@@ -19,10 +19,10 @@ memory ordering, lifetimes.
 
 ## How to hunt
 
-- Reproduce first: `ring test` shows which tests fail and how.
+- Reproduce first: {{test}} shows which tests fail and how.
 - Stop just before the suspicious instruction and look at **every** register it
   reads. With a `syscall`, that means rax, rdi, rsi, rdx.
-- Walk backwards (`back` in `ring debug`) from the bad value to the instruction
+- Walk backwards (**back** in {{debug}}) from the bad value to the instruction
   that produced it.
 - Ask "what did this register hold *before*?", not just "what did I put in it?"
 
@@ -38,8 +38,8 @@ user: alice
 and exit with the low byte of the record id. Instead it prints `user: ` with no
 name, and then a badge that runs on for thousands of bytes (64 `#` followed by
 zero bytes; pipe it through `od -c` to see them). Records with small ids sometimes
-print the name correctly, which makes the bug harder to notice. Run it under
-`strace -e trace=write ./solution` too: the kernel tells you exactly which lengths
+print the name correctly, which makes the bug harder to notice. In {{terminal}}, run it
+under `strace -e trace=write ./solution` too: the kernel tells you exactly which lengths
 it was given.
 
 ## Gate

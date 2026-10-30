@@ -8,7 +8,7 @@ concepts = ["`syscall` overwrites rcx and r11", "which registers survive a call 
 introduces = ["register clobbers"]
 
 hints = [
-  "In `ring debug`, step over the first `syscall` with `s` and look at `regs`. Which registers changed that the program didn't touch?",
+  "In {{debug}}, step over the first `syscall` and look at the registers. Which registers changed that the program didn't touch?",
   "The CPU's `syscall` instruction itself saves the return address in rcx and rflags in r11, so their old values are gone. Linux preserves every other register except rax.",
   "Keep the counter in rbx and the line pointer in r12 instead of rcx and r11. Rename every use.",
 ]

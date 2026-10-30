@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import docs
+from . import briefs, docs
 from .build import BuildError, _inspect
 from .checks import Report, grade
 from .level import Context, Level, all_levels
@@ -103,7 +103,7 @@ def cmd_list(args, prog: Progress) -> None:
 
 def cmd_brief(args, prog: Progress) -> None:
     lv = get_level(args.level, prog)
-    for line in lv.brief.splitlines():
+    for line in briefs.render(lv.brief, "cli").splitlines():
         if line.startswith("#"):
             print(c("1;36", line))
         elif line.startswith("```"):
@@ -162,7 +162,7 @@ def cmd_hint(args, prog: Progress) -> None:
         raise CliError(f"level {lv.number} has hints 1–{len(lv.hints)}.")
     heat = prog.use_hint(lv.number, n)
     print(c("33", f"Hint {n}/{len(lv.hints)}") + (f"  (+{heat} heat)" if heat else ""))
-    print(lv.hints[n - 1])
+    print(briefs.render(lv.hints[n - 1], "cli"))
 
 
 def cmd_docs(args, prog: Progress) -> None:
@@ -231,7 +231,8 @@ def cmd_dap(args, prog: Progress) -> None:
 
 def cmd_ui(args, prog: Progress) -> None:
     from .web.server import serve
-    serve(args.host, args.port, open_browser=not args.no_browser)
+    terminal = not args.no_terminal and os.environ.get("RING_TERMINAL", "1") != "0"
+    serve(args.host, args.port, open_browser=not args.no_browser, terminal=terminal)
 
 
 def cmd_library(args, prog: Progress) -> None:
@@ -288,6 +289,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--host", default="127.0.0.1")
     sp.add_argument("--port", type=int, default=8080)
     sp.add_argument("--no-browser", action="store_true", help="don't try to open a browser")
+    sp.add_argument("--no-terminal", action="store_true",
+                    help="disable the in-browser shell (also: RING_TERMINAL=0)")
     sub.add_parser("library", help="routines you have proven")
     sp = sub.add_parser("check-levels", help="(authors/CI) validate reference + starter of every level")
     sp.add_argument("level", nargs="?", type=int)

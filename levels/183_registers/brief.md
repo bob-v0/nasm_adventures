@@ -43,5 +43,5 @@ after:   rax=B  rbx=C  rcx=D  rdx=A
 Constraints: at most 5 instructions, and `rsp` must be unchanged.
 Stretch goal: 3 instructions.
 
-Try `ring debug` and step with `s`. Changed registers are highlighted, and `back`
-undoes a step.
+Try {{debug}}: step through your code and watch the registers. Changed ones are
+highlighted, and **back** undoes a step.

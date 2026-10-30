@@ -237,12 +237,14 @@ $("#toggle-levels").addEventListener("click", () => toggleLevels());
 
 async function refreshState() {
   S.game = await api("state");
+  $("#terminal-tab").classList.toggle("hidden", !S.game.terminal);
   renderLevels();
 }
 
 async function openLevel(n) {
   if (S.dirty && S.level) await save();  // switching levels keeps your work
   stopDebug();
+  if (T.level !== null && T.level !== n) closeTerminal();
   const lv = await api("open", { level: n });
   S.level = lv;
   S.errors.clear();
@@ -276,6 +278,7 @@ $$(".left .tab").forEach((t) => t.addEventListener("click", () => showTab(t.data
 function showBottom(name) {
   $$(".bottom .tab").forEach((t) => t.classList.toggle("active", t.dataset.btab === name));
   $$(".bpane").forEach((p) => p.classList.toggle("hidden", p.id !== "btab-" + name));
+  if (name === "terminal" && T.fit) setTimeout(() => T.fit.fit(), 0);
 }
 $$(".bottom .tab").forEach((t) => t.addEventListener("click", () => showBottom(t.dataset.btab)));
 
@@ -286,7 +289,7 @@ function renderHints() {
     heat is only a score and never blocks progress.</p>`;
   for (let i = 1; i <= h.count; i++) {
     const text = h.revealed[String(i)];
-    if (text) html += `<div class="hint"><b>Hint ${i}</b><pre>${esc(text)}</pre></div>`;
+    if (text) html += `<div class="hint"><b>Hint ${i}</b><div class="hint-text">${inline(text)}</div></div>`;
     else {
       const next = i === 1 || h.revealed[String(i - 1)];
       html += `<div class="hint"><b>Hint ${i}</b> <button class="btn small" data-hint="${i}" ${next ? "" : "disabled"}>Reveal</button></div>`;
@@ -443,7 +446,8 @@ async function startDebug() {
 async function debugCmd(cmd) {
   if (!S.session) return;
   try {
-    const r = await api("debug/cmd", { session: S.session, cmd, breakpoints: [...S.breakpoints] });
+    const extra = $("#dbg-break").value.split(",").map((x) => x.trim()).filter(Boolean);
+    const r = await api("debug/cmd", { session: S.session, cmd, breakpoints: [...S.breakpoints, ...extra] });
     r.binary = S.debug && S.debug.binary;
     showDebug(r);
   } catch (err) { toast(err.message); stopDebug(); }
@@ -496,6 +500,53 @@ async function loadMemory() {
 $("#dbg-start").addEventListener("click", startDebug);
 $("#dbg-stop").addEventListener("click", stopDebug);
 $$(".dbg-bar [data-cmd]").forEach((b) => b.addEventListener("click", () => debugCmd(b.dataset.cmd)));
+
+// ---------------------------------------------------------------- terminal
+const T = { term: null, fit: null, ws: null, level: null };
+
+function closeTerminal() {
+  if (T.ws) { T.ws.onclose = null; T.ws.close(); }
+  T.ws = null;
+  T.level = null;
+  if (T.term) T.term.reset();
+  $("#term").classList.add("hidden");
+  $("#term-intro").classList.remove("hidden");
+}
+
+function openTerminal() {
+  if (!S.level || !window.Terminal) return;
+  closeTerminal();
+  if (!T.term) {
+    T.term = new Terminal({
+      fontFamily: getComputedStyle(document.body).getPropertyValue("--mono"),
+      fontSize: 13, cursorBlink: true, scrollback: 5000,
+      theme: { background: "#0b0d10", foreground: "#d7dde5" },
+    });
+    T.fit = new FitAddon.FitAddon();
+    T.term.loadAddon(T.fit);
+    T.term.open($("#term"));
+    T.term.onData((d) => T.ws && T.ws.readyState === 1 && T.ws.send(JSON.stringify({ type: "input", data: d })));
+    new ResizeObserver(() => { if (!$("#term").classList.contains("hidden")) T.fit.fit(); }).observe($("#term"));
+    T.term.onResize(({ cols, rows }) => T.ws && T.ws.readyState === 1 &&
+      T.ws.send(JSON.stringify({ type: "resize", cols, rows })));
+  }
+  $("#term-intro").classList.add("hidden");
+  $("#term").classList.remove("hidden");
+  T.fit.fit();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/terminal?level=${S.level.number}`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "resize", cols: T.term.cols, rows: T.term.rows }));
+    T.term.focus();
+  };
+  ws.onmessage = (e) => T.term.write(new Uint8Array(e.data));
+  ws.onclose = () => { T.term.write("\r\n\x1b[2m[terminal closed — open it again from the button]\x1b[0m\r\n"); T.ws = null;
+    $("#term-intro").classList.remove("hidden"); };
+  T.ws = ws;
+  T.level = S.level.number;
+}
+$("#term-start").addEventListener("click", openTerminal);
 
 // ---------------------------------------------------------------- keyboard
 document.addEventListener("keydown", (e) => {

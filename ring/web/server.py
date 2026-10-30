@@ -7,6 +7,7 @@ build and run code.
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import mimetypes
@@ -19,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .. import docs
+from .. import briefs, docs
 from ..build import BuildError, _inspect
 from ..checks import Report, grade
 from ..debugger import Session
@@ -29,6 +30,13 @@ from ..level import Level, all_levels
 from ..progress import Progress, dev_mode
 
 STATIC = Path(__file__).parent / "static"
+MAX_BODY = 1 << 20  # source files are small; refuse anything bigger
+SECURITY_HEADERS = {
+    "Content-Security-Policy": ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                                "connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'"),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
 LOCK = threading.Lock()  # one engine, many requests: serialize everything
 
 
@@ -39,7 +47,8 @@ class ApiError(Exception):
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, terminal: bool = True):
+        self.terminal = terminal
         self.token = os.environ.get("RING_UI_TOKEN") or secrets.token_urlsafe(16)
         self.sessions: dict[str, tuple[Session, dict]] = {}
 
@@ -71,7 +80,8 @@ class Server:
                            "unlocked": unlocked, "completed": prog.completed(n),
                            "current": n == prog.current})
         return {"current": prog.current, "heat": prog.heat, "badges": prog.data["badges"],
-                "cleared": len(prog.data["completed"]), "levels": levels, "dev": dev_mode()}
+                "cleared": len(prog.data["completed"]), "levels": levels, "dev": dev_mode(),
+                "terminal": self.terminal}
 
     def open_level(self, prog: Progress, body: dict) -> dict:
         lv = self.level(int(body["level"]), prog)
@@ -82,10 +92,10 @@ class Server:
         used = prog.hints_used(lv.number)
         return {"number": lv.number, "title": lv.title, "arc": lv.arc, "mode": lv.mode,
                 "bug": lv.data.get("bug"), "boss": lv.data.get("boss", False),
-                "brief": lv.brief, "introduces": lv.introduces, "text": sol.read_text(),
+                "brief": briefs.render(lv.brief, "web"), "introduces": lv.introduces, "text": sol.read_text(),
                 "path": str(sol), "tests": [t.name for t in tests],
                 "hints": {"count": len(lv.hints),
-                          "revealed": {str(i): lv.hints[i - 1] for i in used}},
+                          "revealed": {str(i): briefs.render(lv.hints[i - 1], "web") for i in used}},
                 "binaries": extra, "completed": prog.completed(lv.number)}
 
     def save(self, prog: Progress, body: dict) -> dict:
@@ -123,7 +133,7 @@ class Server:
         if not 1 <= n <= len(lv.hints):
             raise ApiError(400, "no such hint")
         heat = prog.use_hint(lv.number, n)
-        return {"n": n, "text": lv.hints[n - 1], "heat_added": heat, "heat": prog.heat}
+        return {"n": n, "text": briefs.render(lv.hints[n - 1], "web"), "heat_added": heat, "heat": prog.heat}
 
     def docs(self, prog: Progress, body: dict) -> dict:
         term = body.get("q", "").strip()
@@ -173,11 +183,11 @@ class Server:
             raise ApiError(404, "debug session expired; start it again")
         s, meta = self.sessions[sid]
         s.breakpoints = set()
-        for line in body.get("breakpoints", []):
+        for spec in body.get("breakpoints", [])[:64]:
             try:
-                s.breakpoints.add(s.resolve_breakpoint(str(line)))
-            except ValueError:
-                pass
+                s.breakpoints.add(s.resolve_breakpoint(str(spec)))
+            except (ValueError, KeyError):
+                pass  # unknown label or no code at that line: ignore
         meta["prev"] = s.m.regs()
         cmd = body["cmd"]
         stop = None
@@ -289,31 +299,49 @@ def _report_json(report: Report, show_hidden_names: bool) -> dict:
 
 def make_handler(server: Server):
     class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"  # required for WebSocket upgrades; we always send Content-Length
+
         def log_message(self, fmt, *args):  # quiet
             pass
 
         def _authorized(self) -> bool:
             q = parse_qs(urlparse(self.path).query)
-            if q.get("token", [""])[0] == server.token:
+            if hmac.compare_digest(q.get("token", [""])[0], server.token):
                 return True
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
-            return "ring_token" in cookie and cookie["ring_token"].value == server.token
+            return "ring_token" in cookie and hmac.compare_digest(cookie["ring_token"].value,
+                                                                  server.token)
+
+        def _same_origin(self) -> bool:
+            """Browsers send Origin on WebSocket and fetch POSTs; it must be us."""
+            origin = self.headers.get("Origin")
+            return origin is None or urlparse(origin).netloc == self.headers.get("Host")
 
         def _send(self, status: int, body: bytes, ctype: str, extra: dict | None = None):
             self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            for k, v in SECURITY_HEADERS.items():
+                self.send_header(k, v)
             for k, v in (extra or {}).items():
                 self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
+            if urlparse(self.path).path == "/ws/terminal":
+                return self._terminal()
             if not self._authorized():
                 msg = b"NASM Adventures: open the link printed by `ring ui` (it contains your access token)."
                 return self._send(HTTPStatus.FORBIDDEN, msg, "text/plain; charset=utf-8")
             path = urlparse(self.path).path
+            cookie = f"ring_token={server.token}; HttpOnly; SameSite=Strict; Path=/"
+            if "token=" in (urlparse(self.path).query or ""):
+                # Move the token from the URL into a cookie, so it doesn't linger in
+                # history, screenshots or Referer headers.
+                return self._send(HTTPStatus.SEE_OTHER, b"", "text/plain",
+                                  {"Location": path or "/", "Set-Cookie": cookie})
             name = "index.html" if path in ("/", "") else path.lstrip("/")
             f = (STATIC / name).resolve()
             if STATIC.resolve() not in f.parents or not f.is_file():
@@ -321,18 +349,46 @@ def make_handler(server: Server):
             ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
             if ctype.startswith("text/") or ctype.endswith("javascript"):
                 ctype += "; charset=utf-8"
-            cookie = f"ring_token={server.token}; HttpOnly; SameSite=Strict; Path=/"
-            self._send(200, f.read_bytes(), ctype, {"Set-Cookie": cookie})
+            self._send(200, f.read_bytes(), ctype)
+
+        def _terminal(self):
+            from .terminal import accept_key, run_terminal
+            if (not server.terminal or not self._authorized() or not self._same_origin()
+                    or self.headers.get("Upgrade", "").lower() != "websocket"):
+                return self._send(HTTPStatus.FORBIDDEN, b"forbidden", "text/plain")
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                with LOCK:
+                    prog = Progress.load()
+                    lv = server.level(int(q.get("level", ["0"])[0]), prog)
+                    setup_level(lv, prog)
+                    cwd = solution_path(lv).parent
+            except (ApiError, ValueError):
+                return self._send(HTTPStatus.FORBIDDEN, b"no such level", "text/plain")
+            self.send_response(HTTPStatus.SWITCHING_PROTOCOLS)
+            self.send_header("Upgrade", "websocket")
+            self.send_header("Connection", "Upgrade")
+            self.send_header("Sec-WebSocket-Accept", accept_key(self.headers["Sec-WebSocket-Key"]))
+            self.end_headers()
+            self.close_connection = True
+            banner = (f"\x1b[2mLevel {lv.number} folder: {cwd}\r\n"
+                      "Programs you build appear here as ./solution after Test or Submit.\x1b[0m\r\n")
+            run_terminal(self.rfile, self.wfile, cwd, banner)
 
         def do_POST(self):
             if not self._authorized():
                 return self._send(HTTPStatus.FORBIDDEN, b'{"error":"forbidden"}', "application/json")
+            if not self._same_origin():
+                return self._send(HTTPStatus.FORBIDDEN, b'{"error":"cross-origin request"}', "application/json")
+            length = int(self.headers.get("Content-Length", 0))
+            if length > MAX_BODY:
+                return self._send(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, b'{"error":"request too large"}', "application/json")
             route = urlparse(self.path).path.removeprefix("/api/")
             fn = Server.ROUTES.get(route)
             if fn is None:
                 return self._send(404, b'{"error":"no such endpoint"}', "application/json")
             try:
-                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                body = json.loads(self.rfile.read(length) or b"{}")
                 with LOCK:
                     prog = Progress.load()
                     result = fn(server, prog, body)
@@ -346,8 +402,9 @@ def make_handler(server: Server):
     return Handler
 
 
-def serve(host: str = "127.0.0.1", port: int = 8080, open_browser: bool = True) -> None:
-    server = Server()
+def serve(host: str = "127.0.0.1", port: int = 8080, open_browser: bool = True,
+          terminal: bool = True) -> None:
+    server = Server(terminal=terminal)
     httpd = ThreadingHTTPServer((host, port), make_handler(server))
     shown = "localhost" if host in ("0.0.0.0", "127.0.0.1", "::") else host
     url = f"http://{shown}:{port}/?token={server.token}"

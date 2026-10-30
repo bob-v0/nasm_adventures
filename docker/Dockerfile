@@ -5,7 +5,7 @@
 FROM debian:bookworm-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends nasm binutils gdb python3 python3-venv \
+ && apt-get install -y --no-install-recommends nasm binutils gdb strace less python3 python3-venv \
  && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv

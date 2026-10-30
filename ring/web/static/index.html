@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NASM Adventures</title>
+<link rel="stylesheet" href="vendor/xterm.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -65,6 +66,7 @@
       <div class="tabs" role="tablist">
         <button class="tab active" data-btab="results">Results</button>
         <button class="tab" data-btab="debug">Debugger</button>
+        <button class="tab hidden" data-btab="terminal" id="terminal-tab">Terminal</button>
       </div>
       <div id="btab-results" class="bpane"><p class="muted">Press <b>Test</b> (Ctrl+Enter) to build and run the public tests.</p></div>
       <div id="btab-debug" class="bpane hidden">
@@ -78,6 +80,7 @@
           <button class="btn small" data-cmd="line" title="Step one line (F8)">line ▶▶</button>
           <button class="btn small" data-cmd="continue" title="Continue to breakpoint or end (F5)">⏭</button>
           <button class="btn small" data-cmd="restart" title="Restart">⟲</button>
+          <input id="dbg-break" class="dbg-break" placeholder="also break at: *0x401038, label" title="Extra breakpoints, comma-separated: *address or a label">
           <button id="dbg-stop" class="btn small ghost">Stop</button>
           <span id="dbg-status" class="dbg-status"></span>
         </div>
@@ -86,11 +89,23 @@
           Nothing runs until you step. Every step can be undone with <b>back</b>.</p>
         </div>
       </div>
+      <div id="btab-terminal" class="bpane term-pane hidden">
+        <div id="term-intro" class="term-intro">
+          <p>A shell in this level's folder (inside the game's container). Your program
+          appears here as <code>./solution</code> after you press <b>Test</b>. Try
+          <code>./solution; echo $?</code>, <code>objdump -d -M intel solution</code>,
+          <code>strace ./solution</code> or <code>gdb ./solution</code>.</p>
+          <button id="term-start" class="btn">Open terminal</button>
+        </div>
+        <div id="term" class="term hidden"></div>
+      </div>
     </div>
   </section>
 </div>
 
 <div id="toast" class="toast hidden" role="status"></div>
+<script src="vendor/xterm.js"></script>
+<script src="vendor/addon-fit.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
