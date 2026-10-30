@@ -1,0 +1,21 @@
+level = 92
+slug = "fast_hash_map"
+title = "Fast Hash Map"
+arc = "VII"
+boss = true
+mode = "program"
+perf = true
+concepts = ["everything in the arc", "hash functions: every input bit should matter", "open addressing and load factor", "data layout: one cache line per lookup", "branches you can't avoid, made predictable"]
+introduces = ["Fibonacci hashing", "load factor", "linear probing"]
+
+hints = [
+  "Look at the keys the tests use: counters and 4 KiB-aligned addresses. `key & 8191` keeps the low 13 bits. For aligned addresses those are always 0, so every key starts at slot 0 and probing becomes a long walk.",
+  "A good cheap hash mixes all bits into the ones you keep: multiply by an odd 64-bit constant (2^64 / golden ratio = 0x9E3779B97F4A7C15) and keep the TOP 13 bits (shr 51). Fibonacci hashing.",
+  "Then the details: keep the table at most half full (8192 slots for 4096 keys), key and value side by side (one line per hit), compare against the key before testing for empty, and no call in the hot path.",
+]
+
+[constraints]
+max_steps = 600000
+
+[random]
+count = 1

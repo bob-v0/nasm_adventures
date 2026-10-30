@@ -119,6 +119,7 @@ class Machine:
         self.term_signal: int | None = None      # set when killed by a signal
         self.trace: list[int] | None = None      # addresses executed, when enabled
         self.perf = None                          # the CPU cost model, when enabled
+        self.cycle_limit = 0                      # stop once the model passes this many cycles
         self._redirect: str | None = None        # "sigreturn" / "deliver", requested mid-slice
         self._bad_access: int | None = None
         self._checked_mapped = 0
@@ -458,6 +459,9 @@ class Machine:
             info = p.decoded.get(addr) or p.decode(addr, self.read(addr, 16)
                                                     if self.readable(addr, 16) else b"")
             p.on_insn(info, addr)
+            if self.cycle_limit and p.max_done > self.cycle_limit:
+                self.state = "limit"
+                self.uc.emu_stop()
             if p.tsc_fix is not None:               # rdtsc ran: it reads the model's clock
                 tsc, rdtscp = p.tsc_fix
                 p.tsc_fix = None

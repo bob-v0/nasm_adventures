@@ -130,8 +130,8 @@ nasm_adventures/
 
 | Runner | Used by | How it works | What it can verify |
 |---|---|---|---|
-| `emu` | Arcs I–VI (except a few native levels); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
-| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V; Arcs VII, IX–X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
+| `emu` | Arcs I–VII (except a few native levels; Arc VII on the game's CPU model); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
+| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V; Arcs IX–X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
 | `qemu` | Arcs XI–XIV | `nasm -f bin` → disk image or multiboot2 ELF; `qemu-system-x86_64 -nographic -no-reboot` with `isa-debug-exit` and serial on stdio; `-smp N` for SMP; gdb stub for `ring debug`. | Serial output, exit code via debug port, triple-fault detection, QEMU monitor dumps, interrupt injection. |
 
 Running through emulators also makes the game work on ARM Macs (QEMU TCG / Unicorn);
@@ -335,7 +335,7 @@ Runner: emu with the game's CPU model (ring/perf.py): deterministic cycle counts
 | 95 | Prefetch & TLB | `prefetcht0`, huge pages | Faster linked-list traversal: many misses in flight |
 | 94 | Instruction Selection | uops, macro-fusion, partial-register stalls | Speed up a hot loop ≥ 2× |
 | 93 | **Bug:** Performance Cliff ◆◆ | performance bugs: 4K aliasing, cache-line splits, denormals | Find why one input size is 20× slower per element and fix it |
-| 92 | Fast Hash Map ★ | everything in the arc | Open-addressing map hitting an ops/sec target |
+| 92 | Fast Hash Map ★ | everything in the arc | Open-addressing map under 50 cycles per operation on every kind of key |
 
 ### Arc VIII — Threads & the Memory Model (Levels 91–72)
 
@@ -752,7 +752,7 @@ docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace \
 | Issue | Handling |
 |---|---|
 | Apple Silicon (ARM container) | Multi-arch image. `emu` and `qemu` levels work unchanged; the `native` runner uses `qemu-x86_64` user-mode emulation. |
-| Performance arc (VII) outside Linux x86 | Docker runs in a VM, so timing is noisy (meaningless on ARM). Cycle budgets are graded only on Linux x86 hosts; elsewhere grading uses instruction counts and a simulated cost model, labelled "approximate". |
+| Performance arc (VII) | Real timing is noisy in Docker and meaningless on ARM, so Arc VII is graded on the game's own CPU model: the same cycle counts on every host. Players are told it's a model; `perf stat` in the Terminal shows the real counters where the container allows it. |
 | CPU features (AVX2, AVX-512) | Detected at startup; missing features fall back to emulation under QEMU `-cpu max`. |
 | ptrace and perf counters | `--cap-add=SYS_PTRACE` plus a tailored seccomp profile. **Never `--privileged`.** |
 | QEMU speed | Software emulation by default (more reliable for single-stepping). Optional `--device /dev/kvm` on Linux. |
@@ -844,8 +844,15 @@ the internet directly.
    The checked allocator watches every message and session for leaks and use after free.
    Remaining for Arc VIII: threads (`clone`), schedule exploration at instruction level
    (random, PCT, bounded exhaustive), the x86-TSO store-buffer model, race detection.
-6. **M6 – Performance, SIMD, machine code:** benchmark harness, CPU feature gating,
-   cost model for non-Linux hosts, SIMD and encoding panels; Arcs VII, IX, X.
+6. **M6 – Performance, SIMD, machine code:** Arc VII done (levels 99–92), graded on the
+   game's deterministic CPU model (`ring/perf.py`) instead of wall-clock time, so
+   results are identical on every host (Docker, CI, ARM, a browser): a 4-wide
+   out-of-order core with latencies, execution units, a reorder buffer, branch
+   prediction, L1/L2/TLB with a stride prefetcher and one page walker, a store buffer
+   with write-backs, store forwarding, 4K aliasing, split accesses, denormal assists and
+   optional interrupt noise; `rdtsc`/`rdtscp`/`lfence` read and respect the model's clock.
+   Failing budgets say where the cycles went (critical path, mispredictions, misses).
+   Remaining: CPU feature gating, SIMD and encoding panels; Arcs IX, X.
 7. **M7 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch
    handling, fault explainer, interrupt injection; Arcs XI–XII.
 8. **M8 – Kernel arcs:** XIII–XIV, with a reference OS used to validate every level;

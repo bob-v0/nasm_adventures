@@ -143,7 +143,7 @@ levels = [
   { title = "Prefetch & TLB", dir = "prefetch_tlb", concepts = "`prefetcht0`, huge pages", gate = "Faster linked-list traversal: many misses in flight" },
   { title = "Instruction Selection", dir = "instruction_selection", concepts = "uops, macro-fusion, partial-register stalls", gate = "Speed up a hot loop ≥ 2×" },
   { title = "Performance Cliff", dir = "bug_performance_cliff", bug = 2, concepts = "performance bugs: 4K aliasing, cache-line splits, denormals", gate = "Find why one input size is 20× slower per element and fix it" },
-  { title = "Fast Hash Map", boss = true, concepts = "everything in the arc", gate = "Open-addressing map hitting an ops/sec target" },
+  { title = "Fast Hash Map", dir = "fast_hash_map", boss = true, concepts = "everything in the arc", gate = "Open-addressing map under 50 cycles per operation on every kind of key" },
 ]
 
 [[arc]]

@@ -97,6 +97,12 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
         m.enable_perf(noise=test.inject.get("noise"))
         for spec in test.inject.get("warm", []):   # {"sym": ..., "size": ...}: already in L2
             m.perf.warm(resolve(build, spec), spec["size"])
+        if test.inject.get("warm_all"):               # every data section starts in L2
+            for name, (addr, size) in build.sections.items():
+                if name in (".data", ".bss", ".rodata"):
+                    m.perf.warm(addr, size)
+        if "max_cycles" in test.expect:               # far past the budget: stop there
+            m.cycle_limit = 3 * test.expect["max_cycles"]
     if poison:
         # Real callers leave junk behind: registers the test doesn't set, and the
         # stack below rsp, start with garbage (deterministic per test, for replay).
@@ -351,6 +357,11 @@ def _run_one(level: Level, build: Build, test: TestCase,
         problems.append("your function ended the program (exit syscall) instead of returning")
     elif state == "fault":
         problems.append(m.fault)
+    elif state == "limit" and m.perf is not None and m.cycle_limit \
+            and m.perf.max_done > m.cycle_limit:
+        problems.append(f"stopped after {int(m.perf.max_done)} cycles, three times the budget of "
+                        f"{exp['max_cycles']}, without finishing")
+        problems += m.perf.report(where=build.addr_to_line.get).splitlines()[1:]
     elif state == "limit":
         problems.append(f"did not finish within {c.get('max_steps', DEFAULT_MAX_STEPS)} executed "
                         "instructions (an infinite loop, or too slow for this level's budget)")

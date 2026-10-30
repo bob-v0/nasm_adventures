@@ -114,6 +114,31 @@ class Info:
     fusable: bool
     fp_dest: str | None           # an SSE register whose result may be denormal
     elem: int                     # 4 (ps/ss) or 8 (pd/sd)
+    # precomputed for speed (see _finish_info)
+    src_t: tuple = ()             # registers whose values it waits for
+    addr_t: tuple = ()            # registers its address waits for
+    value_t: tuple = ()           # the same, for the critical path (no address registers)
+    writes_t: tuple = ()
+    flags_in: bool = False
+    serial: bool = False
+    stack: bool = False           # push/pop/call/ret: the stack engine updates rsp
+    branchy: bool = False         # anything the predictor deals with
+    tsc: bool = False
+    prefetch: bool = False
+
+
+def _finish_info(i: Info) -> Info:
+    i.src_t = tuple(i.partial | {r for r in i.reads if r not in ("rsp", "flags")})
+    i.addr_t = tuple(r for r in i.addr_regs if r != "rsp")
+    i.value_t = tuple(r for r in (i.reads - i.addr_regs) | i.partial if r not in ("rsp", "flags"))
+    i.writes_t = tuple(r for r in i.writes if r != "rip")
+    i.flags_in = "flags" in i.reads and not i.zero_idiom
+    i.serial = i.mnemonic in ("lfence", "rdtscp", "mfence", "cpuid", "syscall")
+    i.stack = i.mnemonic in ("push", "pop") or i.is_call or i.is_ret
+    i.branchy = i.cond_branch or i.indirect or i.is_ret
+    i.tsc = i.mnemonic in ("rdtsc", "rdtscp")
+    i.prefetch = i.mnemonic.startswith("prefetch")
+    return i
 
 
 @dataclass
@@ -188,7 +213,7 @@ class CostModel:
         if ins is None:
             info = Info(addr, 1, "?", frozenset(), frozenset(), frozenset(), None, 1,
                         "alu", 1, False, False, False, False, frozenset(), False, False, None, 8)
-            self.decoded[addr] = info
+            self.decoded[addr] = _finish_info(info)
             return info
         mn = ins.mnemonic
         regs_r, regs_w = ins.regs_access()
@@ -241,7 +266,7 @@ class CostModel:
                     frozenset(partial), zero, mn in _FUSES and not (mem and len(ops) == 2
                                                                     and ops[1].type == 2),
                     fp_dest, 4 if mn.endswith(("ss", "ps")) else 8)
-        self.decoded[addr] = info
+        self.decoded[addr] = _finish_info(info)
         return info
 
     def warm(self, addr: int, size: int) -> None:
@@ -305,91 +330,117 @@ class CostModel:
         c["instructions"] += 1
         if c["instructions"] % 4096 == 0:
             self._prune()
-        fused = (info.cond_branch and self.prev is not None and self.prev.fusable
-                 and self.prev.addr + self.prev.size == info.addr)
+        prev = self.prev
+        fused = (info.cond_branch and prev is not None and prev.fusable
+                 and prev.addr + prev.size == info.addr)
         uops = 0 if fused else info.uops
         c["uops"] += uops
         # front end: in order, WIDTH uops per cycle, after any misprediction
-        start = max(self.dispatch, self.front)
+        start = self.dispatch if self.dispatch > self.front else self.front
         if len(self.retire) >= ROB_SIZE:          # the reorder buffer is full
             oldest = self.retire.popleft()
             if oldest > start:
                 self._lose(info, "reorder buffer full (the oldest instruction hasn't finished: "
                            "a cache miss, or a long dependency chain)", oldest - start)
                 start = oldest
-        if info.unit == "serial" and info.mnemonic in ("lfence", "rdtscp", "mfence", "cpuid",
-                                                        "syscall"):
-            start = max(start, self.max_done)     # waits for everything before it
+        if info.serial and self.max_done > start:
+            start = self.max_done                 # waits for everything before it
         if self.noise is not None and self.noise.random() < 1 / 2500:
             gap = self.noise.randrange(500, 3000)  # an interrupt: the program just stops a while
             start += gap
             c["interrupts"] += 1
             self._lose(info, "interrupts", gap)
-        if any(k == "w" for k, _, _ in accesses):
-            while self.store_buffer and self.store_buffer[0] <= start:
-                self.store_buffer.popleft()
-            if len(self.store_buffer) >= STORE_BUFFER:
-                oldest = self.store_buffer.popleft()
+        loads, stores = [], []
+        for k, a, sz in accesses:
+            (loads if k == "r" else stores).append((a, sz))
+        if stores:
+            sb = self.store_buffer
+            while sb and sb[0] <= start:
+                sb.popleft()
+            if len(sb) >= STORE_BUFFER:
+                oldest = sb.popleft()
                 self._lose(info, "store buffer full (stores waiting for their cache lines)",
                            oldest - start)
-                start = max(start, oldest)
+                if oldest > start:
+                    start = oldest
         self.dispatch = start + uops / WIDTH
         rd = self.ready
         # operands
-        src = 0.0 if info.zero_idiom else max((rd.get(r, 0.0) for r in info.reads
-                                                if r not in ("rsp", "flags")), default=0.0)
-        if info.reads & {"flags"} and not info.zero_idiom:
-            src = max(src, rd.get("flags", 0.0))
-        src = max(src, max((rd.get(r, 0.0) for r in info.partial), default=0.0))
-        addr_ready = max((rd.get(r, 0.0) for r in info.addr_regs if r != "rsp"), default=0.0)
+        src = 0.0
+        if not info.zero_idiom:
+            for r in info.src_t:
+                v = rd.get(r, 0.0)
+                if v > src:
+                    src = v
+            if info.flags_in:
+                v = rd.get("flags", 0.0)
+                if v > src:
+                    src = v
+        addr_ready = 0.0
+        for r in info.addr_t:
+            v = rd.get(r, 0.0)
+            if v > addr_ready:
+                addr_ready = v
         data = start
-        loads = [(a, s) for k, a, s in accesses if k == "r"]
-        stores = [(a, s) for k, a, s in accesses if k == "w"]
         load_lat = 0.0
-        for a, s in loads:
-            t = self._unit("load", max(start, addr_ready))
-            lat = self._load_latency(info, a, s, t)
-            load_lat = max(load_lat, lat)
-            data = max(data, t + lat)
-        if info.mnemonic.startswith("prefetch") and info.mem and self.read_reg:
+        first_load = start if start > addr_ready else addr_ready
+        for a, sz in loads:
+            t = self._unit("load", first_load)
+            lat = self._load_latency(info, a, sz, t)
+            if lat > load_lat:
+                load_lat = lat
+            if t + lat > data:
+                data = t + lat
+        if info.prefetch and info.mem and self.read_reg:
             ea = self._address(info)
             self._tlb(info, ea, start)
-            self._line_latency(info, ea // LINE, self._unit("load", max(start, addr_ready)))
-        begin = max(start, src, data if loads else start)
+            self._line_latency(info, ea // LINE, self._unit("load", first_load))
+        begin = start
+        if src > begin:
+            begin = src
+        if loads and data > begin:
+            begin = data
         begin = self._unit(info.unit, begin)
         done = begin + (0 if info.zero_idiom else info.latency)
         if info.fp_dest and not self.mxcsr() & 0x8040 and self._denormal(info):
             done += 100
             c["denormal assists"] += 1
             self._lose(info, "denormal float results (microcode assists)", 100)
-        for a, s in stores:
+        for a, sz in stores:
             st = self._unit("store", max(start, addr_ready, src))
-            self._store(info, a, s, st)
+            self._store(info, a, sz, st)
         # the critical path: the same dataflow with unlimited units and a perfect front end
         cp = self.cp_ready
-        values = (info.reads - info.addr_regs) | info.partial
-        cp_src = 0.0 if info.zero_idiom else max(
-            (cp.get(r, 0.0) for r in values if r != "rsp"), default=0.0)
+        cp_src = 0.0
+        if not info.zero_idiom:
+            for r in info.value_t:
+                v = cp.get(r, 0.0)
+                if v > cp_src:
+                    cp_src = v
         if loads:     # a load waits for its address, not for the value chain
-            cp_addr = max((cp.get(r, 0.0) for r in info.addr_regs if r != "rsp"), default=0.0)
-            cp_src = max(cp_src, cp_addr + load_lat)
+            cp_addr = 0.0
+            for r in info.addr_t:
+                v = cp.get(r, 0.0)
+                if v > cp_addr:
+                    cp_addr = v
+            if cp_addr + load_lat > cp_src:
+                cp_src = cp_addr + load_lat
         cp_done = cp_src + (0 if info.zero_idiom else info.latency)
-        for r in info.writes:
-            if r != "rip":
-                cp[r] = cp_done
-        self.critical = max(self.critical, cp_done)
-        for r in info.writes:
-            if r not in ("rip",):
-                rd[r] = done
-        if info.mnemonic == "pop" or info.mnemonic == "push" or info.is_call or info.is_ret:
+        for r in info.writes_t:
+            cp[r] = cp_done
+            rd[r] = done
+        if cp_done > self.critical:
+            self.critical = cp_done
+        if info.stack:
             rd["rsp"] = start                      # the stack engine: rsp updates are free
-        # branches
-        if info.cond_branch or info.indirect or info.is_ret:
+        if info.branchy:
             self._branch(info, next_pc, done)
-        if info.mnemonic in ("rdtsc", "rdtscp"):
+        if info.tsc:
             self.tsc_fix = (int(start), info.mnemonic == "rdtscp")
-        self.max_done = max(self.max_done, done)
-        self.last_retire = max(self.last_retire, done)
+        if done > self.max_done:
+            self.max_done = done
+        if done > self.last_retire:
+            self.last_retire = done
         self.retire.append(self.last_retire)
         self.prev = info
 
