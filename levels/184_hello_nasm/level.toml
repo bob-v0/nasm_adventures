@@ -1,0 +1,27 @@
+level = 184
+slug = "hello_nasm"
+title = "Hello, NASM"
+arc = "I"
+mode = "fragment"
+concepts = ["what an assembler does", "NASM line format", "comments", "registers as variables"]
+introduces = ["mov reg, imm", "; comments", "labels"]
+
+hints = [
+  "Each line is `mov <register>, <number>`. Destination first, then the value.",
+  "You need two instructions: one for rax, one for rbx.",
+  "mov rax, 42\nmov rbx, 184",
+]
+
+[constraints]
+max_instructions = 4
+must_use = ["mov"]
+max_steps = 1000
+
+[stretch]
+label = "Exactly two"
+max_instructions = 2
+
+[[tests]]
+name = "rax holds 42, rbx holds 184"
+[tests.expect]
+regs = { rax = 42, rbx = 184 }

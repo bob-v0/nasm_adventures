@@ -1,0 +1,36 @@
+level = 183
+slug = "registers"
+title = "Sixteen Registers"
+arc = "I"
+mode = "fragment"
+concepts = ["the 16 general-purpose registers", "register-to-register mov", "swapping"]
+introduces = ["mov reg, reg", "xchg", "r8-r15"]
+
+hints = [
+  "If you copy rbx into rax first, the old value of rax is gone. Save it somewhere first. r8 is free.",
+  "With mov: save rax in a spare register, shift the others down one by one, then put the saved value in rdx.",
+  "xchg swaps two registers in one instruction. Three xchg instructions are enough: try xchg rax, rbx and work out what each register holds after it.",
+]
+
+[constraints]
+max_instructions = 5
+max_steps = 1000
+
+[stretch]
+label = "Juggler"
+max_instructions = 3
+
+[random]
+count = 40
+
+[[tests]]
+name = "rotate 1 2 3 4"
+regs = { rax = 1, rbx = 2, rcx = 3, rdx = 4 }
+[tests.expect]
+regs = { rax = 2, rbx = 3, rcx = 4, rdx = 1 }
+
+[[tests]]
+name = "rotate big values"
+regs = { rax = "0xAAAA_AAAA_AAAA_AAAA", rbx = "0xBBBB_BBBB_BBBB_BBBB", rcx = "0xCCCC_CCCC_CCCC_CCCC", rdx = "0xDDDD_DDDD_DDDD_DDDD" }
+[tests.expect]
+regs = { rax = "0xBBBB_BBBB_BBBB_BBBB", rbx = "0xCCCC_CCCC_CCCC_CCCC", rcx = "0xDDDD_DDDD_DDDD_DDDD", rdx = "0xAAAA_AAAA_AAAA_AAAA" }

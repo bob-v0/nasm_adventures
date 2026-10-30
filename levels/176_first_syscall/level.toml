@@ -1,0 +1,34 @@
+level = 176
+slug = "first_syscall"
+title = "Asking the Kernel"
+arc = "I"
+mode = "program"
+concepts = ["user mode vs kernel", "the Linux syscall convention", "a complete program: global _start", "exit status is 8 bits", "what happens when code runs off the end"]
+introduces = ["global", "_start", "syscall", "exit (60)", "%include"]
+
+hints = [
+  "A syscall is: number in rax, arguments in rdi, rsi, rdx, r10, r8, r9, then `syscall`. exit is number 60, and its one argument is the status.",
+  "Load the secret into rdi straight from memory. The kernel keeps only the low 8 bits of the status, so you don't need to do anything else.",
+  "_start:\n    mov rdi, [secret]\n    mov eax, 60\n    syscall",
+]
+
+[constraints]
+max_instructions = 5
+must_use = ["syscall"]
+
+[random]
+count = 20
+
+[[tests]]
+name = "secret = 0x2A"
+mem = [{ sym = "secret", u64 = "0x2A" }]
+[tests.expect]
+exit = 42
+syscalls = ["exit"]
+
+[[tests]]
+name = "secret = 0x1234_56FF (only the low byte survives)"
+mem = [{ sym = "secret", u64 = "0x123456FF" }]
+[tests.expect]
+exit = 255
+syscalls = ["exit"]

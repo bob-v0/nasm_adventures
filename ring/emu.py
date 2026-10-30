@@ -1,0 +1,342 @@
+"""Unicorn-based x86-64 machine: loads a static ELF, emulates a small set of Linux
+syscalls, and supports single-stepping with full reverse execution."""
+
+from __future__ import annotations
+
+import struct
+from dataclasses import dataclass, field
+
+from elftools.elf.elffile import ELFFile
+from unicorn import (UC_ARCH_X86, UC_HOOK_CODE, UC_HOOK_INSN, UC_HOOK_MEM_WRITE, UC_MODE_64,
+                     UC_PROT_EXEC, UC_PROT_READ, UC_PROT_WRITE, Uc, UcError)
+from unicorn import x86_const as X
+
+from .build import Build
+
+PAGE = 0x1000
+STACK_TOP = 0x7FFFFFFFF000
+STACK_SIZE = 0x100000
+MASK64 = (1 << 64) - 1
+USER_LIMIT = 0x7FFFFFFFF000  # end of the user address space on Linux x86-64
+
+GPRS = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+        "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"]
+REGS = {name: getattr(X, f"UC_X86_REG_{name.upper()}") for name in GPRS + ["rip", "rflags"]}
+
+FLAG_BITS = [("CF", 0), ("PF", 2), ("AF", 4), ("ZF", 6), ("SF", 7), ("TF", 8),
+             ("IF", 9), ("DF", 10), ("OF", 11)]
+
+SYS_READ, SYS_WRITE, SYS_EXIT, SYS_EXIT_GROUP = 0, 1, 60, 231
+ENOSYS, EBADF, EFAULT = 38, 9, 14
+
+SYSCALL_NAMES = {SYS_READ: "read", SYS_WRITE: "write", SYS_EXIT: "exit",
+                 SYS_EXIT_GROUP: "exit_group"}
+
+
+def align_down(x: int) -> int:
+    return x & ~(PAGE - 1)
+
+
+def align_up(x: int) -> int:
+    return (x + PAGE - 1) & ~(PAGE - 1)
+
+
+@dataclass
+class SyscallRecord:
+    number: int
+    args: tuple[int, ...]
+    result: int | None
+
+    def __str__(self) -> str:
+        name = SYSCALL_NAMES.get(self.number, f"syscall_{self.number}")
+        res = "" if self.result is None else f" = {_signed(self.result)}"
+        return f"{name}({', '.join(hex(a) for a in self.args)}){res}"
+
+
+def _signed(v: int) -> int:
+    return v - (1 << 64) if v & (1 << 63) else v
+
+
+@dataclass
+class _Frame:
+    """Undo record for one executed instruction."""
+    context: object
+    writes: list[tuple[int, bytes]] = field(default_factory=list)
+    stdout_len: int = 0
+    stderr_len: int = 0
+    stdin_pos: int = 0
+    syscalls_len: int = 0
+    state: str = "ready"
+    exit_code: int | None = None
+
+
+class Machine:
+    """States: ready -> (running) -> done | exited | fault | limit."""
+
+    def __init__(self, build: Build, stdin: bytes = b"", record: bool = False):
+        self.build = build
+        self.stdin = stdin
+        self.stdin_pos = 0
+        self.stdout = bytearray()
+        self.stderr = bytearray()
+        self.syscalls: list[SyscallRecord] = []
+        self.exit_code: int | None = None
+        self.state = "ready"
+        self.fault: str | None = None
+        self.steps = 0
+        self.record = record
+        self.history: list[_Frame] = []
+        self._frame: _Frame | None = None
+        self.uc = Uc(UC_ARCH_X86, UC_MODE_64)
+        self._load()
+        self.uc.hook_add(UC_HOOK_INSN, self._on_syscall, None, 1, 0, X.UC_X86_INS_SYSCALL)
+        if record:
+            self.uc.hook_add(UC_HOOK_MEM_WRITE, self._on_write)
+
+    # ---- loading -------------------------------------------------------------------
+
+    def _load(self) -> None:
+        perms: dict[int, int] = {}
+        blobs: list[tuple[int, bytes]] = []
+        with open(self.build.elf, "rb") as fh:
+            elf = ELFFile(fh)
+            for seg in elf.iter_segments():
+                if seg["p_type"] != "PT_LOAD":
+                    continue
+                prot = 0
+                flags = seg["p_flags"]
+                prot |= UC_PROT_READ if flags & 4 else 0
+                prot |= UC_PROT_WRITE if flags & 2 else 0
+                prot |= UC_PROT_EXEC if flags & 1 else 0
+                start, end = seg["p_vaddr"], seg["p_vaddr"] + seg["p_memsz"]
+                for page in range(align_down(start), align_up(end), PAGE):
+                    perms[page] = perms.get(page, 0) | prot
+                blobs.append((start, seg.data()))
+        for page in sorted(perms):
+            self.uc.mem_map(page, PAGE, UC_PROT_READ | UC_PROT_WRITE | UC_PROT_EXEC)
+        for addr, data in blobs:
+            self.uc.mem_write(addr, data)
+        for page, prot in perms.items():
+            self.uc.mem_protect(page, PAGE, prot)
+
+        self.uc.mem_map(STACK_TOP - STACK_SIZE, STACK_SIZE, UC_PROT_READ | UC_PROT_WRITE)
+        if self.build.mode == "program":
+            rsp = self._linux_initial_stack()
+        else:
+            rsp = STACK_TOP - PAGE
+        self.uc.reg_write(REGS["rsp"], rsp)
+        self.uc.reg_write(REGS["rip"], self.build.entry)
+        self.uc.reg_write(REGS["rflags"], 0x202)
+
+    def _linux_initial_stack(self) -> int:
+        """argc=1, argv={"./solution", NULL}, envp={NULL}, auxv={AT_PAGESZ, AT_NULL}."""
+        name = b"./solution\0"
+        str_addr = STACK_TOP - 0x100
+        self.uc.mem_write(str_addr, name)
+        words = [1, str_addr, 0, 0, 6, PAGE, 0, 0]
+        rsp = (str_addr - 8 * len(words) - 0x40) & ~0xF
+        self.uc.mem_write(rsp, struct.pack(f"<{len(words)}Q", *words))
+        return rsp
+
+    # ---- registers & memory -------------------------------------------------------
+
+    def reg(self, name: str) -> int:
+        return self.uc.reg_read(REGS[name]) & MASK64
+
+    def set_reg(self, name: str, value: int) -> None:
+        self.uc.reg_write(REGS[name], value & MASK64)
+
+    def regs(self) -> dict[str, int]:
+        return {n: self.reg(n) for n in REGS}
+
+    def read(self, addr: int, size: int) -> bytes:
+        return bytes(self.uc.mem_read(addr, size))
+
+    def write(self, addr: int, data: bytes) -> None:
+        self.uc.mem_write(addr, data)
+
+    def readable(self, addr: int, size: int) -> bool:
+        return self._covered(addr, size, UC_PROT_READ)
+
+    def _readable_prefix(self, addr: int, size: int) -> int:
+        """Number of bytes readable from addr onwards, up to size."""
+        n = 0
+        for start, last, p in sorted(self.uc.mem_regions()):
+            if n < size and start <= addr + n <= last and p & UC_PROT_READ:
+                n = min(size, last + 1 - addr)
+        return n
+
+    def _covered(self, addr: int, size: int, prot: int) -> bool:
+        """Is [addr, addr+size) entirely mapped with `prot`? (Checks the memory map
+        rather than reading, so absurd sizes from buggy programs are cheap.)"""
+        if size <= 0:
+            return True
+        end = addr + size - 1
+        if end > MASK64:
+            return False
+        for start, last, p in sorted(self.uc.mem_regions()):
+            if start <= addr <= last:
+                if not p & prot:
+                    return False
+                if end <= last:
+                    return True
+                addr = last + 1
+        return False
+
+    @property
+    def pc(self) -> int:
+        return self.reg("rip")
+
+    @property
+    def finished(self) -> bool:
+        return self.state in ("done", "exited", "fault", "limit")
+
+    # ---- syscalls -----------------------------------------------------------------
+
+    def _on_syscall(self, uc: Uc, _user) -> None:
+        rip = self.reg("rip")
+        nr = self.reg("rax")
+        args = tuple(self.reg(r) for r in ("rdi", "rsi", "rdx", "r10", "r8", "r9"))
+        result: int | None
+        if nr == SYS_WRITE:
+            fd, buf, count = args[:3]
+            n = self._readable_prefix(buf, count)
+            if fd not in (1, 2):
+                result = -EBADF
+            elif count and (buf + count > USER_LIMIT or n == 0):
+                result = -EFAULT
+            else:
+                # Like Linux: copy up to the first unreadable byte, return a short count.
+                (self.stdout if fd == 1 else self.stderr).extend(self.read(buf, n))
+                result = n
+        elif nr == SYS_READ:
+            fd, buf, count = args[:3]
+            chunk = self.stdin[self.stdin_pos:self.stdin_pos + count]
+            if fd != 0:
+                result = -EBADF
+            elif chunk and not self._writable(buf, len(chunk)):
+                result = -EFAULT
+            else:
+                if chunk:
+                    if self._frame is not None:
+                        self._frame.writes.append((buf, self.read(buf, len(chunk))))
+                    self.write(buf, chunk)
+                self.stdin_pos += len(chunk)
+                result = len(chunk)
+        elif nr in (SYS_EXIT, SYS_EXIT_GROUP):
+            self.syscalls.append(SyscallRecord(nr, args[:1], None))
+            self.exit_code = args[0] & 0xFF
+            self.state = "exited"
+            self.set_reg("rip", rip + 2)
+            uc.emu_stop()
+            return
+        else:
+            result = -ENOSYS
+        self.syscalls.append(SyscallRecord(nr, args[:3], result & MASK64))
+        # The kernel returns in rax and clobbers rcx (return rip) and r11 (rflags).
+        self.set_reg("rax", result)
+        self.set_reg("rcx", rip + 2)
+        self.set_reg("r11", self.reg("rflags"))
+
+    def _writable(self, addr: int, size: int) -> bool:
+        return self._covered(addr, size, UC_PROT_WRITE)
+
+    def _on_write(self, uc: Uc, _access, addr: int, size: int, _value, _user) -> None:
+        if self._frame is not None:
+            self._frame.writes.append((addr, bytes(uc.mem_read(addr, size))))
+
+    # ---- execution ----------------------------------------------------------------
+
+    def run(self, max_steps: int = 1_000_000) -> str:
+        """Run to completion (or until max_steps), without recording history."""
+        if self.finished:
+            return self.state
+        counter = {"n": 0}
+
+        def count(_uc, _addr, _size, _user):
+            counter["n"] += 1
+
+        h = self.uc.hook_add(UC_HOOK_CODE, count)
+        self.state = "running"
+        done = self.build.done_addr
+        try:
+            self.uc.emu_start(self.pc, done or 0, count=max_steps)
+        except UcError as e:
+            self._set_fault(e)
+        finally:
+            self.uc.hook_del(h)
+        self.steps += counter["n"]
+        if self.state == "running":
+            if done is not None and self.pc == done:
+                self.state = "done"
+            else:
+                self.state = "limit"
+        return self.state
+
+    def step(self) -> bool:
+        """Execute one instruction. Returns False if the machine had already finished."""
+        if self.finished:
+            return False
+        if self.record:
+            self._frame = _Frame(self.uc.context_save(), [], len(self.stdout), len(self.stderr),
+                                 self.stdin_pos, len(self.syscalls), self.state, self.exit_code)
+        self.state = "running"
+        try:
+            self.uc.emu_start(self.pc, 0, count=1)
+        except UcError as e:
+            self._set_fault(e)
+        self.steps += 1
+        if self.state == "running":
+            self.state = "done" if self.pc == self.build.done_addr else "ready"
+        if self._frame is not None:
+            self.history.append(self._frame)
+            self._frame = None
+        return True
+
+    def step_back(self) -> bool:
+        if not self.history:
+            return False
+        f = self.history.pop()
+        for addr, old in reversed(f.writes):
+            self.uc.mem_write(addr, old)
+        self.uc.context_restore(f.context)
+        del self.stdout[f.stdout_len:]
+        del self.stderr[f.stderr_len:]
+        del self.syscalls[f.syscalls_len:]
+        self.stdin_pos = f.stdin_pos
+        self.state = f.state
+        self.exit_code = f.exit_code
+        self.fault = None
+        self.steps -= 1
+        return True
+
+    def _set_fault(self, e: UcError) -> None:
+        self.state = "fault"
+        pc = self.pc
+        where = self.build.addr_to_line.get(pc)
+        loc = f" (solution line {where})" if where else ""
+        end = self.build.code_range[1]
+        if not where and end <= pc < align_up(end + 1):
+            loc = " (past the end of your code: did you forget to exit?)"
+        self.fault = f"{_describe(e)} at rip={pc:#x}{loc}"
+
+
+def _describe(e: UcError) -> str:
+    msg = str(e)
+    table = {
+        "UNMAPPED": "segmentation fault: access to unmapped memory",
+        "WRITE_PROT": "segmentation fault: write to read-only memory",
+        "READ_PROT": "segmentation fault: read from protected memory",
+        "FETCH_PROT": "segmentation fault: executing non-executable memory",
+        "INSN_INVALID": "illegal instruction (#UD)",
+        "EXCEPTION": "CPU exception (e.g. #DE divide error or privileged instruction)",
+    }
+    for key, text in table.items():
+        if key in msg.upper().replace(" ", "_"):
+            return text
+    return f"CPU fault: {msg}"
+
+
+def flags_str(rflags: int) -> str:
+    return " ".join(name if rflags >> bit & 1 else name.lower() for name, bit in FLAG_BITS
+                    if name not in ("TF", "IF"))

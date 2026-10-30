@@ -1,0 +1,34 @@
+level = 177
+slug = "effective_addresses"
+title = "The Address Machine"
+arc = "I"
+mode = "fragment"
+concepts = ["base + index*scale + displacement", "2D arrays in flat memory", "lea as arithmetic"]
+introduces = ["[base + index*scale + disp]", "lea"]
+
+hints = [
+  "Element [row][col] of an 8x8 qword grid is at grid + (row*8 + col)*8. An address can contain only one index*scale, and the scale can only be 1, 2, 4 or 8.",
+  "Compute row*8 + col into a spare register with one lea: lea rdx, [rsi + rdi*8]. Then use it as the index with scale 8. The element below is 64 bytes further on.",
+  "lea rdx, [rsi + rdi*8] / lea rbx, [grid + rdx*8] / mov rax, [rbx] / mov rcx, [rbx + 64] / lea r8, [rdi + rdi*4 + 3]",
+]
+
+[constraints]
+max_instructions = 7
+must_use = ["lea"]
+banned = ["add", "sub", "mul", "imul", "shl", "inc", "dec"]
+preserve = ["rsp", "rdi", "rsi"]
+max_steps = 1000
+
+[stretch]
+label = "Address wizard"
+max_instructions = 5
+
+[random]
+count = 40
+
+[[tests]]
+name = "row 0, col 0"
+regs = { rdi = 0, rsi = 0 }
+mem = [{ sym = "grid", u64 = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22] }]
+[tests.expect]
+regs = { rax = 11, rbx = "@grid", rcx = 21, r8 = 3 }

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nasm-adventures"
+version = "0.1.0"
+description = "Descend from ring 127 to ring 0 by writing x86-64 assembly."
+requires-python = ">=3.11"
+dependencies = ["unicorn>=2.0", "capstone>=5.0", "pyelftools>=0.30"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ring = "ring.cli:main"
+
+[tool.setuptools]
+packages = ["ring"]
+
+[tool.setuptools.package-data]
+ring = ["docs/*.toml"]

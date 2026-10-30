@@ -1,0 +1,38 @@
+level = 180
+slug = "data_and_labels"
+title = "Names for Places"
+arc = "I"
+mode = "fragment"
+concepts = ["sections", "labels are addresses", "label vs [label]", "operand size specifiers", "no memory-to-memory moves"]
+introduces = ["section .data / .bss / .text", "db dw dd dq", "resb resq", "byte word dword qword", "[label]"]
+
+hints = [
+  "`input` is an address. `[input]` is the 8 bytes stored at that address. To copy memory to memory, load into a register first, then store.",
+  "`mov word [counter], 0xBEEF` needs the size word; NASM cannot guess the size from a number and a label alone. `movzx ebx, byte [greeting + 7]` reads one byte.",
+  "In .data: greeting: db \"Hello, Ring!\", 0 and counter: dw 0. In .bss: slot: resq 1. Code: mov rax, [input] / mov [slot], rax / mov rax, greeting / movzx ebx, byte [greeting + 7] / mov word [counter], 0xBEEF",
+]
+
+[constraints]
+max_instructions = 8
+max_steps = 1000
+
+[random]
+count = 20
+
+[[tests]]
+name = "basic"
+mem = [{ sym = "input", u64 = "0x0123456789ABCDEF" }]
+[tests.expect]
+regs = { rax = "@greeting", rbx = 0x52 }
+mem = [
+  { sym = "greeting", str = "Hello, Ring!\u0000" },
+  { sym = "slot", u64 = "0x0123456789ABCDEF" },
+  { sym = "counter", u16 = "0xBEEF" },
+]
+
+[[tests]]
+name = "rbx is read from memory, not typed in"
+mem = [{ sym = "input", u64 = 7 }, { sym = "greeting", offset = 7, str = "Z" }]
+[tests.expect]
+regs = { rax = "@greeting", rbx = 0x5A }
+mem = [{ sym = "slot", u64 = 7 }, { sym = "greeting", str = "Hello, Zing!\u0000" }]

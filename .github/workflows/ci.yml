@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y nasm
+      - run: pip install -e '.[dev]'
+      - run: python3 tools/gen_curriculum.py --check
+      - run: ring check-levels
+      - run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f docker/Dockerfile -t nasm-adventures .
+      - name: smoke test
+        run: |
+          docker run --rm nasm-adventures bash -c '
+            ring start && ring test; test $? -eq 1 &&
+            printf "mov rax, 42\nmov rbx, 184\n" > level184/solution.asm &&
+            ring submit && ring status'

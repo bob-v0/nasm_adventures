@@ -1,0 +1,28 @@
+level = 175
+slug = "speak"
+title = "Speak"
+arc = "I"
+mode = "program"
+concepts = ["file descriptors", "writing bytes", "syscall return values", "escape sequences in strings"]
+introduces = ["write (1)", "stdout / stderr", "`backquoted strings` with \\n"]
+
+hints = [
+  "write(fd, buffer, count): rax=1, rdi=fd (1 = stdout, 2 = stderr), rsi=address, rdx=number of bytes. It returns the number of bytes written in rax.",
+  "Use three writes to stdout (\"Hello, \", the 8-byte name, \"!\\n\") and one to stderr. Lengths come from `equ $ - label`. Save the stderr write's result before rax is overwritten.",
+  "After the stderr write: mov edi, eax (the result) / mov eax, 60 / syscall. Strings: hello: db \"Hello, \" ... warn: db `warning: the walls have ears\\n`",
+]
+
+[constraints]
+max_instructions = 30
+must_use = ["syscall"]
+
+[random]
+count = 10
+
+[[tests]]
+name = "name = operator"
+mem = [{ sym = "name", str = "operator" }]
+[tests.expect]
+stdout = "Hello, operator!\n"
+stderr = "warning: the walls have ears\n"
+exit = 29

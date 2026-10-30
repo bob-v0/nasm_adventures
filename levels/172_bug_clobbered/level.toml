@@ -1,0 +1,28 @@
+level = 172
+slug = "bug_clobbered"
+title = "Clobbered by the Kernel"
+arc = "I"
+bug = 1
+mode = "program"
+concepts = ["`syscall` overwrites rcx and r11", "which registers survive a call into the kernel", "choosing registers for long-lived state"]
+introduces = ["register clobbers"]
+
+hints = [
+  "In `ring debug`, step over the first `syscall` with `s` and look at `regs`. Which registers changed that the program didn't touch?",
+  "The CPU's `syscall` instruction itself saves the return address in rcx and rflags in r11, so their old values are gone. Linux preserves every other register except rax.",
+  "Keep the counter in rbx and the line pointer in r12 instead of rcx and r11. Rename every use.",
+]
+
+[constraints]
+max_changed_lines = 12
+max_instructions = 25
+must_use = ["syscall"]
+
+[random]
+count = 10
+
+[[tests]]
+name = "three boot lines"
+[tests.expect]
+stdout = "boot: cpu ok   \nboot: mem ok   \nboot: disk ok  \n"
+exit = 3

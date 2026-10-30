@@ -1,0 +1,288 @@
+# The full curriculum, in play order (first entry = highest level number).
+# `tools/gen_curriculum.py` numbers the levels and regenerates DESIGN.md §5.
+#   bug  = difficulty tier of a bug level: 1 (easy) .. 4 (very hard)
+#   boss = true for the level that closes an arc
+#   dir  = implemented level directory under levels/ (if any)
+
+[[arc]]
+id = "I"
+name = "The Assembler & the Machine"
+runner = "emu (fragment levels), then emu (whole programs)"
+levels = [
+  { title = "Hello, NASM", dir = "hello_nasm", concepts = "what an assembler does, NASM line format, comments, `mov reg, imm`, listings", gate = "Load given constants into rax and rbx" },
+  { title = "Sixteen Registers", dir = "registers", concepts = "the 16 GPRs, `mov reg, reg`, `xchg`", gate = "Rotate four registers (stretch: 3 instructions)" },
+  { title = "Speaking in Numbers", dir = "literals", concepts = "bases; NASM literals: `0x`, `h`, `0b`, `0o`, `_`, character constants, -1", gate = "Load six values written in six notations" },
+  { title = "Nested Registers", dir = "partial_registers", concepts = "al/ah/ax/eax views, 32-bit zero-extension rule, `movzx`, `movsx`, `movsxd`", gate = "Derive six zero/sign-extended views of one value" },
+  { title = "Names for Places", dir = "data_and_labels", concepts = "sections, `db/dw/dd/dq`, `resb/resq`, labels are addresses, `label` vs `[label]`, size specifiers", gate = "Define data and .bss, copy memory via a register, sized stores" },
+  { title = "The Assembler Counts", dir = "assembler_arithmetic", concepts = "assemble time vs run time, `equ`, `$`, `$$`, `times`, `%define`, `%assign`, `%rep`", gate = "Generate tables and constants with no run-time arithmetic" },
+  { title = "Backwards Bytes", dir = "little_endian", concepts = "little-endian memory, network byte order, `bswap`, `xchg al, ah`", gate = "Decode a big-endian packet header" },
+  { title = "The Address Machine", dir = "effective_addresses", concepts = "`[base + index*scale + disp]`, 2D arrays, `lea` as arithmetic", gate = "Index an 8×8 grid without `add` or `mul`" },
+  { title = "Asking the Kernel", dir = "first_syscall", concepts = "whole programs: `global _start`, `%include`; user mode vs kernel; syscall convention; `exit`; falling off the end", gate = "Exit with a status read from memory" },
+  { title = "Speak", dir = "speak", concepts = "file descriptors, `write`, return values, backquoted strings", gate = "Write to stdout and stderr; exit with a syscall's result" },
+  { title = "Debugger Eyes", dir = "debugger_eyes", concepts = "objdump, `ring debug` (incl. stepping backwards), gdb basics", gate = "Recover a per-player key that exists only in a register for one instruction" },
+  { title = "Garbage in the High Bits", dir = "bug_high_bits", bug = 1, concepts = "first bug hunt: partial-register writes leave stale upper bits", gate = "Fix a checksum program in ≤ 2 changed lines" },
+  { title = "Clobbered by the Kernel", dir = "bug_clobbered", bug = 1, concepts = "`syscall` destroys rcx and r11; caller-owned state", gate = "Fix a program that keeps state in rcx across syscalls, in ≤ 3 changed lines" },
+  { title = "Echo Chamber", dir = "echo_chamber", boss = true, concepts = "`read`, .bss buffers, everything in the arc", gate = "Read 8 bytes, echo them reversed, exit with the byte count" },
+]
+
+[[arc]]
+id = "II"
+name = "Arithmetic & Flags"
+runner = "emu"
+levels = [
+  { title = "Add & Subtract", concepts = "`add`, `sub`, `inc`, `dec`, `neg`", gate = "Evaluate an expression in registers" },
+  { title = "The Flags Register", concepts = "ZF, SF, CF, OF, PF; `pushfq` preview", gate = "Predict flags; produce a given RFLAGS state" },
+  { title = "The Carry Flag", concepts = "`adc`, `sbb`, `clc`, `stc`", gate = "128-bit add/sub in ≤ 6 instructions" },
+  { title = "Signed vs Unsigned", concepts = "two's complement, OF vs CF", gate = "Classify overflow for random operand pairs" },
+  { title = "Compare & Jump", concepts = "`cmp`, `test`, `jcc`", gate = "`clamp(x, lo, hi)` signed and unsigned" },
+  { title = "Multiplication", concepts = "`mul`, `imul` (1/2/3 operands), rdx:rax", gate = "64×64→128 and overflow detection" },
+  { title = "Division", concepts = "`div`, `idiv`, `cqo`, `cdq`, #DE", gate = "Signed division with floor semantics" },
+  { title = "Signed or Unsigned?", bug = 1, concepts = "`jl` vs `jb`, `idiv` without `cqo`, `movsx` vs `movzx` mixups", gate = "Find and fix three sign bugs; hidden tests use boundary values" },
+  { title = "Bitwise Logic", concepts = "`and`, `or`, `xor`, `not`, masks", gate = "Pack/unpack RGB565" },
+  { title = "Shifts & Rotates", concepts = "`shl/shr/sar`, `rol/ror`, `shld/shrd`", gate = "128-bit shift by a variable count" },
+  { title = "Bit Surgery", concepts = "`bt*`, `bsf/bsr`, `popcnt`, `lzcnt`, `tzcnt`", gate = "256-bit set operations" },
+  { title = "Strength Reduction", concepts = "`lea` arithmetic, division by a constant via multiply", gate = "Divide by 10 without `div`" },
+  { title = "Silent Overflow", bug = 2, concepts = "wrap-around in size computations, `jc`/`jo` checks", gate = "A length calculation wraps and under-allocates; write a witness input, then fix it" },
+  { title = "Bignum", boss = true, concepts = "multi-limb arithmetic with carries", gate = "Arbitrary-precision multiply" },
+]
+
+[[arc]]
+id = "III"
+name = "Control Flow & Data"
+runner = "emu"
+levels = [
+  { title = "Loops", concepts = "counted and conditional loops, `loop` (and why not to use it)", gate = "Sum an array" },
+  { title = "Branchless", concepts = "`cmovcc`, `setcc`", gate = "abs/min/max/sign with zero branches" },
+  { title = "Numbers to Text", concepts = "`itoa` (unsigned, signed, hex)", gate = "Print any 64-bit integer → library: `itoa`" },
+  { title = "Text to Numbers", concepts = "`atoi`, overflow and error handling", gate = "Parse decimal/hex/negative input → library: `atoi`" },
+  { title = "String Instructions", concepts = "`movs/stos/lods/scas/cmps`, `rep`, DF", gate = "`memcpy`, `memset`, `strlen`, `memcmp`" },
+  { title = "Off by One", bug = 1, concepts = "fencepost errors, inclusive vs exclusive bounds, a stale DF", gate = "Fix three copy/compare routines that each touch one byte too many or too few" },
+  { title = "Jump Tables", concepts = "`jmp [table + rax*8]`, bounds checks", gate = "Interpret a tiny bytecode VM" },
+  { title = "Searching", concepts = "binary search, pointer arithmetic", gate = "Lower-bound search" },
+  { title = "Sorting", concepts = "insertion sort, in-place swaps", gate = "Sort 10k integers within a step budget" },
+  { title = "Structs", concepts = "`struc`/`endstruc`, `istruc`, offsets, alignment", gate = "Walk a linked list of records" },
+  { title = "Bit Tricks", concepts = "lowest set bit, round to power of two, parity", gate = "Six micro-puzzles with tight budgets" },
+  { title = "Hashing", concepts = "FNV-1a, `crc32`", gate = "Hash stdin" },
+  { title = "Assumed Zero", bug = 2, concepts = "uninitialized registers and memory; the grader now poisons initial state", gate = "A program that only works because registers started at 0; make it robust" },
+  { title = "The Interpreter", boss = true, concepts = "everything in the arc", gate = "Brainf*** interpreter" },
+]
+
+[[arc]]
+id = "IV"
+name = "Stack & Procedures"
+runner = "native (sandboxed)"
+levels = [
+  { title = "The Stack", concepts = "`push`, `pop`, rsp", gate = "Reverse a string via the stack" },
+  { title = "Call & Return", concepts = "`call`, `ret`, return addresses", gate = "Refactor the Echo Chamber into functions" },
+  { title = "System V ABI", concepts = "argument/return registers, caller- vs callee-saved", gate = "A harness calls your function with poisoned callee-saved registers" },
+  { title = "Stack Alignment", concepts = "16-byte rule at `call`, red zone", gate = "Call a harness function that asserts alignment" },
+  { title = "Stack Frames", concepts = "`rbp` frames, locals, `enter/leave`", gate = "Print your own call stack" },
+  { title = "Broken Contract", bug = 2, concepts = "ABI violations: clobbered callee-saved registers, misaligned stack crashing inside libc (`movaps`)", gate = "Fix a library that works alone but crashes its callers" },
+  { title = "Hello, libc", concepts = "`extern printf`, linking with gcc, varargs and `al`", gate = "Formatted table via printf" },
+  { title = "Called from C", concepts = "exporting symbols, headers, struct passing", gate = "A C-callable API + qsort comparator" },
+  { title = "Recursion", concepts = "recursive calls, stack depth", gate = "Towers of Hanoi with a depth limit" },
+  { title = "Smashed Stack", bug = 2, concepts = "buffer overflow overwriting a return address", gate = "Craft a witness input that redirects control, then fix the bounds check" },
+  { title = "Dangling Frame", bug = 2, concepts = "lifetime: pointers to a callee's locals die at `ret`", gate = "Fix a parser that returns pointers into its own stack frame" },
+  { title = "Callbacks", concepts = "function pointers, `call reg`", gate = "Generic map/filter/reduce" },
+  { title = "Macros", concepts = "`%macro`, local labels `%%`, `%include` libraries", gate = "A macro DSL for your syscalls" },
+  { title = "Coroutines", concepts = "saving/switching stacks, tail calls", gate = "Generators with your own stack switcher (reused in Arc VI)" },
+  { title = "Calculator", boss = true, concepts = "everything in the arc", gate = "Recursive-descent expression evaluator" },
+]
+
+[[arc]]
+id = "V"
+name = "Linux Userland"
+runner = "native"
+levels = [
+  { title = "Files", concepts = "`openat`, `read`, `write`, `close`, `lseek`, -errno", gate = "`cat` with error messages" },
+  { title = "argv, envp, auxv", concepts = "the initial stack at `_start`", gate = "Print args, find $HOME and AT_PAGESZ" },
+  { title = "Heap", concepts = "`brk`, `mmap`, `munmap`", gate = "Bump allocator, then a free-list malloc/free" },
+  { title = "Short Reads, Short Writes", bug = 2, concepts = "`read`/`write` may transfer less than asked; EINTR", gate = "A copier that works on files but corrupts data through pipes" },
+  { title = "Ignored Errors", bug = 2, concepts = "negative rax used as a length, leaked file descriptors", gate = "Fix error paths; the grader injects failures" },
+  { title = "Use After Free", bug = 2, concepts = "use-after-free and double free; poisoning and quarantine to detect them", gate = "Find both bugs in a program using your allocator; add detection" },
+  { title = "Processes", concepts = "`fork`, `execve`, `wait4`", gate = "Run a command and report its status" },
+  { title = "Pipes & dup", concepts = "`pipe2`, `dup2`", gate = "Implement `a | b`" },
+  { title = "Signals", concepts = "`rt_sigaction`, `SA_RESTORER`, `rt_sigreturn`", gate = "Handle SIGINT and SIGSEGV" },
+  { title = "Reentrant Signal Handler", bug = 3, concepts = "reentrancy: a handler interrupts the code it calls (malloc, buffered output), clobbers errno", gate = "Make a handler async-signal-safe; the grader delivers signals at every instruction" },
+  { title = "Time", concepts = "`clock_gettime`, vDSO, `nanosleep`", gate = "Stopwatch" },
+  { title = "Time of Check, Time of Use", bug = 3, concepts = "logical race with another process: check-then-use on file paths", gate = "Win the race with a witness, then fix with `openat`/`O_NOFOLLOW`/`fstat`" },
+  { title = "Position Independence", concepts = "RIP-relative addressing, PIE, `default rel`", gate = "Pass a relocation audit" },
+  { title = "Dynamic Linking", concepts = "GOT, PLT, lazy binding", gate = "Call libc through the GOT" },
+  { title = "ELF by Hand", concepts = "ELF64 headers with `nasm -f bin`", gate = "Smallest valid ELF that exits 42" },
+  { title = "Directories & mmap", concepts = "`getdents64`, file-backed `mmap`", gate = "`ls -R` and a word counter" },
+  { title = "Tiny Shell", boss = true, concepts = "everything in the arc", gate = "Shell with pipes, redirection and `cd`" },
+]
+
+[[arc]]
+id = "VI"
+name = "Events, Tasks & Actors (one thread)"
+runner = "native + deterministic event scheduler"
+levels = [
+  { title = "Non-blocking I/O", concepts = "`O_NONBLOCK`, EAGAIN", gate = "Serve two pipes without blocking on either" },
+  { title = "Event Loop", concepts = "`epoll_create1`, `epoll_ctl`, `epoll_wait`", gate = "Echo server for many clients" },
+  { title = "Timers", concepts = "`timerfd`, timer wheels", gate = "Timeouts on idle connections" },
+  { title = "Tasks & Await", concepts = "coroutines (from Arc IV) as tasks; await = yield to the loop until ready", gate = "Rewrite the echo server as straight-line tasks" },
+  { title = "Channels", concepts = "bounded queues, backpressure, wakers", gate = "Producer/consumer tasks with a bounded channel" },
+  { title = "Reentrancy at Await Points", bug = 3, concepts = "state read before an await is stale after it; invariants across suspension", gate = "A bank of tasks loses money only under certain interleavings; the grader explores task schedules" },
+  { title = "Lost Wakeup", bug = 3, concepts = "a waker registered after the event already fired; check-then-wait", gate = "Fix a channel whose consumers sometimes sleep forever" },
+  { title = "Cancellation Leak", bug = 3, concepts = "a task cancelled at an await while holding a lock or buffer", gate = "Make cancellation release everything; the grader cancels at every await" },
+  { title = "Actors", concepts = "actors with mailboxes, message ownership", gate = "An actor-based chat room" },
+  { title = "Actor Lifetimes", bug = 3, concepts = "lifetime across actors: an actor freed while messages addressed to it (or borrowed from it) are in flight", gate = "Fix with ownership transfer and generation-checked handles" },
+  { title = "Async Chat Server", boss = true, concepts = "everything in the arc", gate = "Chat server that survives schedule exploration, cancellation and slow clients" },
+]
+
+[[arc]]
+id = "VII"
+name = "Performance & Microarchitecture"
+runner = "native (bare metal or KVM for timing)"
+levels = [
+  { title = "Measuring", concepts = "`rdtsc`, `rdtscp`, `lfence`, variance", gate = "A reliable micro-benchmark harness" },
+  { title = "Pipelines", concepts = "latency vs throughput, dependency chains", gate = "Multiple accumulators" },
+  { title = "Branch Prediction", concepts = "predictable vs random branches", gate = "Hit a cycles/element budget on random data" },
+  { title = "Caches", concepts = "lines, sets, strides, alignment", gate = "Cache-blocked transpose" },
+  { title = "Prefetch & TLB", concepts = "`prefetcht0`, huge pages", gate = "Faster linked-list traversal" },
+  { title = "Instruction Selection", concepts = "uops, macro-fusion, partial-register stalls", gate = "Speed up a hot loop ≥ 2×" },
+  { title = "Performance Cliff", bug = 2, concepts = "performance bugs: 4K aliasing, cache-line splits, denormals", gate = "Find why one input size is 10× slower and fix it" },
+  { title = "Fast Hash Map", boss = true, concepts = "everything in the arc", gate = "Open-addressing map hitting an ops/sec target" },
+]
+
+[[arc]]
+id = "VIII"
+name = "Threads & the Memory Model"
+runner = "emu with deterministic thread scheduler + x86-TSO model; native for stress"
+levels = [
+  { title = "Threads", concepts = "`clone` with your own stacks, `futex` join", gate = "N threads summing ranges" },
+  { title = "Atomics", concepts = "`lock` prefix, `xadd`, `xchg`, `cmpxchg`", gate = "A correct shared counter" },
+  { title = "Data Race", bug = 2, concepts = "`inc [counter]` is read-modify-write; lost updates", gate = "Make the race visible with a witness schedule, then fix it" },
+  { title = "Torn Read", bug = 2, concepts = "non-atomic 128-bit and cache-line-split accesses; `cmpxchg16b`", gate = "Fix a two-word snapshot that sometimes mixes old and new halves" },
+  { title = "Locks", concepts = "spinlock with `xchg` + `pause`, futex mutex", gate = "A mutex that sleeps instead of spinning" },
+  { title = "Logical Race", bug = 3, concepts = "every access is atomic and it is still wrong: check-then-act, invariants spanning two variables", gate = "Fix a rate limiter and a bank transfer" },
+  { title = "Deadlock", bug = 2, concepts = "lock ordering, cycles in the wait-for graph", gate = "The grader finds the deadlocking schedule; impose an order" },
+  { title = "Livelock & Starvation", bug = 3, concepts = "unfair spinlocks, polite livelock", gate = "Replace with a ticket lock; bounded waiting is checked" },
+  { title = "Memory Ordering", concepts = "x86-TSO: store buffers, store→load reordering, `mfence`", gate = "Observe a reordering on real hardware and in the TSO model" },
+  { title = "Ordering Violation", bug = 3, concepts = "Dekker/Peterson broken by store→load reordering", gate = "Witness both threads entering the critical section; fix with the minimum fences" },
+  { title = "Weakly-Ordered Stores", bug = 3, concepts = "non-temporal stores (`movnti`) escape TSO; publishing a flag before the data", gate = "Fix a producer/consumer that publishes garbage; `sfence` placement" },
+  { title = "Condition Variables", concepts = "futex wait/wake, predicate loops", gate = "Bounded blocking queue" },
+  { title = "Lost Wakeup II", bug = 3, concepts = "check-then-sleep without the futex value comparison", gate = "Consumers that hang once in 10⁵ runs; fix and prove with schedule search" },
+  { title = "False Sharing", bug = 2, concepts = "performance bug: unrelated data on one cache line", gate = "Per-thread counters 10× slower than expected; fix with padding" },
+  { title = "Lock-Free Stack", concepts = "Treiber stack with `cmpxchg`", gate = "Push/pop under contention" },
+  { title = "ABA", bug = 4, concepts = "a pointer compares equal but the node was freed and reused", gate = "Witness the ABA schedule; fix with tagged pointers and `cmpxchg16b`" },
+  { title = "Memory Reclamation", bug = 4, concepts = "freeing nodes other threads may still read; hazard pointers, epoch-based reclamation", gate = "Lock-free queue with safe reclamation; the grader frees eagerly and checks every access" },
+  { title = "Actors Across Threads", concepts = "a multi-threaded actor runtime, MPSC mailboxes, work stealing", gate = "Run Arc VI's actors on N worker threads" },
+  { title = "Lifetimes Across Actors", bug = 4, concepts = "an actor released by one worker while another still dispatches to it; refcount release ordering", gate = "Fix with refcounts + acquire/release ordering or epochs" },
+  { title = "Lock-Free Actor Runtime", boss = true, concepts = "everything in the arc", gate = "Passes schedule exploration, the TSO model, the race detector and a native stress test" },
+]
+
+[[arc]]
+id = "IX"
+name = "Floating Point & SIMD"
+runner = "native (CPU features detected; emulated if missing)"
+levels = [
+  { title = "IEEE 754", concepts = "sign/exponent/mantissa, NaN, inf, denormals", gate = "Decode doubles without FP instructions" },
+  { title = "x87 (Museum)", concepts = "FPU stack, control word", gate = "sqrt and sin with x87" },
+  { title = "SSE Scalar", concepts = "`movsd`, `addsd`, `cvtsi2sd`, `ucomisd`, MXCSR", gate = "Print a double → library: `dtoa`" },
+  { title = "Precision Lost", bug = 2, concepts = "catastrophic cancellation, NaN compares (`ucomisd` sets PF), float equality", gate = "Fix a geometry routine that fails on near-degenerate inputs" },
+  { title = "SIMD Integers", concepts = "xmm, `padd*`, saturation", gate = "Brighten an image 16 px at a time" },
+  { title = "Shuffles", concepts = "`pshufd`, `pshufb`, `punpck*`, `palignr`", gate = "Byte-reverse/transpose with shuffles" },
+  { title = "Masks & Compares", concepts = "`pcmpeqb`, `pmovmskb`, `tzcnt`", gate = "SIMD `strlen`/`memchr`" },
+  { title = "Tail Overrun", bug = 2, concepts = "vector loads past the end of a buffer into an unmapped page", gate = "Fix a SIMD strlen that crashes on page boundaries" },
+  { title = "Packed Floats", concepts = "`mulps`, horizontal sums, alignment", gate = "Dot product" },
+  { title = "AVX & VEX", concepts = "ymm, 3-operand form, `vzeroupper`, feature detection", gate = "AVX with runtime dispatch" },
+  { title = "FMA", concepts = "`vfmadd231ps`, precision", gate = "Polynomial exp within a ULP bound" },
+  { title = "Gathers & Permutes", concepts = "`vpgatherdd`, `vpermd`", gate = "Vectorized histogram" },
+  { title = "AVX-512", concepts = "zmm, mask registers, `vpcompressd`", gate = "Filter by predicate" },
+  { title = "SIMD Gauntlet", boss = true, concepts = "everything in the arc", gate = "UTF-8 validator at ≥ 4 GB/s" },
+]
+
+[[arc]]
+id = "X"
+name = "Machine Code"
+runner = "native"
+levels = [
+  { title = "Encoding I", concepts = "opcode, ModRM, SIB, displacement, immediate", gate = "Hand-encode 20 instructions with `db`" },
+  { title = "Encoding II", concepts = "REX, prefixes, VEX", gate = "Hand-encode 64-bit and SSE instructions" },
+  { title = "Decoder", concepts = "instruction-length decoding", gate = "Length decoder for a subset" },
+  { title = "Disassembler", concepts = "operand formatting, relative targets", gate = "Disassemble a blob to NASM syntax" },
+  { title = "JIT", concepts = "`mmap`, W^X, `mprotect`", gate = "JIT-compile the Arc III bytecode" },
+  { title = "Stale Code", bug = 3, concepts = "cross-modifying code: another thread runs old instructions; serialization", gate = "Fix a JIT that patches code under a running thread" },
+  { title = "Assembler", boss = true, concepts = "everything in the arc", gate = "Two-pass assembler for an x86 subset" },
+]
+
+[[arc]]
+id = "XI"
+name = "Real Mode & Boot"
+runner = "qemu"
+levels = [
+  { title = "Power On", concepts = "reset vector, BIOS, MBR, `0x7C00`, `0xAA55`, `bits 16`, `org`; QEMU + gdb", gate = "Step from the reset vector; boot sector that halts" },
+  { title = "Segmentation", concepts = "segment:offset, far pointers", gate = "Print via `int 10h` with correct segments" },
+  { title = "Wrong Segment", bug = 2, concepts = "assuming BIOS register state; `org` vs segment mismatch", gate = "Fix a boot sector that works in one emulator and not another" },
+  { title = "VGA Text Mode", concepts = "`0xB8000`, attributes, cursor ports", gate = "Draw a colored box" },
+  { title = "Port I/O", concepts = "`in`, `out`, 16550 UART", gate = "Serial hello" },
+  { title = "Disk", concepts = "`int 13h` CHS/LBA", gate = "Load a stage-2 loader" },
+  { title = "Real-Mode Interrupts", concepts = "IVT, `int`, `iret`", gate = "Install an `int 0x80` handler" },
+  { title = "Keyboard", concepts = "PS/2 controller, scancodes", gate = "Line editor in a boot sector" },
+  { title = "PIT & PIC", concepts = "8254 timer, 8259 PIC, IRQ0", gate = "100 Hz clock" },
+  { title = "Memory Map & A20", concepts = "E820, A20", gate = "Print the memory map" },
+  { title = "Boot Sector Game", boss = true, concepts = "everything in the arc", gate = "A game in ≤ 512 bytes" },
+]
+
+[[arc]]
+id = "XII"
+name = "Protected Mode"
+runner = "qemu"
+levels = [
+  { title = "Descriptors", concepts = "GDT, `lgdt`", gate = "A flat GDT" },
+  { title = "The Switch", concepts = "CR0.PE, far jump, `bits 32`", gate = "Enter protected mode" },
+  { title = "Multiboot", concepts = "multiboot2 header and info", gate = "Boot as a multiboot2 kernel" },
+  { title = "Exceptions", concepts = "IDT, gates, error codes", gate = "Report faulting vector and EIP" },
+  { title = "Triple Fault Hunt", bug = 2, concepts = "reading the fault chain: #GP → #DF → reset", gate = "Fix a kernel that reboots instantly, using the fault explainer" },
+  { title = "Hardware IRQs", concepts = "PIC remap, EOI, `sti`/`cli`", gate = "Timer + keyboard into a ring buffer" },
+  { title = "Interrupt Reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader fires IRQs at every instruction" },
+  { title = "The sti;hlt Race", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through input" },
+  { title = "Paging I", concepts = "CR3, page tables, CR0.PG", gate = "Higher-half alias" },
+  { title = "Page Faults", concepts = "CR2, demand mapping", gate = "Lazy allocation" },
+  { title = "Physical Memory", concepts = "frame allocator", gate = "Bitmap allocator under stress" },
+  { title = "Privilege Rings", concepts = "CPL/DPL/RPL, TSS, `iret` to ring 3", gate = "Drop to ring 3" },
+  { title = "System Calls", concepts = "`int 0x80` gate with DPL 3", gate = "Ring-3 program prints via your kernel" },
+  { title = "Task Switching", concepts = "saving and restoring state", gate = "Cooperative ring-3 tasks" },
+  { title = "Protected Kernel", boss = true, concepts = "everything in the arc", gate = "32-bit preemptive kernel" },
+]
+
+[[arc]]
+id = "XIII"
+name = "Long Mode"
+runner = "qemu"
+levels = [
+  { title = "CPUID & MSRs", concepts = "feature detection, `rdmsr`/`wrmsr`, EFER", gate = "Report CPU features" },
+  { title = "4-Level Paging", concepts = "PML4…PT, 2 MiB pages, NX", gate = "Identity + higher half" },
+  { title = "Enter Long Mode", concepts = "PAE, EFER.LME, 64-bit GDT", gate = "Reach 64-bit mode" },
+  { title = "64-bit IDT", concepts = "16-byte gates, IST", gate = "Survive #DF via IST" },
+  { title = "Kernel Stack Overflow", bug = 3, concepts = "deep kernel recursion silently corrupting memory; guard pages", gate = "Turn silent corruption into a clean #DF report" },
+  { title = "Local APIC", concepts = "xAPIC/x2APIC, APIC timer", gate = "APIC-driven preemption" },
+  { title = "syscall/sysret", concepts = "STAR/LSTAR/SFMASK, `swapgs`", gate = "Fast syscalls" },
+  { title = "swapgs Confusion", bug = 4, concepts = "nested interrupts from kernel vs user mode with the wrong GS base", gate = "Fix a kernel that crashes only when an IRQ lands during a syscall" },
+  { title = "Virtual Memory Manager", concepts = "per-process address spaces, `invlpg`", gate = "Isolated processes" },
+  { title = "Stale TLB", bug = 3, concepts = "remapping without invalidation", gate = "Fix a remap that reads old data" },
+  { title = "Kernel Heap", concepts = "slab allocator", gate = "kmalloc/kfree under stress" },
+  { title = "printk", concepts = "kernel formatting (reuses `itoa`)", gate = "Kernel log with hex dumps" },
+  { title = "ELF Loader", concepts = "ELF64 from an initrd", gate = "Run an Arc I program on your kernel" },
+  { title = "Scheduler", concepts = "round-robin, priorities, blocking", gate = "Fair scheduling" },
+  { title = "Long Kernel", boss = true, concepts = "everything in the arc", gate = "Your kernel runs your Tiny Shell" },
+]
+
+[[arc]]
+id = "XIV"
+name = "Ring 0"
+runner = "qemu -smp N"
+levels = [
+  { title = "ACPI", concepts = "RSDP/XSDT, MADT", gate = "Enumerate CPUs and IO APICs" },
+  { title = "PCI", concepts = "config space, ECAM, BARs", gate = "List devices" },
+  { title = "SMP", concepts = "INIT-SIPI-SIPI, AP trampoline, per-CPU data", gate = "All cores say hello" },
+  { title = "IRQ-Unsafe Lock", bug = 3, concepts = "a lock taken in an interrupt handler while the same CPU holds it", gate = "Fix a kernel that freezes under keyboard load" },
+  { title = "Spinlocks & IPIs", concepts = "SMP locks, TLB shootdown", gate = "Race-free multi-core scheduler" },
+  { title = "TLB Shootdown Race", bug = 4, concepts = "freeing a page before every CPU has flushed it", gate = "Fix use-after-unmap across cores" },
+  { title = "Lifetime Across CPUs", bug = 4, concepts = "freeing a task or page table another CPU still uses; RCU-style grace periods", gate = "Safe process teardown on 4 cores" },
+  { title = "Drivers", concepts = "interrupt-driven UART / virtio-blk, I/O APIC routing", gate = "Read a file into a user process" },
+  { title = "Heisenbug", bug = 4, concepts = "the final hunt: a rare race in your own kernel; schedule exploration, record and replay", gate = "Find it, explain it, fix it" },
+  { title = "Ring 0", boss = true, concepts = "everything", gate = "Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win." },
+]

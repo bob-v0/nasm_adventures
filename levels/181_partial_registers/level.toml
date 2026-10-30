@@ -1,0 +1,45 @@
+level = 181
+slug = "partial_registers"
+title = "Nested Registers"
+arc = "I"
+mode = "fragment"
+concepts = ["8/16/32-bit register views", "zero-extension vs sign-extension", "the 32-bit write rule"]
+introduces = ["al ah ax eax", "r8b r8w r8d", "movzx", "movsx", "movsxd"]
+
+hints = [
+  "Look at `ring docs registers`. al is the low 8 bits of rax, ax the low 16, eax the low 32, ah bits 8–15.",
+  "movzx fills the upper bits with zeros; movsx/movsxd copy the sign bit into them. Writing a 32-bit register (mov edi, eax) zeroes the upper 32 bits by itself.",
+  "movzx ebx, al / movsx rcx, ax / movsxd rdx, eax / movzx esi, ah / mov edi, eax / mov r8, rax then mov r8b, 0x7F",
+]
+
+[constraints]
+max_instructions = 10
+must_use = ["movzx", "movsx", "movsxd"]
+banned = ["and", "or", "shl", "shr", "sar", "rol", "ror"]
+preserve = ["rsp", "rax"]
+max_steps = 1000
+
+[stretch]
+label = "No waste"
+max_instructions = 7
+
+[random]
+count = 60
+
+[[tests]]
+name = "rax = 0x1122334455667788"
+regs = { rax = "0x1122334455667788" }
+[tests.expect]
+regs = { rbx = "0x88", rcx = "0x7788", rdx = "0x55667788", rsi = "0x77", rdi = "0x55667788", r8 = "0x112233445566777F" }
+
+[[tests]]
+name = "rax = 0xFEDCBA9876543210 (negative 32-bit half)"
+regs = { rax = "0xFEDCBA9876543210" }
+[tests.expect]
+regs = { rbx = "0x10", rcx = "0x3210", rdx = "0x0000000076543210", rsi = "0x32", rdi = "0x76543210", r8 = "0xFEDCBA987654327F" }
+
+[[tests]]
+name = "rax = 0x00000000_8000_FF80 (sign bits set)"
+regs = { rax = "0x8000FF80" }
+[tests.expect]
+regs = { rbx = "0x80", rcx = "0xFFFFFFFFFFFFFF80", rdx = "0xFFFFFFFF8000FF80", rsi = "0xFF", rdi = "0x8000FF80", r8 = "0x8000FF7F" }

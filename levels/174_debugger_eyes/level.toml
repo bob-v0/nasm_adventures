@@ -1,0 +1,17 @@
+level = 174
+slug = "debugger_eyes"
+title = "Debugger Eyes"
+arc = "I"
+mode = "program"
+concepts = ["observing a running program", "disassembly", "breakpoints and single-stepping", "reading registers and memory"]
+introduces = ["ring debug --binary", "gdb: starti, stepi, info registers, x", "objdump -d -M intel"]
+
+hints = [
+  "Run `ring debug --binary vault` in your level174 folder (or `gdb ./vault`). Type `dis 30` to see all of the vault's code. Find `xor r12, r12`.",
+  "Set a breakpoint on the address of `xor r12, r12` (break *0x...), `c` to run to it, then `regs`: r12 holds the key. In gdb: break *0x..., run, then info registers r12.",
+  "Your solution: key: dq 0x<the value of r12>, then write(1, key, 8) and exit(0). Write writes the qword's 8 bytes in memory order, which is exactly what the gate expects.",
+]
+
+[constraints]
+max_instructions = 20
+must_use = ["syscall"]

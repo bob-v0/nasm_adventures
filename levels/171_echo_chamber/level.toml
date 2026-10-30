@@ -1,0 +1,37 @@
+level = 171
+slug = "echo_chamber"
+title = "Echo Chamber"
+arc = "I"
+boss = true
+mode = "program"
+concepts = ["reading input", "buffers in .bss", "everything from Arc I"]
+introduces = ["read (0)"]
+
+hints = [
+  "read(fd, buffer, count): rax=0, rdi=0 (stdin), rsi=buffer, rdx=8. The buffer belongs in .bss. Save the return value for the exit status.",
+  "Load the 8 bytes into a register, bswap, store them back (or into a second buffer), then write them. Write \"echo: \" first and the newline last.",
+  "read -> mov r12, rax (r12 survives syscalls) -> mov rax, [buf] / bswap rax / mov [buf], rax -> write \"echo: \" -> write buf, 8 -> write newline -> exit(r12)",
+]
+
+[constraints]
+max_instructions = 40
+must_use = ["syscall", "bswap"]
+
+[random]
+count = 20
+
+[[tests]]
+name = "ABCDEFGH"
+stdin = "ABCDEFGH"
+[tests.expect]
+stdout = "echo: HGFEDCBA\n"
+exit = 8
+syscalls = ["read", "write", "write", "write", "exit"]
+
+[[tests]]
+name = "extra input is ignored"
+stdin = "stressed and more"
+hidden = true
+[tests.expect]
+stdout = "echo: desserts\n"
+exit = 8

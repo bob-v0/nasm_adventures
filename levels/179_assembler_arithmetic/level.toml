@@ -1,0 +1,28 @@
+level = 179
+slug = "assembler_arithmetic"
+title = "The Assembler Counts"
+arc = "I"
+mode = "fragment"
+concepts = ["assemble time vs run time", "the location counter $", "constants with equ", "repetition with times and %rep"]
+introduces = ["equ", "$", "$$", "times", "%define", "%assign", "%rep / %endrep", "constant expressions"]
+
+hints = [
+  "All four register values are known before the program runs, so NASM can compute them. Look at `ring docs equ`, `ring docs $` and `ring docs %define`.",
+  "After the data: SQUARE_COUNT equ (poem - squares) / 8 ... or put the equ right after the table: SQUARE_COUNT equ ($ - squares) / 8. For the table: %assign i 0 / %rep 16 / dq i*i / %assign i i+1 / %endrep",
+  "mov rax, SQUARE_COUNT / mov rbx, POEM_LEN / mov rcx, 7*24*60*60 / mov rdx, ruler_end - squares. Data in order: squares (the %rep table), poem: db \"...\", then ruler: times 40 db '-' / db 10, then a label ruler_end:",
+]
+
+[constraints]
+max_instructions = 6
+banned = ["add", "sub", "mul", "imul", "inc", "dec", "lea", "shl", "shr", "div"]
+max_steps = 1000
+
+[[tests]]
+name = "everything computed by the assembler"
+[tests.expect]
+regs = { rax = 16, rbx = 65, rcx = 604800, rdx = 234 }
+mem = [
+  { sym = "squares", u64 = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225] },
+  { sym = "poem", str = "Level 179: the assembler counts, so you never have to count again" },
+  { sym = "ruler", str = "----------------------------------------\n" },
+]

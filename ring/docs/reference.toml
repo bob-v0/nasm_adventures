@@ -1,0 +1,243 @@
+# Reference entries shown by `ring docs <topic>`.
+# kind: instruction | directive | concept | syscall | tool
+
+[mov]
+kind = "instruction"
+ring = 184
+syntax = """
+mov reg, imm        mov rax, 42
+mov reg, reg        mov rbx, rax
+mov reg, [mem]      mov rax, [value]
+mov [mem], reg      mov [value], rax
+mov size [mem], imm mov qword [value], 7
+"""
+summary = "Copy the source operand into the destination. The source is unchanged. Operands are destination first (Intel syntax)."
+flags = "none affected"
+notes = """
+- There is no memory-to-memory mov: go through a register.
+- Writing a 32-bit register (eax) zeroes bits 63..32 of the full register. Writing 8- or 16-bit parts (al, ax) leaves the other bits alone.
+- `mov r64, imm64` is the only instruction that takes a full 64-bit immediate (objdump/capstone call it `movabs`). Other forms take a 32-bit immediate, sign-extended.
+- NASM picks the shortest encoding: `mov rax, 42` assembles as `mov eax, 42` (5 bytes instead of 10), which is equivalent because of the zero-extension rule.
+"""
+sdm = "Vol. 2B, MOV"
+
+[xchg]
+kind = "instruction"
+ring = 183
+syntax = "xchg rax, rbx\nxchg [mem], reg"
+summary = "Swap the two operands."
+flags = "none affected"
+notes = "With a memory operand, xchg is implicitly atomic (it asserts LOCK), which makes it slow. Register-register xchg is cheap."
+sdm = "Vol. 2B, XCHG"
+
+[movzx]
+kind = "instruction"
+ring = 181
+syntax = "movzx eax, bl\nmovzx rax, word [mem]"
+summary = "Move with zero-extension: copy a smaller (8/16-bit) source into a larger register, filling the upper bits with zeros."
+flags = "none affected"
+notes = "There is no `movzx r64, r/m32` form, because `mov r32, r/m32` already zero-extends."
+sdm = "Vol. 2B, MOVZX"
+
+[movsx]
+kind = "instruction"
+ring = 181
+syntax = "movsx rax, bl\nmovsx eax, word [mem]"
+summary = "Move with sign-extension: copy a smaller source into a larger register, filling the upper bits with copies of the source's sign bit."
+flags = "none affected"
+sdm = "Vol. 2B, MOVSX/MOVSXD"
+
+[movsxd]
+kind = "instruction"
+ring = 181
+syntax = "movsxd rax, ebx\nmovsxd rax, dword [mem]"
+summary = "Sign-extend a 32-bit source into a 64-bit register."
+flags = "none affected"
+sdm = "Vol. 2B, MOVSX/MOVSXD"
+
+[bswap]
+kind = "instruction"
+ring = 178
+syntax = "bswap eax\nbswap rax"
+summary = "Reverse the byte order of a 32- or 64-bit register. Converts between little-endian and big-endian."
+flags = "none affected"
+notes = "There is no 16-bit bswap (its result is undefined). For 16 bits, use `xchg al, ah` (or `rol ax, 8`, level 161)."
+sdm = "Vol. 2A, BSWAP"
+
+[lea]
+kind = "instruction"
+ring = 177
+syntax = "lea rax, [rbx + rcx*8 + 16]"
+summary = "Load Effective Address: compute the address expression and store the address itself, without touching memory."
+flags = "none affected"
+notes = """
+Because it only does arithmetic, lea is often used as a fast 'add and scale': `lea rax, [rdi + rdi*4]` computes rdi*5.
+The scale can be 1, 2, 4 or 8, and there is at most one base and one index register.
+"""
+sdm = "Vol. 2A, LEA"
+
+[syscall]
+kind = "instruction"
+ring = 176
+syntax = "mov eax, 60    ; syscall number\nmov edi, 0     ; first argument\nsyscall"
+summary = "Enter the operating system kernel. On Linux x86-64: number in rax; arguments in rdi, rsi, rdx, r10, r8, r9; result in rax (negative = -errno)."
+notes = "The CPU overwrites rcx (return address) and r11 (saved rflags). Every other register is preserved by Linux."
+sdm = "Vol. 2B, SYSCALL"
+
+[registers]
+kind = "concept"
+ring = 183
+aliases = ["gpr", "register"]
+summary = """
+x86-64 has 16 general-purpose 64-bit registers:
+  rax rbx rcx rdx  rsi rdi rbp rsp  r8 r9 r10 r11 r12 r13 r14 r15
+plus rip (instruction pointer) and rflags. rsp is the stack pointer; leave it alone until level 142.
+"""
+notes = """
+Each register has smaller views:
+  64     32     16    8 (low)  8 (high)
+  rax    eax    ax    al       ah
+  rsi    esi    si    sil      -
+  r8     r8d    r8w   r8b      -
+"""
+
+[flags]
+kind = "concept"
+ring = 169
+aliases = ["rflags", "eflags"]
+summary = "The RFLAGS register holds status bits set by arithmetic: CF (carry), ZF (zero), SF (sign), OF (overflow), PF (parity), AF (aux carry), plus control bits like DF (direction)."
+
+[endianness]
+kind = "concept"
+ring = 178
+aliases = ["little-endian", "big-endian"]
+summary = "x86 is little-endian: the least significant byte of a multi-byte value is stored at the lowest address. 0x11223344 is stored in memory as 44 33 22 11."
+
+[addressing]
+kind = "concept"
+ring = 177
+aliases = ["effective-address", "sib"]
+summary = "A memory operand is [base + index*scale + displacement], with scale in {1,2,4,8}. Any part can be omitted."
+
+[literals]
+kind = "directive"
+ring = 182
+aliases = ["numbers", "constants"]
+summary = """
+NASM numeric constants:
+  decimal   200   0d200
+  hex       0xC8  0C8h  0hC8   (a trailing-h number must start with a digit)
+  octal     0o310  310q
+  binary    0b1100_1000  11001000b   (underscores allowed anywhere)
+  character 'A' = 0x41;  'AB' = 0x4241 (stored in memory order: little-endian!)
+  negative  -1 = all bits set (two's complement)
+"""
+
+[db]
+kind = "directive"
+ring = 180
+aliases = ["dw", "dd", "dq", "data"]
+syntax = """
+db 1, 2, 'text', 0     ; bytes
+dw 0x1234              ; 16-bit words
+dd 0x12345678          ; 32-bit doublewords
+dq 0x1122334455667788  ; 64-bit quadwords
+"""
+summary = "Define initialized data. A label in front names its address."
+
+[resb]
+kind = "directive"
+ring = 180
+aliases = ["resw", "resd", "resq", "bss"]
+syntax = "section .bss\nbuffer: resb 64\ncount:  resq 1"
+summary = "Reserve uninitialized space (in .bss). It takes no space in the file and is zero when the program starts."
+
+[section]
+kind = "directive"
+ring = 180
+aliases = ["sections", "segment", ".text", ".data", ".bss", ".rodata"]
+summary = ".text holds code (read + execute), .data holds initialized variables (read + write), .rodata holds read-only data, .bss holds zero-initialized variables."
+
+[equ]
+kind = "directive"
+ring = 179
+syntax = "msg: db 'hello'\nMSG_LEN equ $ - msg"
+summary = "Give a name to a constant computed at assemble time. It occupies no memory."
+
+["$"]
+kind = "directive"
+ring = 179
+aliases = ["$$", "dollar"]
+summary = "`$` is the address of the current line, `$$` the start of the current section. `$ - label` is the number of bytes since label."
+
+[times]
+kind = "directive"
+ring = 179
+syntax = "times 64 db 0\ntimes 3 nop"
+summary = "Repeat an instruction or data definition N times (N is an assemble-time expression)."
+
+["%define"]
+kind = "directive"
+ring = 179
+aliases = ["%assign", "%rep", "preprocessor"]
+syntax = """
+%define SIZE 16            ; text substitution
+%assign i 0                ; numeric variable, re-assignable
+%rep 4
+    dq i*i
+    %assign i i+1
+%endrep
+"""
+summary = "The NASM preprocessor runs before assembly: %define substitutes text, %assign evaluates a number, %rep repeats a block."
+
+[size-specifiers]
+kind = "directive"
+ring = 180
+aliases = ["byte", "word", "dword", "qword", "ptr"]
+summary = "byte (8), word (16), dword (32), qword (64). Needed when the operand size is ambiguous, e.g. `mov qword [x], 5`. NASM does not use the word PTR."
+
+[write]
+kind = "syscall"
+ring = 175
+syntax = "rax=1  rdi=fd  rsi=buffer  rdx=count   -> rax = bytes written or -errno"
+summary = "Write bytes to a file descriptor. 0 = stdin, 1 = stdout, 2 = stderr."
+
+[read]
+kind = "syscall"
+ring = 171
+syntax = "rax=0  rdi=fd  rsi=buffer  rdx=count   -> rax = bytes read (0 = end of input) or -errno"
+summary = "Read up to count bytes. It may return fewer than you asked for."
+
+[exit]
+kind = "syscall"
+ring = 176
+aliases = ["exit_group"]
+syntax = "rax=60 (exit) or 231 (exit_group)  rdi=status"
+summary = "End the process. Only the low 8 bits of the status reach the parent (status & 0xFF)."
+
+[gdb]
+kind = "tool"
+ring = 174
+syntax = """
+gdb ./program
+(gdb) starti                 ; stop before the first instruction
+(gdb) layout asm             ; show disassembly
+(gdb) stepi / si             ; one instruction
+(gdb) info registers rax     ; read a register
+(gdb) x/8xb $rsp             ; examine 8 bytes in hex
+(gdb) break *0x401000        ; breakpoint at an address
+(gdb) set disassembly-flavor intel
+"""
+summary = "The GNU debugger. Inside the game, `ring debug` offers the same ideas plus stepping backwards."
+
+[objdump]
+kind = "tool"
+ring = 174
+syntax = "objdump -d -M intel ./program"
+summary = "Disassemble a binary: shows each instruction's address, bytes and mnemonic."
+
+[nasm]
+kind = "tool"
+ring = 184
+syntax = "nasm -f elf64 -l out.lst -o out.o source.asm\nld -o program out.o"
+summary = "The Netwide Assembler turns assembly text into machine code. -f picks the output format (elf64, bin, ...), -l writes a listing that shows the bytes for each line."

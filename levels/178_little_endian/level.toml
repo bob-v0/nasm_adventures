@@ -1,0 +1,29 @@
+level = 178
+slug = "little_endian"
+title = "Backwards Bytes"
+arc = "I"
+mode = "fragment"
+concepts = ["byte order in memory", "little-endian vs big-endian (network order)", "reading fields at offsets"]
+introduces = ["bswap", "xchg al, ah"]
+
+hints = [
+  "Load each field with the right size from packet + offset, then reverse its bytes. Use `x packet 16` in the debugger to see the raw bytes.",
+  "32- and 64-bit: bswap. 16-bit: there is no 16-bit bswap, but swapping the two bytes of ax is `xchg al, ah`. Load 16-bit fields with movzx so the upper bits are clean.",
+  "movzx eax, word [packet] / xchg al, ah / movzx ebx, word [packet+2] / xchg bl, bh / mov ecx, [packet+4] / bswap ecx / mov rdx, [packet+8] / bswap rdx / mov [seq_out], ecx / mov r8, [packet]",
+]
+
+[constraints]
+max_instructions = 12
+must_use = ["bswap"]
+banned = ["rol", "ror", "shl", "shr", "sar", "and", "or"]
+max_steps = 1000
+
+[random]
+count = 40
+
+[[tests]]
+name = "packet CA FE 00 10 00 00 00 7B ..."
+mem = [{ sym = "packet", hex = "CAFE 0010 0000007B 0000019A8B6C4D2E" }]
+[tests.expect]
+regs = { rax = "0xCAFE", rbx = 16, rcx = 123, rdx = "0x0000019A8B6C4D2E", r8 = "0x7B000000_1000FECA" }
+mem = [{ sym = "seq_out", hex = "7B000000" }]
