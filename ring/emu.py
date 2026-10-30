@@ -162,12 +162,18 @@ class Machine:
                 for page in range(align_down(start), align_up(end), PAGE):
                     perms[page] = perms.get(page, 0) | prot
                 blobs.append((start, seg.data()))
+        runs: list[list[int]] = []         # [start, size, prot]: adjacent pages, same rights
         for page in sorted(perms):
-            self.uc.mem_map(page, PAGE, UC_PROT_READ | UC_PROT_WRITE | UC_PROT_EXEC)
+            if runs and runs[-1][0] + runs[-1][1] == page and runs[-1][2] == perms[page]:
+                runs[-1][1] += PAGE
+            else:
+                runs.append([page, PAGE, perms[page]])
+        for start, size, _ in runs:
+            self.uc.mem_map(start, size, UC_PROT_READ | UC_PROT_WRITE | UC_PROT_EXEC)
         for addr, data in blobs:
             self.uc.mem_write(addr, data)
-        for page, prot in perms.items():
-            self.uc.mem_protect(page, PAGE, prot)
+        for start, size, prot in runs:
+            self.uc.mem_protect(start, size, prot)
         if perms:   # the heap (brk) starts right after the program's last page
             self.kernel.brk_start = self.kernel.brk = max(perms) + PAGE
 

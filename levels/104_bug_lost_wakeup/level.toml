@@ -1,0 +1,23 @@
+level = 104
+slug = "bug_lost_wakeup"
+title = "Lost Wakeup"
+arc = "VI"
+bug = 3
+mode = "program"
+runtime = ["rt"]
+witness = true
+concepts = ["check-then-wait must be atomic", "a waker registered after the event already fired", "the condition must be re-checked after any await", "why condition variables come with a loop"]
+introduces = ["lost wakeup"]
+
+hints = [
+  "Follow one consumer: the channel is empty, so it calls note_idle, which awaits. Who runs during that await? What does chan_send do if the waiter queue is still empty at that moment?",
+  "A producer sends the value while the consumer is in note_idle. It looks for a waker, finds none, and moves on. Then the consumer registers and parks, waiting for a value that's already in the channel. If no more values come, it sleeps forever.",
+  "After any await, the world may have changed: check the condition again (count, then closed) right before registering the waker and parking, with no await in between.",
+]
+
+[constraints]
+max_changed_lines = 6
+max_steps = 2000000
+
+[random]
+count = 4

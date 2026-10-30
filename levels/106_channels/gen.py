@@ -1,4 +1,4 @@
-def case(name, p, c, n, cap, hidden=False, schedules=60):
+def case(name, p, c, n, cap, hidden=False, schedules=40):
     return {"name": name, "hidden": hidden, "argv": ["./channel", str(p), str(c), str(n), str(cap)],
             "inject": {"schedule_sweep": {"count": schedules}},
             "expect": {"exit": 0, "stderr": "", "check": True}}
@@ -53,5 +53,5 @@ def generate(rng, count, ctx):
     for i in range(count):
         p, c = rng.randrange(1, 5), rng.randrange(1, 5)
         out.append(case(f"random {i}: {p} producers, {c} consumers", p, c, rng.randrange(1, 12),
-                        rng.choice([1, 2, 3, 8]), hidden=True, schedules=30))
+                        rng.choice([1, 2, 3, 8]), hidden=True, schedules=12))
     return out

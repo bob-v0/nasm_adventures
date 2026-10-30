@@ -1,0 +1,23 @@
+level = 105
+slug = "bug_await_reentrancy"
+title = "Reentrancy at Await Points"
+arc = "VI"
+bug = 3
+mode = "program"
+runtime = ["rt"]
+witness = true
+concepts = ["single-threaded code can still race: at every await, other tasks run", "a value read before an await is stale after it", "invariants must hold at every await point", "check-then-act across an await"]
+introduces = ["await-point races", "schedules as witnesses"]
+
+hints = [
+  "Read transfer() as if the world could change at `call audit`, because it can: another transfer from the same account runs right there. What does r13 hold when the task comes back?",
+  "Two transfers from account 0 both read 1000, both pass the check, both await. The first writes 1000 - 700; the second writes 1000 - 600 over it: 700 + 600 left, 600 kept. Try witness schedules 1, 2, 3...: the test report tells you which ones fail.",
+  "Make check-and-update one step that no await interrupts: await first (call audit), then read the balance, check it and write it, with no await in between. Or re-read and re-check after the await.",
+]
+
+[constraints]
+max_changed_lines = 6
+max_steps = 300000
+
+[random]
+count = 6
