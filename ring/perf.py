@@ -385,7 +385,13 @@ class CostModel:
         self.pending, self.accesses = info, []
 
     def on_mem(self, kind: str, addr: int, size: int) -> None:
-        self.accesses.append((kind, addr, size))
+        acc = self.accesses
+        if acc:                                  # Unicorn splits 16-byte accesses in two
+            k, a, sz = acc[-1]
+            if k == kind and a + sz == addr and sz + size <= 64:
+                acc[-1] = (k, a, sz + size)
+                return
+        acc.append((kind, addr, size))
 
     def finish(self) -> None:
         if self.pending is not None:

@@ -1177,7 +1177,10 @@ class Machine:
         if not where and end <= pc < align_up(end + 1):
             missing = "`ret`" if self.build.mode == "function" else "to exit"
             loc = f" (past the end of your code: did you forget {missing}?)"
-        self.fault = f"{text or _describe(e)} at rip={pc:#x}{loc}"
+        what = text or _describe(e)
+        if text is None and self._bad_access is not None and "UNMAPPED" in str(e).upper():
+            what += f" ({self._bad_access:#x})"
+        self.fault = f"{what} at rip={pc:#x}{loc}"
 
 
 def _describe(e: UcError) -> str:

@@ -1,0 +1,21 @@
+level = 67
+slug = "simd_integers"
+title = "SIMD Integers"
+arc = "IX"
+mode = "function"
+entry = "ring_brighten"
+perf = true
+concepts = ["SIMD: one instruction, many values", "an xmm register as 16 bytes, 8 words, 4 dwords or 2 qwords", "packed integer arithmetic: paddb, paddw, paddd, psubb", "saturating arithmetic: paddusb clamps at 255", "broadcasting a value to every lane", "the scalar tail: n isn't always a multiple of 16"]
+introduces = ["movdqu / movdqa", "paddb / paddusb / psubusb", "punpcklbw / pshufd / pshufb (broadcast)", "movd", "lanes"]
+
+hints = [
+  "One movdqu loads 16 pixels, one paddusb adds the amount to all 16 with saturation (255 stays 255 instead of wrapping to small numbers), one movdqu stores them. The loop runs n / 16 times.",
+  "The amount must be in every byte of an xmm register first: movd xmm1, edx puts it in byte 0. Then pxor xmm2, xmm2 / pshufb xmm1, xmm2 (a shuffle whose control is all zeros copies byte 0 everywhere). Without pshufb: punpcklbw xmm1, xmm1 / pshuflw xmm1, xmm1, 0 / pshufd xmm1, xmm1, 0.",
+  "After the vector loop, the last n % 16 pixels: do them one at a time (add, and if it carried: 255), so the code never writes past pixel n − 1.",
+]
+
+[constraints]
+max_steps = 300000
+
+[random]
+count = 3

@@ -95,6 +95,8 @@ def prepare_machine(build: Build, test: TestCase, record: bool = False,
     m = Machine(build, record=record, kernel=kernel, argv=test.argv, env=test.env)
     if "cpu" in test.inject:                       # which CPU: what cpuid reports (ring/simd.py)
         m.set_cpu(test.inject["cpu"])
+    for spec in test.inject.get("unmap", []):      # {"sym": ..., "size": ...}: a hole in memory
+        m.unmap_region(resolve(build, spec), spec["size"])
     if test.inject.get("tso"):
         m.enable_tso()
     if perf or "max_cycles" in test.expect or "noise" in test.inject:

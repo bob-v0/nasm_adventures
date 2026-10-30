@@ -1,0 +1,24 @@
+level = 64
+slug = "bug_tail_overrun"
+title = "Tail Overrun"
+arc = "IX"
+bug = 2
+mode = "function"
+entry = "ring_strlen"
+perf = true
+witness = true
+concepts = ["vector loads read whole blocks, past the end of the data", "memory protection works in pages: one byte past a page can be unmapped", "aligned loads never cross a page boundary", "masking off bytes that aren't yours", "why this is legal for strlen, and how sanitizers see it"]
+introduces = ["page-crossing reads", "aligning down: and rax, -16", "shifting a movemask", "reading before the start, in the same block"]
+
+hints = [
+  "A string that ends 5 bytes before the end of a page: the first movdqu reads 16 bytes, 10 of them in the next page. If that page isn't mapped: SIGSEGV, even though the NUL was in the first 6. Your witness is the length of a string the game puts right at the end of a page, followed by an unmapped one: ;! witness n = 4",
+  "Pages are 4096 bytes, a multiple of 16. So a 16-byte load from a 16-byte aligned address is always inside one page: if any byte of it is the string's (mapped), all of it is mapped. Start from rdi & −16 (the aligned block containing s) and use movdqa.",
+  "That first aligned block may start before s, and those bytes may contain zeros that aren't the end of the string. The mask has bit i for byte i of the block: shift it right by (s & 15) (shr edx, cl) so bit 0 is s itself. If it's not 0 the answer is tzcnt of it; otherwise continue with the next aligned blocks as before.",
+]
+
+[constraints]
+max_changed_lines = 20
+max_steps = 300000
+
+[random]
+count = 10

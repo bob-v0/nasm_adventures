@@ -1,0 +1,21 @@
+level = 66
+slug = "shuffles"
+title = "Shuffles"
+arc = "IX"
+mode = "function"
+entry = "ring_reverse"
+perf = true
+concepts = ["moving data between lanes: shuffles", "pshufb: any byte from anywhere, by a control vector", "pshufd: dwords by an immediate", "punpck*: interleaving two registers", "palignr: a window across two registers", "working from both ends at once"]
+introduces = ["pshufb control vectors", "pshufd / pshuflw / pshufhw", "punpcklbw ... punpckhqdq", "palignr", "psrldq / pslldq"]
+
+hints = [
+  "pshufb xmm0, xmm7 sets byte i of xmm0 to the old byte (xmm7's byte i) of xmm0. So a control vector holding 15, 14, ..., 0 reverses the 16 bytes: put it in .rodata (align 16, db 15, 14, 13, ...) and load it once with movdqa before the loop.",
+  "Work from both ends: load 16 bytes at the front and 16 at the back (end − 16), reverse each, store each at the other place, move the front up and the back down by 16. Stop when fewer than 32 bytes are left between them.",
+  "What's left in the middle (under 32 bytes) is a smaller reverse of the same kind: swap bytes from both ends with a scalar loop until the pointers meet. Two loads before any store means overlapping blocks are never a problem in the vector loop.",
+]
+
+[constraints]
+max_steps = 300000
+
+[random]
+count = 3

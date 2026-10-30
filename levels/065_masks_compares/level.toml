@@ -1,0 +1,21 @@
+level = 65
+slug = "masks_compares"
+title = "Masks & Compares"
+arc = "IX"
+mode = "function"
+entry = "ring_memchr"
+perf = true
+concepts = ["vector compares produce masks: all-ones or all-zeros lanes", "pmovmskb: one bit per byte, into a general register", "tzcnt/bsf: the first set bit is the first match", "a branch per 16 bytes instead of per byte", "the scalar tail"]
+introduces = ["pcmpeqb / pcmpgtb", "pmovmskb", "tzcnt / bsf", "ptest", "masks as data"]
+
+hints = [
+  "Broadcast the byte to all 16 lanes (level 67). Then per block: movdqu xmm0, [rdi] / pcmpeqb xmm0, xmm1: each byte becomes 0xFF where it matched, 0x00 elsewhere. pmovmskb eax, xmm0 collects the top bit of each byte: bit i set = byte i matched.",
+  "If eax is 0, nothing in these 16 bytes: next block. Otherwise tzcnt eax, eax (or bsf) is the position of the first match inside the block: the answer is the block's offset plus that.",
+  "The last n % 16 bytes: a scalar loop, so the search never reports a byte at or past n.",
+]
+
+[constraints]
+max_steps = 300000
+
+[random]
+count = 4

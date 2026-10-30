@@ -1,0 +1,23 @@
+level = 68
+slug = "bug_precision"
+title = "Precision Lost"
+arc = "IX"
+bug = 2
+mode = "function"
+entry = "ring_hit"
+witness = true
+concepts = ["rounding error: every operation rounds to 53 bits", "catastrophic cancellation: subtracting nearly equal numbers", "rewriting a formula so it never cancels", "NaN compares: ucomisd's unordered result, and the jumps it fools", "exact float equality, and when it's fine"]
+introduces = ["relative error", "catastrophic cancellation", "the stable quadratic formula", "jp for unordered"]
+
+hints = [
+  "Pick a sphere far away: b huge, a and c small (a = 1, b = 1e9, c = 1). The roots are about −1e−9 and −1e9. Now follow −b + √(b² − 4ac): b² − 4ac rounds to b², so √ gives back |b| and the sum is 0: the near root comes out as 0 (or garbage) instead of −1e−9. Your witness: ;! witness a = \"1\", b = \"1e9\", c = \"1\"",
+  "Never subtract the two nearly equal numbers: compute q = −(b + sign(b)·√d) / 2 (an addition of two numbers with the same sign: no cancellation). Then the roots are q / a and c / q (because the product of the roots is c / a). sign(b): test the sign bit, or use b ≥ 0. When b = 0 either sign works.",
+  "The other bug: a scene with a NaN coordinate. ucomisd with a NaN sets ZF, PF and CF all to 1, and jb is taken: the starter says 'no hit' instead of reporting the broken input. Check jp right after the compare (or compare d with itself first).",
+]
+
+[constraints]
+max_changed_lines = 30
+max_steps = 2000
+
+[random]
+count = 20
