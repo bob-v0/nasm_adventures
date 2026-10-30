@@ -52,7 +52,7 @@ NAMES = {0: "read", 1: "write", 2: "open", 3: "close", 4: "stat", 5: "fstat", 6:
          41: "socket", 42: "connect", 43: "accept", 48: "shutdown", 49: "bind", 50: "listen",
          54: "setsockopt", 288: "accept4", 213: "epoll_create", 291: "epoll_create1",
          233: "epoll_ctl", 232: "epoll_wait", 281: "epoll_pwait", 283: "timerfd_create",
-         28: "madvise", 0x1002: "ring_choose", 0x1003: "ring_await", 0x1000: "ring_malloc", 0x1001: "ring_free",
+         28: "madvise", 202: "futex", 0x1002: "ring_choose", 0x1003: "ring_await", 0x1000: "ring_malloc", 0x1001: "ring_free",
          286: "timerfd_settime", 287: "timerfd_gettime", 7: "poll", 290: "eventfd2"}
 NUMBERS = {v: k for k, v in NAMES.items()}
 
@@ -91,10 +91,12 @@ class Exec(Exception):
 
 
 class Exit(Exception):
-    """Raised by the exit syscalls; carries the status."""
+    """Raised by the exit syscalls; carries the status. exit (60) ends the calling
+    thread; exit_group (231), or exit in the last thread, ends the process."""
 
-    def __init__(self, status: int):
+    def __init__(self, status: int, group: bool = True):
         self.status = status
+        self.group = group
 
 
 @dataclass
@@ -215,6 +217,7 @@ class Kernel(EventsMixin):
         self.fs_events: list[dict] = list(self.inject.fs_events)
         self.init_events(self.inject.peers)
         self.huge_regions: list[tuple[int, int]] = []   # MAP_HUGETLB / MADV_HUGEPAGE
+        self.futex_waiters: dict[int, list] = {}         # address -> waiting threads
         self.sched_rng = random.Random(f"schedule:{self.inject.schedule}")
         self.awaits: list[int] = []             # task id at each await point
         self.await_fns: list[int] = []          # ...and the function that task runs
@@ -344,7 +347,7 @@ class Kernel(EventsMixin):
     def syscall(self, m, nr: int, args: tuple[int, ...]) -> int:
         name = NAMES.get(nr, f"syscall_{nr}")
         if name in ("exit", "exit_group"):
-            raise Exit(args[0] & 0xFF)
+            raise Exit(args[0] & 0xFF, group=name == "exit_group")
         self.tick()
         injected = self._injected(name)
         if injected is not None:
@@ -700,7 +703,7 @@ class Kernel(EventsMixin):
         return 1000
 
     def sys_gettid(self, m, *_):
-        return self.proc.pid
+        return m.thread.tid
 
     def sys_clock_gettime(self, m, clock, tp, *_):
         m.kernel_write(tp, struct.pack("<qq", self.time_ns // 10**9, self.time_ns % 10**9))
@@ -959,11 +962,60 @@ class Kernel(EventsMixin):
     def sys_vfork(self, m, *_):
         return self.sys_fork(m)
 
-    def sys_clone(self, m, flags, stack, *_):
-        CLONE_VM, CLONE_THREAD = 0x100, 0x10000
-        if flags & (CLONE_VM | CLONE_THREAD) or stack:
-            return -ENOSYS          # threads come later in the game
+    def sys_clone(self, m, flags, stack, ptid, ctid, tls, *_):
+        CLONE_VM, CLONE_THREAD, CLONE_SIGHAND = 0x100, 0x10000, 0x800
+        if flags & CLONE_THREAD:
+            if not flags & CLONE_VM or not flags & CLONE_SIGHAND:
+                return -EINVAL      # threads share memory and signal handlers
+            if not stack:
+                return -EINVAL      # a thread needs its own stack
+            return m.spawn_thread(flags, stack, ptid, ctid, tls)
+        if flags & CLONE_VM or stack:
+            return -ENOSYS
         return self.sys_fork(m)
+
+    # ---- futexes ----------------------------------------------------------------------------
+
+    def sys_futex(self, m, uaddr, op, val, timeout, uaddr2, val3):
+        """FUTEX_WAIT: sleep if *uaddr still equals val (checked atomically with going to
+        sleep); FUTEX_WAKE: wake up to val sleepers. (Private or not: one process.)"""
+        WAIT, WAKE, WAIT_BITSET, WAKE_BITSET = 0, 1, 9, 10
+        cmd = op & 0x7F
+        t = m.thread
+        if cmd in (WAIT, WAIT_BITSET):
+            if t.woken:
+                t.woken, t.futex, t.deadline = False, None, None
+                return 0
+            if t.futex is None:                  # the first try: compare, then queue
+                if uaddr & 3:
+                    return -EINVAL
+                if not m.readable(uaddr, 4):
+                    return -EFAULT
+                if struct.unpack("<I", m.read(uaddr, 4))[0] != val & 0xFFFFFFFF:
+                    return -EAGAIN
+                t.futex = uaddr
+                self.futex_waiters.setdefault(uaddr, []).append(t)
+                if timeout:
+                    sec, nsec = struct.unpack("<qq", m.read(timeout, 16))
+                    t.deadline = (self.time_ns + sec * 10**9 + nsec if cmd == WAIT
+                                  else sec * 10**9 + nsec)
+            elif t.deadline is not None and self.time_ns >= t.deadline:
+                self.futex_waiters.get(t.futex, []).remove(t)
+                t.futex, t.deadline = None, None
+                return -110                       # ETIMEDOUT
+            raise Block(f"futex_wait on {uaddr:#x}")
+        if cmd in (WAKE, WAKE_BITSET):
+            return self.futex_wake(uaddr, val)
+        return -ENOSYS
+
+    def futex_wake(self, uaddr: int, n: int) -> int:
+        woken = 0
+        queue = self.futex_waiters.get(uaddr, [])
+        while queue and woken < n:
+            t = queue.pop(0)
+            t.woken = True
+            woken += 1
+        return woken
 
     def _strings(self, m, addr: int) -> list[str]:
         out = []

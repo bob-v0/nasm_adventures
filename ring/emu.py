@@ -39,6 +39,23 @@ AT_PAGESZ, AT_RANDOM, AT_NULL = 6, 25, 0
 
 
 @dataclass
+class Thread:
+    """A thread of a process: they all share the Machine's memory (one Unicorn), each
+    with its own registers, saved here while another thread runs."""
+    tid: int
+    ctx: object = None            # saved Unicorn context (None while running)
+    state: str = "ready"          # ready | running | blocked | exited
+    why: str = ""                 # what it waits for, when blocked
+    futex: int | None = None      # the futex address it sleeps on
+    woken: bool = False           # FUTEX_WAKE picked it: its futex_wait returns 0
+    deadline: int | None = None   # futex_wait with a timeout
+    clear_tid: int = 0            # CLONE_CHILD_CLEARTID: zeroed and woken at exit
+
+    def __deepcopy__(self, memo):  # (kernel snapshots: threads aren't part of them)
+        return self
+
+
+@dataclass
 class Image:
     """A program started by execve (not the player's build): what Machine needs of a Build."""
     elf_bytes: bytes
@@ -112,6 +129,9 @@ class Machine:
         self.kernel.machines[self.proc.pid] = self
         self.argv = argv or ["./solution"]
         self.env = env or {}
+        self.thread = Thread(self.proc.pid, state="running")
+        self.threads: list[Thread] = [self.thread]
+        self._slice_left = 0                      # instructions left in this thread's turn
         self.proc.command = self.proc.command or self.argv[0]
         self.blocked_on = ""
         self._yield = False
@@ -337,8 +357,11 @@ class Machine:
             result = self.kernel.syscall(self, nr, args)
         except Exit as e:
             self.syscalls.append(SyscallRecord(nr, args[:1], None))
-            self.exit_code = e.status
-            self.state = "exited"
+            if not e.group and sum(t.state != "exited" for t in self.threads) > 1:
+                self._thread_exit()                # just this thread
+            else:
+                self.exit_code = e.status
+                self.state = "exited"
             uc.emu_stop()
             return
         except Block as b:
@@ -388,6 +411,104 @@ class Machine:
 
     def yield_cpu(self) -> None:
         self._yield = True
+
+    # ---- threads ----------------------------------------------------------------------
+
+    def spawn_thread(self, flags: int, stack: int, ptid: int, ctid: int, tls: int) -> int:
+        """clone(CLONE_VM | CLONE_THREAD ...): a new thread, same memory, its own stack.
+        It starts right after the `syscall`, with rax = 0."""
+        CLONE_SETTLS, CLONE_PARENT_SETTID = 0x80000, 0x100000
+        CLONE_CHILD_CLEARTID, CLONE_CHILD_SETTID = 0x200000, 0x1000000
+        k = self.kernel
+        tid = k.next_pid
+        k.next_pid += 1
+        rip = self.pc
+        parent = self.uc.context_save()
+        self.set_reg("rax", 0)
+        self.set_reg("rsp", stack)
+        self.set_reg("rip", rip + 2)
+        self.set_reg("rcx", rip + 2)
+        self.set_reg("r11", self.reg("rflags"))
+        if flags & CLONE_SETTLS:
+            self.set_fs_base(tls)
+        child = Thread(tid, ctx=self.uc.context_save(),
+                       clear_tid=ctid if flags & CLONE_CHILD_CLEARTID else 0)
+        self.uc.context_restore(parent)
+        for flag, where in ((CLONE_PARENT_SETTID, ptid), (CLONE_CHILD_SETTID, ctid)):
+            if flags & flag and self.writable(where, 4):
+                self.kernel_write(where, struct.pack("<I", tid))
+        self.threads.append(child)
+        self._end_history("a new thread")
+        self._slice_left = self._slice_length()
+        self._yield = True                       # end this slice: the threads take turns now
+        return tid
+
+    def _thread_exit(self) -> None:
+        t = self.thread
+        t.state = "exited"
+        if t.clear_tid and self.writable(t.clear_tid, 4):   # how pthread_join waits
+            self.kernel_write(t.clear_tid, b"\0\0\0\0")
+            self.kernel.futex_wake(t.clear_tid, 1)
+
+    def _runnable(self, t: Thread) -> bool:
+        if t.state == "ready":
+            return True
+        if t.state == "blocked":
+            if t.futex is not None:            # sleeps until woken or timed out
+                return t.woken or (t.deadline is not None and self.kernel.time_ns >= t.deadline)
+            return True                        # other waits: just retry the syscall
+        return False
+
+    def _pick_thread(self) -> Thread | None:
+        """The scheduler's choice of the next thread to run: in turn with the plain
+        schedule (0), at random otherwise. Threads that are merely retrying a blocked
+        syscall come last."""
+        k = self.kernel
+        live = [t for t in self.threads if t is not self.thread and self._runnable(t)]
+        if self.thread.state == "running":
+            live.append(self.thread)
+        fresh = [t for t in live if not (t.state == "blocked" and t.futex is None)] or live
+        if not fresh:
+            return None
+        if k.inject.schedule == 0:
+            i = self.threads.index(self.thread)
+            order = self.threads[i + 1:] + self.threads[:i + 1]
+            return next(t for t in order if t in fresh)
+        return fresh[k.sched_rng.randrange(len(fresh))]
+
+    def _switch(self, t: Thread) -> None:
+        cur = self.thread
+        if cur.state == "running":
+            cur.state = "ready"
+        if t is not cur:
+            if cur.state != "exited":
+                cur.ctx = self.uc.context_save()
+            self.uc.context_restore(t.ctx)
+            t.ctx = None
+            self.thread = t
+        t.state = "running"
+        self._slice_left = self._slice_length()
+
+    def _slice_length(self) -> int:
+        k = self.kernel
+        if k.inject.schedule == 0:
+            return k.inject.quantum
+        return k.sched_rng.randint(1, max(1, k.inject.quantum // 10))
+
+    def symbolize(self, addr: int) -> str:
+        """`label` or `label+offset` for an address in the program's data, else hex."""
+        best = None
+        for name, value in getattr(self.build, "symbols", {}).items():
+            if value <= addr and addr - value < 4096 and not name.startswith((".", "__")) \
+                    and (best is None or value > best[1]):
+                best = (name, value)
+        if best is None:
+            return f"{addr:#x}"
+        return best[0] + (f"+{addr - best[1]}" if addr != best[1] else "")
+
+    @property
+    def threaded(self) -> bool:
+        return len(self.threads) > 1
 
     # ---- processes ------------------------------------------------------------------
 
@@ -522,14 +643,35 @@ class Machine:
 
     def _advance(self, budget: int) -> None:
         """Run this process for up to `budget` instructions; stop early when it ends,
-        blocks, or yields (after fork, sched_yield)."""
+        blocks, or yields (after fork, sched_yield). Its threads take turns."""
         done = self.build.done_addr
         end = self.steps + budget
         self._yield = False
+        if self.threaded and self.thread.state != "running":
+            t = self._pick_thread()
+            if t is None:
+                t = self.thread                  # everyone waits: retry this one's syscall
+            self._switch(t)
         while self.state == "running" and self.steps < end and not self._yield:
             nxt = self._next_injected()
             count = min(end, nxt if nxt is not None else end) - self.steps
+            if self.threaded:
+                count = max(1, min(count, self._slice_left))
+            before = self.steps
             self._slice(done or 0, count)
+            if self.threaded:
+                self._slice_left -= self.steps - before
+                if self.state == "blocked":
+                    self.thread.state, self.thread.why = "blocked", self.blocked_on
+                if self.state in ("blocked", "running") and (
+                        self.thread.state in ("blocked", "exited") or self._slice_left <= 0):
+                    t = self._pick_thread()
+                    if t is not None:
+                        self.state = "running"
+                        self._switch(t)
+                        continue
+                    if self.state == "running":     # the only thread left: keep going
+                        self._slice_left = self._slice_length()
             if self.state != "running":
                 break
             stopped_for_kernel = self._redirect is not None or self._yield
@@ -612,12 +754,21 @@ class Machine:
 
     def _deadlock(self) -> None:
         blocked = [m for m in self.kernel.machines.values() if m.state == "blocked"]
-        waiting = [f"pid {m.proc.pid}" + (f" ({m.proc.command})" if m.proc.command else "")
-                   + f": {m.blocked_on}" for m in blocked]
+        waiting = []
+        for m in blocked:
+            if m.threaded:
+                waiting += [f"thread {t.tid}: " + (f"futex_wait on {m.symbolize(t.futex)}"
+                                                    if t.futex is not None else t.why)
+                            for t in m.threads if t.state == "blocked"]
+            else:
+                waiting.append(f"pid {m.proc.pid}" + (f" ({m.proc.command})" if m.proc.command
+                                                       else "") + f": {m.blocked_on}")
         why = []
         if any("empty pipe" in m.blocked_on for m in blocked):
             why.append("A pipe read waits while ANY write end is still open, including copies "
                        "inherited through fork: close the ends you don't use.")
+        if any(m.threaded for m in blocked):
+            why.append("Every thread sleeps on a futex that nobody will wake.")
         if any("full pipe" in m.blocked_on for m in blocked):
             why.append("A pipe write waits for room while ANY read end is still open, even if "
                        "nobody will read it again; with no read end left it gets SIGPIPE.")
@@ -627,7 +778,8 @@ class Machine:
                           + "; ".join(waiting) + ") and so do the clients: "
                           + "; ".join(self.kernel.peer_report()))
             return
-        self.fault = ("deadlock: every process is waiting for another one, forever ("
+        who = "thread" if any(m.threaded for m in blocked) else "process"
+        self.fault = (f"deadlock: every {who} is waiting for another one, forever ("
                       + "; ".join(waiting) + ")." + "".join(" " + w for w in why))
 
     def step(self) -> bool:

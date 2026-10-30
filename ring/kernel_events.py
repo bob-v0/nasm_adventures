@@ -119,6 +119,8 @@ class EventsMixin:
         times += [t.next_ns for t in self.timers.values() if t.next_ns]
         times += [p.deadline for p in self.procs.values()
                   if p.status is None and p.deadline is not None]
+        times += [t.deadline for m in self.machines.values() for t in m.threads
+                  if t.deadline is not None]
         future = [t for t in times if t > self.time_ns]
         return min(future) if future else None
 
