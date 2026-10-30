@@ -431,12 +431,8 @@ def _native(tmp_path, source, argv=None, stdin=b""):
     src = source.replace('"/bin/', f'"{bindir}/')
     (tmp_path / "n.asm").write_text(src)
     b = build(tmp_path / "n.asm", tmp_path / "nb", "program")
-    import resource
-
-    def no_core_dumps():   # otherwise a crash's wait status also has bit 7 (core dumped) set
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     return subprocess.run([str(b.elf)] + (argv or []), input=stdin, capture_output=True,
-                          timeout=10, cwd=tmp_path, preexec_fn=no_core_dumps)
+                          timeout=10, cwd=tmp_path)
 
 
 @needs_native
@@ -452,7 +448,10 @@ def test_wait_status_matches_native(tmp_path, prog):
     src = EXIT_STATUS.replace("{prog}", prog)
     r = _native(tmp_path, src)
     m = run(tmp_path, src)
-    assert r.returncode == m.exit_code
+    # A crash's status has bit 7 (core dumped) set where the host writes core dumps
+    # (even with RLIMIT_CORE 0 when core_pattern pipes to a handler); the game never does.
+    native = r.returncode & ~0x80 if prog == "crash" else r.returncode
+    assert native == m.exit_code
 
 
 @needs_native
