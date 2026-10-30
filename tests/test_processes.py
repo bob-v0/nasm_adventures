@@ -431,8 +431,12 @@ def _native(tmp_path, source, argv=None, stdin=b""):
     src = source.replace('"/bin/', f'"{bindir}/')
     (tmp_path / "n.asm").write_text(src)
     b = build(tmp_path / "n.asm", tmp_path / "nb", "program")
+    import resource
+
+    def no_core_dumps():   # otherwise a crash's wait status also has bit 7 (core dumped) set
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     return subprocess.run([str(b.elf)] + (argv or []), input=stdin, capture_output=True,
-                          timeout=10, cwd=tmp_path)
+                          timeout=10, cwd=tmp_path, preexec_fn=no_core_dumps)
 
 
 @needs_native

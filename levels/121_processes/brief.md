@@ -54,6 +54,9 @@ status** at `status`:
 | `exit(n)` | `n << 8` (low 7 bits are 0) |
 | killed by signal s | `s` (in the low 7 bits) |
 
+(When a killed process also wrote a core dump, bit 7, 0x80, is set as well. So take the
+signal number as `status & 0x7f`.)
+
 Until the parent calls `wait4`, a child that has ended is a **zombie**: it uses no memory
 or CPU any more, but the kernel keeps its pid and status for the parent. A parent that
 never waits leaks them. (`wait4` with no children left returns `-ECHILD`.)
