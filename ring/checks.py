@@ -585,6 +585,8 @@ def grade(level: Level, build: Build, tests: list[TestCase], ctx: Context | None
         r.checks += _witness_checks(level, build, ctx or Context())
     gen = level._gen_module()
     if gen is not None and hasattr(gen, "audit"):   # the level's own checks of the binary
-        r.checks += [Check(*c) for c in gen.audit(build)]
+        import inspect
+        args = (build, level) if len(inspect.signature(gen.audit).parameters) > 1 else (build,)
+        r.checks += [Check(*c) for c in gen.audit(*args)]
     r.stretch = _static_checks(level.stretch, ins, r.max_steps)
     return r

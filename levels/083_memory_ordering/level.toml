@@ -1,0 +1,19 @@
+level = 83
+slug = "memory_ordering"
+title = "Memory Ordering"
+arc = "VIII"
+mode = "program"
+concepts = ["the order other cores see your memory operations in", "sequential consistency", "x86-TSO: store buffers", "store -> load is the one reordering x86 allows", "mfence and locked instructions as full fences"]
+introduces = ["memory model", "sequential consistency", "x86-TSO", "store buffer", "mfence", "litmus tests"]
+
+hints = [
+  "sb_left is two steps: store 1 to x, then load y and save it in r1 (mov dword [x], 1 / mov eax, [y] / mov [r1], eax). sb_right mirrors it.",
+  "If the four steps were simply interleaved, one of the two stores would come first, and the other thread's load would see it. Yet the CPU can read y while its own store to x is still waiting in its store buffer, invisible to the other core. Try witness schedules 1, 2, 3...: under most it doesn't happen, under a few it does.",
+  "mfence (or any locked instruction, or xchg with memory) waits until the store buffer has drained before any later load. One between the store and the load on each side.",
+]
+
+[constraints]
+max_steps = 100000
+
+[random]
+count = 1

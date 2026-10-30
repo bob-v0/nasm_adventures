@@ -351,7 +351,7 @@ Runner: emu: threads share one emulated CPU under the game's scheduler (numbered
 | 86 | **Bug:** Logical Race ◆◆◆ | every access is atomic and it is still wrong: check-then-act, invariants spanning two variables | Fix a rate limiter and a bank transfer |
 | 85 | **Bug:** Deadlock ◆◆ | lock ordering, cycles in the wait-for graph | The grader finds the deadlocking schedule; impose an order |
 | 84 | **Bug:** Livelock & Starvation ◆◆◆ | unfair spinlocks, polite livelock | Replace with a ticket lock; bounded waiting is checked |
-| 83 | Memory Ordering | x86-TSO: store buffers, store→load reordering, `mfence` | Observe a reordering on real hardware and in the TSO model |
+| 83 | Memory Ordering | x86-TSO: store buffers, store→load reordering, `mfence` | Witness a store-buffer reordering in the TSO model; forbid it with fences |
 | 82 | **Bug:** Ordering Violation ◆◆◆ | Dekker/Peterson broken by store→load reordering | Witness both threads entering the critical section; fix with the minimum fences |
 | 81 | **Bug:** Weakly-Ordered Stores ◆◆◆ | non-temporal stores (`movnti`) escape TSO; publishing a flag before the data | Fix a producer/consumer that publishes garbage; `sfence` placement |
 | 80 | Condition Variables | futex wait/wake, predicate loops | Bounded blocking queue |
