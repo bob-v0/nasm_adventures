@@ -130,8 +130,8 @@ nasm_adventures/
 
 | Runner | Used by | How it works | What it can verify |
 |---|---|---|---|
-| `emu` | Arcs I–VII (except a few native levels; Arc VII on the game's CPU model); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
-| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V; Arcs IX–X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
+| `emu` | Arcs I–IX (except a few native levels; Arc VII on the game's CPU model; Arc IX's AVX on its vector unit); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
+| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V; Arc X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
 | `qemu` | Arcs XI–XIV | `nasm -f bin` → disk image or multiboot2 ELF; `qemu-system-x86_64 -nographic -no-reboot` with `isa-debug-exit` and serial on stdio; `-smp N` for SMP; gdb stub for `ring debug`. | Serial output, exit code via debug port, triple-fault detection, QEMU monitor dumps, interrupt injection. |
 
 Running through emulators also makes the game work on ARM Macs (QEMU TCG / Unicorn);
@@ -371,17 +371,17 @@ Runner: emu: SSE on Unicorn; AVX, AVX2, FMA and AVX-512 on the game's vector uni
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
 | 71 | IEEE 754 | sign/exponent/mantissa, NaN, inf, denormals | Decode doubles without FP instructions |
-| 70 | x87 (Museum) | FPU stack, control word | sqrt and sin with x87 |
-| 69 | SSE Scalar | `movsd`, `addsd`, `cvtsi2sd`, `ucomisd`, MXCSR | Print a double → library: `dtoa` |
-| 68 | **Bug:** Precision Lost ◆◆ | catastrophic cancellation, NaN compares (`ucomisd` sets PF), float equality | Fix a geometry routine that fails on near-degenerate inputs |
+| 70 | x87 (Museum) | FPU stack, control word | Rotate a point with fsincos; the length rounded down with fsqrt and the rounding mode |
+| 69 | SSE Scalar | `movsd`, `addsd`, `cvtsi2sd`, `ucomisd`, MXCSR | Print a double with three decimals, rounding as MXCSR says |
+| 68 | **Bug:** Precision Lost ◆◆ | catastrophic cancellation, NaN compares (`ucomisd` sets PF), float equality | Fix a ray-sphere intersection that fails for far-away spheres and broken scenes |
 | 67 | SIMD Integers | xmm, `padd*`, saturation | Brighten an image 16 px at a time |
-| 66 | Shuffles | `pshufd`, `pshufb`, `punpck*`, `palignr` | Byte-reverse/transpose with shuffles |
+| 66 | Shuffles | `pshufd`, `pshufb`, `punpck*`, `palignr` | Reverse a buffer in place, 16 bytes at a time with pshufb |
 | 65 | Masks & Compares | `pcmpeqb`, `pmovmskb`, `tzcnt` | SIMD `strlen`/`memchr` |
 | 64 | **Bug:** Tail Overrun ◆◆ | vector loads past the end of a buffer into an unmapped page | Fix a SIMD strlen that crashes on page boundaries |
 | 63 | Packed Floats | `mulps`, horizontal sums, alignment | Dot product |
-| 62 | AVX & VEX | ymm, 3-operand form, `vzeroupper`, feature detection | AVX with runtime dispatch |
-| 61 | FMA | `vfmadd231ps`, precision | Polynomial exp within a ULP bound |
-| 60 | Gathers & Permutes | `vpgatherdd`, `vpermd` | Vectorized histogram |
+| 62 | AVX & VEX | ymm, 3-operand form, `vzeroupper`, feature detection | saxpy with AVX, dispatched at run time on four CPUs (no AVX, AVX, AVX2, AVX-512) |
+| 61 | FMA | `vfmadd231ps`, precision | A vectorized exp within 2 ULPs |
+| 60 | Gathers & Permutes | `vpgatherdd`, `vpermd` | Draw a sprite mirrored: palette lookups with vpgatherdd, lanes reversed with vpermd |
 | 59 | AVX-512 | zmm, mask registers, `vpcompressd` | Filter by predicate |
 | 58 | SIMD Gauntlet ★ | everything in the arc | UTF-8 validator at ≥ 4 GB/s |
 
@@ -862,7 +862,12 @@ the internet directly.
    with write-backs, store forwarding, 4K aliasing, split accesses, denormal assists and
    optional interrupt noise; `rdtsc`/`rdtscp`/`lfence` read and respect the model's clock.
    Failing budgets say where the cycles went (critical path, mispredictions, misses).
-   Remaining: CPU feature gating, SIMD and encoding panels; Arcs IX, X.
+   Arc IX done (levels 71–58): AVX, AVX2, FMA and AVX-512 run on the game's own vector
+   unit (`ring/simd.py`), checked instruction by instruction against a real AVX-512
+   CPU; `cpuid`/`xgetbv` report a CPU profile per test (no AVX, AVX, AVX2, AVX-512) and
+   a missing feature is #UD, so runtime dispatch is testable on any host; legacy SSE
+   faults on misaligned operands; the debugger shows vector and mask registers.
+   Remaining: the encoding panel; Arc X.
 7. **M7 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch
    handling, fault explainer, interrupt injection; Arcs XI–XII.
 8. **M8 – Kernel arcs:** XIII–XIV, with a reference OS used to validate every level;

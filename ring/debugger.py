@@ -123,6 +123,7 @@ HELP = """\
   break <spec>    breakpoint at a line number, label, or *address
   delete [spec]   delete a breakpoint (or all)
   regs            registers (changed ones marked *)
+  vregs [f|d|b]   vector registers in use: hex dwords, or floats/doubles/bytes
   x <addr> [n]    hex dump n bytes (addr: label, register, number, label+off)
   q8 <addr> [n]   dump n qwords        str <addr>   show a 0-terminated string
   dis [n]         disassemble n instructions from rip
@@ -137,6 +138,7 @@ class TerminalDebugger:
         self.s = session
         self.color = color
         self.prev_regs = session.m.regs()
+        self.prev_vregs = session.m.vregs()
         self.source = session.build.source.read_text().splitlines()
 
     def _c(self, code: str, text: str) -> str:
@@ -167,6 +169,30 @@ class TerminalDebugger:
         for i in range(0, len(cells), 4):
             print("  " + "  ".join(cells[i:i + 4]))
         print(f"  rflags={now['rflags']:#x}  [{flags_str(now['rflags'])}]")
+
+    def vregs(self, fmt: str = "") -> None:
+        """Non-zero vector registers: as hex dwords (highest first), or as floats (f),
+        doubles (d), or bytes (b), lane 0 first."""
+        import struct
+        now = self.s.m.vregs()
+        if not now:
+            print("  (all vector registers are zero)")
+        for name, v in now.items():
+            mark = "*" if v != self.prev_vregs.get(name) else " "
+            if name[1:3] != "mm":
+                print(f"  {name:>6}{mark} {v:#x}")
+                continue
+            size = {"x": 16, "y": 32, "z": 64}[name[0]]
+            raw = v.to_bytes(size, "little")
+            if fmt == "f":
+                text = " ".join(f"{x:.7g}" for x in struct.unpack(f"<{size // 4}f", raw))
+            elif fmt == "d":
+                text = " ".join(f"{x:.15g}" for x in struct.unpack(f"<{size // 8}d", raw))
+            elif fmt == "b":
+                text = raw.hex(" ")
+            else:
+                text = " ".join(f"{v >> (32 * i) & 0xFFFFFFFF:08x}" for i in reversed(range(size // 4)))
+            print(self._c("1;33", f"  {name:>6}*") + f" {text}" if mark == "*" else f"  {name:>6}  {text}")
 
     def dump(self, addr: int, n: int) -> None:
         for off in range(0, n, 16):
@@ -202,6 +228,7 @@ class TerminalDebugger:
         cmd, rest = args[0], args[1:]
         n = int(rest[0], 0) if rest and rest[0].lstrip("-").isdigit() else 1
         before = self.s.m.regs()
+        before_v = self.s.m.vregs()
         moved = False
         if cmd in ("s", "si", "step", "stepi"):
             moved = self.s.step(n) > 0
@@ -228,6 +255,8 @@ class TerminalDebugger:
                 self.s.breakpoints.clear()
         elif cmd in ("regs", "r", "info"):
             self.regs()
+        elif cmd in ("vregs", "v"):
+            self.vregs(rest[0] if rest else "")
         elif cmd == "x":
             self.dump(self.s.eval_address(rest[0]), int(rest[1], 0) if len(rest) > 1 else 32)
         elif cmd == "q8":
@@ -267,5 +296,6 @@ class TerminalDebugger:
             print(f"  unknown command `{cmd}` (try `help`)")
         if moved:
             self.prev_regs = before
+            self.prev_vregs = before_v
             self.where()
         return None

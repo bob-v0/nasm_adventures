@@ -1,0 +1,22 @@
+level = 58
+slug = "simd_gauntlet"
+title = "SIMD Gauntlet"
+arc = "IX"
+boss = true
+mode = "function"
+entry = "ring_utf8_valid"
+perf = true
+concepts = ["everything in the arc"]
+introduces = []
+
+hints = [
+  "Start with an ASCII fast path: if no byte of a 16- or 32-byte block has its top bit set (pmovmskb = 0), the block is valid by itself, unless the previous block ended in the middle of a sequence. Most real text is mostly ASCII. Then a correct scalar validator for everything else, and measure: the Chinese and emoji tests will be far over budget.",
+  "The fast algorithm (Keiser & Lemire, 2021) looks at each byte together with the one before it. The previous byte for every position is palignr xmm1, xmm_prev_block, 15. Every bad pair of bytes is decided by three nibbles: the high and low nibble of the previous byte and the high nibble of this byte. Give each error class a bit; build three 16-entry tables (one per nibble) of which classes each nibble value is consistent with; pshufb looks all 16 positions up at once; AND the three results: any bit left is an error.",
+  "The classes: TOO_SHORT (a lead or ASCII followed by a lead or ASCII where a continuation was due), TOO_LONG (ASCII then a continuation), TWO_CONTS (continuation then continuation), OVERLONG_2 (C0/C1), OVERLONG_3 (E0 80..9F), OVERLONG_4 (F0 80..8F), SURROGATE (ED A0..BF), TOO_LARGE (F4 90..BF, F5..FF). TWO_CONTS is fine exactly where the byte 2 back is a 3/4-byte lead (≥ E0) or 3 back a 4-byte lead (≥ F0): psubusb by 0x60 / 0x70 makes those ≥ 0x80; XOR that with the TWO_CONTS bit. At the end of the text: a lead byte in the last 1-3 positions of the last block means it was cut short.",
+]
+
+[constraints]
+max_steps = 3000000
+
+[random]
+count = 4

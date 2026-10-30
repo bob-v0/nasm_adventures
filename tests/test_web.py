@@ -117,3 +117,14 @@ def test_sealed_levels_are_refused(ui):
     with pytest.raises(urllib.error.HTTPError) as e:
         ui("open", {"level": 171})
     assert e.value.code == 403
+
+
+def test_debugger_shows_vector_registers(ui):
+    ui("open", {"level": 184})
+    view = ui("debug/start", {"level": 184, "text": "pcmpeqd xmm1, xmm1\nvpaddd ymm2, ymm1, ymm1\nnop\n"})
+    sid = view["session"]
+    assert view["vregs"] == []
+    view = ui("debug/cmd", {"session": sid, "cmd": "continue", "breakpoints": [3]})
+    regs = {r["name"]: r for r in view["vregs"]}
+    assert regs["xmm1"]["value"] == " ".join(["ffffffff"] * 4)
+    assert regs["xmm2"]["value"] == " ".join(["fffffffe"] * 4) and regs["xmm2"]["changed"]

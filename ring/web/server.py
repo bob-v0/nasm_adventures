@@ -179,7 +179,8 @@ class Server:
             source_lines = sol.read_text().splitlines()
         sid = secrets.token_hex(8)
         self.sessions = dict(list(self.sessions.items())[-7:])  # keep a few
-        self.sessions[sid] = (session, {"prev": session.m.regs(), "binary": bool(binary)})
+        self.sessions[sid] = (session, {"prev": session.m.regs(), "prev_v": session.m.vregs(),
+                                        "binary": bool(binary)})
         out = self.debug_view(sid)
         out["session"] = sid
         out["source_lines"] = len(source_lines)
@@ -197,6 +198,7 @@ class Server:
             except (ValueError, KeyError):
                 pass  # unknown label or no code at that line: ignore
         meta["prev"] = s.m.regs()
+        meta["prev_v"] = s.m.vregs()
         cmd = body["cmd"]
         stop = None
         if cmd == "step":
@@ -265,6 +267,8 @@ class Server:
             "flags": [{"name": n, "set": bool(flags >> b & 1),
                        "changed": (flags ^ prev.get("rflags", flags)) >> b & 1 == 1}
                       for n, b in FLAG_BITS if n not in ("TF", "IF")],
+            "vregs": [{"name": n, "value": _lanes(n, v), "floats": _floats(n, v),
+                       "changed": v != meta.get("prev_v", {}).get(n)} for n, v in m.vregs().items()],
             "stack": stack, "disasm": disasm,
             "stdout": bytes(m.stdout).decode("utf-8", "replace"),
             "stderr": bytes(m.stderr).decode("utf-8", "replace"),
@@ -278,6 +282,25 @@ class Server:
         "hint": hint, "docs": docs, "listing": listing, "debug/start": debug_start,
         "debug/cmd": debug_cmd, "debug/memory": debug_memory,
     }
+
+
+def _lanes(name: str, v: int) -> str:
+    """A vector register as hex dwords, highest first (as the CPU manuals draw them)."""
+    if name[1:3] != "mm":                      # k1-k7, mxcsr
+        return f"{v:#x}"
+    words = {"x": 4, "y": 8, "z": 16}[name[0]]
+    return " ".join(f"{v >> (32 * i) & 0xFFFFFFFF:08x}" for i in reversed(range(words)))
+
+
+def _floats(name: str, v: int) -> str:
+    if name[1:3] != "mm":
+        return ""
+    import struct
+    words = {"x": 4, "y": 8, "z": 16}[name[0]]
+    fs = struct.unpack(f"<{words}f", v.to_bytes(4 * words, "little"))
+    ds = struct.unpack(f"<{words // 2}d", v.to_bytes(4 * words, "little"))
+    return ("floats (lane 0 first): " + ", ".join(f"{x:.7g}" for x in fs)
+            + "\ndoubles: " + ", ".join(f"{x:.15g}" for x in ds))
 
 
 def _error_lines(text: str) -> list[dict]:

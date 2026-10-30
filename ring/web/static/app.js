@@ -484,8 +484,10 @@ function showDebug(v) {
   const dis = v.disasm.map((d) => `<div class="${d.current ? "cur" : ""}">${d.current ? "→" : " "} ${d.addr}  ${d.bytes.padEnd(24)} ${esc(d.text).padEnd(30)} ${d.line ? "line " + d.line : ""}</div>`).join("");
   const stack = v.stack.map((s, i) => `${i === 0 ? "rsp→" : "    "} ${s.addr}  ${s.value ?? "<unmapped>"}${s.label ? "  <" + esc(s.label) + ">" : ""}`).join("\n");
   const syms = v.symbols.map((s) => `<option value="${esc(s)}">`).join("");
+  const vregs = (v.vregs || []).map((r) => `<div class="vreg${r.changed ? " changed" : ""}" title="${esc(r.floats)}"><span class="n">${r.name}</span> <span class="v">${r.value}</span></div>`).join("");
   $("#dbg-body").innerHTML = `
     <div class="box"><h4>Registers</h4><div class="regs">${regs}</div><div class="flags">${flags}</div></div>
+    ${vregs ? `<div class="box wide"><h4>Vector registers <span class="muted">(non-zero; hover for floats)</span></h4><div class="mono vregs">${vregs}</div></div>` : ""}
     <div class="box"><h4>Disassembly</h4><div class="mono dis">${dis || "<span class='muted'>no code here</span>"}</div></div>
     <div class="box"><h4>Memory</h4>
       <form class="mem-form" id="mem-form"><input id="mem-addr" list="mem-syms" value="${esc(S.memAddr)}" title="label, register, number, or label+offset"><datalist id="mem-syms">${syms}</datalist><button class="btn small">Show</button></form>

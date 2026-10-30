@@ -163,6 +163,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .regs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 12px; font: 12.5px/1.6 var(--mono); }
 .reg .n { color: var(--muted); display: inline-block; width: 30px; }
 .reg.changed .v { color: var(--changed); font-weight: 700; }
+.vregs { font: 12px/1.6 var(--mono); overflow-x: auto; }
+.vreg { white-space: nowrap; }
+.vreg .n { color: var(--muted); display: inline-block; width: 52px; }
+.vreg.changed .v { color: var(--changed); font-weight: 700; }
 .flags { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .flag { font: 12px var(--mono); padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
 .flag.on { color: var(--text); border-color: var(--accent); }

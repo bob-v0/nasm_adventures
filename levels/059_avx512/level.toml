@@ -1,0 +1,21 @@
+level = 59
+slug = "avx512"
+title = "AVX-512"
+arc = "IX"
+mode = "function"
+entry = "ring_filter"
+perf = true
+concepts = ["zmm0-zmm31: 512 bits, sixteen dwords", "the EVEX encoding", "mask registers k0-k7: compares produce bits, not vectors", "masking any instruction: {k1} merges, {k1}{z} zeroes", "masked loads that can't fault: tails without scalar code", "vpcompressd: packing the selected lanes together"]
+introduces = ["zmm registers", "k registers, kmovw", "vpcmpgtd k1, ...", "{k}{z} masking", "vmovdqu32", "vpcompressd", "bzhi"]
+
+hints = [
+  "vpcmpgtd k1, zmm0, zmm1 compares 16 dword pairs and puts the 16 answers as bits in the mask register k1. vpcompressd [rcx]{k1}, zmm0 then stores only the lanes whose bit is set, one after the other, from rcx on. kmovw r9d, k1 / popcnt r9d, r9d is how many it stored: advance rcx by that many dwords.",
+  "The broadcast of the threshold: vpbroadcastd zmm1, edx (AVX-512 can broadcast straight from a general register).",
+  "The last n % 16 elements: a mask with the low n % 16 bits set (mov eax, −1 / bzhi eax, eax, esi), kmovw k2, eax, then vmovdqu32 zmm0{k2}{z}, [rdi]: masked-off lanes aren't read at all, so nothing past the end is touched (the page after it isn't mapped). Compare with the same mask, vpcmpgtd k1{k2}, ..., so the zeroed lanes never count.",
+]
+
+[constraints]
+max_steps = 200000
+
+[random]
+count = 3

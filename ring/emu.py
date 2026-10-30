@@ -268,6 +268,24 @@ class Machine:
             return
         self.uc.reg_write(REGS[name], value & MASK64)
 
+    def vregs(self) -> dict[str, int]:
+        """The vector registers in use (non-zero), each named by its width (xmm/ymm/zmm),
+        and k1-k7 and MXCSR when they aren't at their defaults."""
+        out = {}
+        for n in range(32):
+            v = self.uc.reg_read(getattr(X, f"UC_X86_REG_ZMM{n}")) & ((1 << 512) - 1)
+            if v:
+                width = "z" if v >> 256 else "y" if v >> 128 else "x"
+                out[f"{width}mm{n}"] = v
+        if self.vector is not None:
+            for n, k in enumerate(self.vector.k):
+                if k and n:
+                    out[f"k{n}"] = k
+        mxcsr = self.reg("mxcsr")
+        if mxcsr != 0x1F80:
+            out["mxcsr"] = mxcsr
+        return out
+
     # ---- the vector unit, cpuid ------------------------------------------------------
 
     def set_cpu(self, profile: str) -> None:
