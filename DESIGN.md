@@ -56,7 +56,11 @@ $ ring hint [1|2|3]    # progressive hints, each adds heat
 $ ring docs mul        # built-in instruction reference (flags affected, encodings)
 $ ring debug           # launches gdb (user rings) or QEMU+gdb stub (bare-metal rings)
 $ ring library         # routines you've proven and may %include in later rings
+$ ring ui              # starts the web front end (see §8)
 ```
+
+Every command is also available from the web front end; the CLI and the web UI are
+two clients of the same engine.
 
 Each ring has:
 
@@ -83,7 +87,13 @@ nasm_adventures/
 │   │   ├── emu.py         # Unicorn-based runner for fragments & exact counting
 │   │   └── qemu.py        # bare-metal rings (boot sector / pmode / long mode)
 │   ├── checks/            # reusable verifiers (stdout, regs, memory, ABI, budget)
+│   ├── debug/             # Debug Adapter Protocol server over all three runners
+│   ├── server/            # web server: REST + WebSocket, serves ui/ build
 │   └── docs/              # instruction reference database (YAML)
+├── ui/                    # web front end (TypeScript, Monaco editor, panels)
+├── docker/
+│   ├── Dockerfile         # multi-stage, slim Debian base, multi-arch
+│   └── seccomp.json       # tailored profile (ptrace, perf_event_open)
 ├── levels/
 │   └── 127_hello_register/
 │       ├── level.toml     # metadata, concepts, constraints, runner, tests
@@ -270,7 +280,7 @@ to `%include`.
 ### Arc IX — Real Mode & Boot (Rings 39–30) · runner: `qemu`
 | Ring | Title | Concepts / instructions | Gate |
 |---|---|---|---|
-| 39 | Power On | reset vector, BIOS, MBR, `0x7C00`, `0xAA55`, `bits 16`, `org` | 512-byte boot sector that halts cleanly |
+| 39 | Power On | reset vector, BIOS, MBR, `0x7C00`, `0xAA55`, `bits 16`, `org`; debugging bare metal with QEMU + gdb (`set architecture i8086`, `CS:IP` vs linear) | Single-step from the reset vector to `0x7C00`, then write a 512-byte boot sector that halts cleanly |
 | 38 | Segmentation | CS/DS/ES/SS, `seg:off` → physical, far pointers | Print via BIOS `int 10h` with correct segment setup |
 | 37 | VGA Text Mode | `0xB8000`, attribute bytes, cursor via ports `0x3D4/0x3D5` | Draw a colored box and position the cursor |
 | 36 | Port I/O | `in`, `out`, UART 16550 on `0x3F8` | Serial "hello" (this becomes the grader's channel) |
@@ -350,23 +360,142 @@ warning on noisy/virtualized hosts), `banned_instructions`, `must_use`,
 - **Rank titles** by arc: *Process → Thread → Daemon → Driver → Kernel → Ring 0*.
 - Hints never reveal full solutions; hint 3 shows a skeleton with blanks.
 
-## 8. Platform requirements
+## 8. Debugging
 
-- x86-64 Linux (primary). macOS/Windows via a provided Docker/devcontainer image
-  containing `nasm`, `binutils`, `gcc`, `gdb`, `qemu-system-x86_64`, `qemu-user`,
-  `python3` + `unicorn` + `capstone`.
-- Rings 67–58 (performance) require bare-metal or KVM for meaningful timing; the
-  grader detects virtualization and relaxes budgets accordingly.
+Debugging is taught, not just available: ring 117 teaches gdb for user programs and
+ring 39 teaches bare-metal debugging. Every ring can be stepped instruction by
+instruction, including a kernel from the CPU's first instruction.
 
-## 9. Implementation roadmap
+| Runner | Debug backend |
+|---|---|
+| `emu` | Unicorn hooks driven directly by the engine. Full execution is recorded, so **reverse stepping** is supported. |
+| `native` | gdb (machine interface) attached to the sandboxed process. |
+| `qemu` | gdb attached to QEMU's gdb server (`-s -S`), plus the QEMU monitor (`info registers/mem/tlb/pic/lapic`). |
 
-1. **M1 – Engine skeleton**: CLI, save file, `level.toml` loader, `emu` runner,
-   basic checks; rings 127–116 authored with reference solutions + CI.
-2. **M2 – Native runner**: sandbox, ABI harness, syscall tracing; arcs II–V.
-3. **M3 – QEMU runner**: boot images, serial grading, gdb integration; arc IX.
-4. **M4 – Performance & SIMD**: benchmark harness, CPU feature gating; arcs VI–VIII.
-5. **M5 – Kernel arcs**: X–XII, with a reference OS used to validate every ring.
-6. **M6 – Polish**: lore pass, instruction reference DB, badges, devcontainer.
+Bare-metal pain points and how the engine handles them:
+
+- **Real mode:** a gdb script sets `i8086` and shows `CS:IP` alongside linear addresses.
+- **Mode switches (16 → 32 → 64-bit):** the engine switches gdb's architecture and
+  reconnects at each transition. Ring 15 teaches why.
+- **Symbols for flat binaries:** every ring is built twice: an ELF with DWARF info
+  (`nasm -g -F dwarf`) for the debugger and a flat binary for booting. Players can
+  break on their own labels and see source lines.
+- **Timer interrupts hijacking `stepi`:** IRQs are masked while single-stepping by default.
+- **Breakpoints lost after paging remaps memory:** hardware breakpoints are preferred
+  in bare-metal rings. The paging rings explain why.
+- **Silent triple faults:** QEMU runs with `-no-reboot -d int,cpu_reset`. The engine
+  parses the log and explains the fault chain in plain language, e.g.
+  "#GP at 0x10023: selector 0x18 has DPL 0, loaded from CPL 3".
+- Each bare-metal ring ships a starter `.gdbinit`.
+- **Optional Bochs backend** for rings 39–18: its built-in debugger shows GDT/IDT
+  contents and page walks and can stop on mode switches.
+
+## 9. Front end (web)
+
+The primary interface is a web UI served by the engine inside the container
+(`ring ui`, default `http://localhost:8080`). The CLI remains fully functional.
+
+### 9.1 Architecture
+
+```
+ Browser UI (Monaco + panels)        VS Code (optional)
+            │ WebSocket                     │ Debug Adapter Protocol
+            └──────────┬────────────────────┘
+          ring engine (Python): one debug adapter
+          ┌────────────┼─────────────┐
+       Unicorn      gdb → native   QEMU gdb server
+    (rings 127–92)  (rings 91–40)  (rings 39–0)
+```
+
+The engine implements the **Debug Adapter Protocol (DAP)**. The web UI and VS Code are
+both clients of the same adapter, so VS Code users get breakpoints and stepping with
+no extra integration work.
+
+### 9.2 Core panels
+
+- **Editor:** Monaco with NASM highlighting, inline assembler errors, and hover
+  documentation from the instruction reference DB.
+- **Level panel:** lore, lesson, spec, test results (the §6 report), hints.
+- **Registers:** values that changed since the last step are highlighted; RFLAGS is
+  split into named bits, with a hover explaining why each flag changed.
+- **Memory:** hex view with symbol labels and changed-byte highlighting, plus a
+  "view as" option (u8–u64, signed, float, string, struct).
+- **Stack:** return addresses, saved `rbp` values and 16-byte alignment marked.
+- **Disassembly:** next to the source, with current-instruction tracking.
+- **Execution controls:** step, step over, continue, run to cursor, and step back
+  (`emu` rings only).
+
+### 9.3 Topic panels (unlocked as rings introduce them)
+
+| Arc | Panel |
+|---|---|
+| II | Flags truth view: operands, result, and which flags were set and why |
+| VII | SIMD lane view for xmm/ymm/zmm (lanes shown as i8/i16/i32/f32/f64) |
+| VIII | Instruction-encoding breakdown: prefixes, REX/VEX, opcode, ModRM, SIB, displacement, immediate |
+| IX | Segment:offset → physical address calculator; VGA text-buffer preview |
+| X–XI | GDT/IDT/TSS decoders; page-table walker (pick a virtual address, see each level of the walk) |
+| XII | Per-core panel: state of each CPU, APIC IDs, lock owners |
+| All bare-metal | Fault explainer (from the QEMU interrupt log) and serial console |
+
+### 9.4 Zero-install demo (optional, later)
+
+nasm and Unicorn both compile to WebAssembly, so arcs I–III could run entirely in a
+static hosted page with no install. This serves as an on-ramp. Later arcs require the
+container.
+
+## 10. Distribution (Docker)
+
+The official way to play is a single Docker image containing the engine, the web UI
+and all tools: `nasm`, `binutils`, `gcc`, `gdb`, `qemu-system-x86_64`, `qemu-user`,
+`python3` with `unicorn` and `capstone`, and optionally `bochs`.
+
+```bash
+docker run --rm -it -p 127.0.0.1:8080:8080 -v ~/nasm-adventures:/workspace \
+  --cap-add=SYS_PTRACE --security-opt seccomp=seccomp.json nasm-adventures
+```
+
+- **Player data lives on the host:** solutions and the save file sit in the mounted
+  `/workspace`, so progress survives image upgrades and players can edit with their
+  own editor.
+- **Same image everywhere:** players, level authors and CI use the same pinned
+  toolchain, so grading is identical everywhere.
+- **The image doubles as a VS Code devcontainer.**
+- **Upgrades:** new levels ship as new image tags.
+- **Native install** on Linux x86-64 is documented as an alternative, mainly for
+  accurate performance-arc timing.
+
+### 10.1 Platform caveats
+
+| Issue | Handling |
+|---|---|
+| Apple Silicon (ARM container) | Multi-arch image. `emu` and `qemu` rings work unchanged; the `native` runner uses `qemu-x86_64` user-mode emulation. |
+| Performance arc (67–58) outside Linux x86 | Docker runs in a VM, so timing is noisy (meaningless on ARM). Cycle budgets are graded only on Linux x86 hosts; elsewhere grading uses instruction counts and a simulated cost model, labelled "approximate". |
+| CPU features (AVX2, AVX-512) | Detected at startup; missing features fall back to emulation under QEMU `-cpu max`. |
+| ptrace and perf counters | `--cap-add=SYS_PTRACE` plus a tailored seccomp profile. **Never `--privileged`.** |
+| QEMU speed | Software emulation by default (more reliable for single-stepping). Optional `--device /dev/kvm` on Linux. |
+| Network exposure | The UI can build and run code: bind to `127.0.0.1` only and require a per-session token in the URL (as Jupyter does). |
+| Image size (~0.5–1 GB) | Slim Debian base, multi-stage build. |
+
+A hosted multi-user version (one container per player with resource limits) is
+possible later but out of scope for now.
+
+## 11. Implementation roadmap
+
+1. **M1 – Engine skeleton:** CLI, save file, `level.toml` loader, `emu` runner, basic
+   checks, DAP server over `emu` (incl. reverse stepping), Dockerfile + CI image;
+   rings 127–116 authored with reference solutions.
+2. **M2 – Web UI MVP:** Monaco editor, level panel, test reports, registers, memory,
+   stack, disassembly, step controls; session-token auth.
+3. **M3 – Native runner:** sandbox, ABI harness, syscall tracing, gdb backend for DAP;
+   arcs II–V.
+4. **M4 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch
+   handling, fault explainer; arc IX.
+5. **M5 – Performance & SIMD:** benchmark harness, CPU feature gating, cost model for
+   non-Linux hosts; SIMD and encoding panels; arcs VI–VIII.
+6. **M6 – Kernel arcs:** X–XII, with a reference OS used to validate every ring;
+   descriptor, page-table and per-core panels.
+7. **M7 – Polish:** lore pass, instruction reference DB, badges, optional Bochs
+   backend, optional WebAssembly demo for arcs I–III.
 
 CI invariant: **every ring's `reference.asm` must pass its own checker**, and every
 ring's starter must *fail* it.
