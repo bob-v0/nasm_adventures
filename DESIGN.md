@@ -334,7 +334,7 @@ Runner: emu with the game's CPU model (ring/perf.py): deterministic cycle counts
 | 96 | Caches | lines, sets, strides, alignment | Cache-blocked transpose |
 | 95 | Prefetch & TLB | `prefetcht0`, huge pages | Faster linked-list traversal: many misses in flight |
 | 94 | Instruction Selection | uops, macro-fusion, partial-register stalls | Speed up a hot loop ≥ 2× |
-| 93 | **Bug:** Performance Cliff ◆◆ | performance bugs: 4K aliasing, cache-line splits, denormals | Find why one input size is 10× slower and fix it |
+| 93 | **Bug:** Performance Cliff ◆◆ | performance bugs: 4K aliasing, cache-line splits, denormals | Find why one input size is 20× slower per element and fix it |
 | 92 | Fast Hash Map ★ | everything in the arc | Open-addressing map hitting an ops/sec target |
 
 ### Arc VIII — Threads & the Memory Model (Levels 91–72)

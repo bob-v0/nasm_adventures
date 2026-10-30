@@ -1,0 +1,24 @@
+level = 93
+slug = "bug_performance_cliff"
+title = "Performance Cliff"
+arc = "VII"
+bug = 2
+mode = "function"
+entry = "ring_smooth"
+perf = true
+witness = true
+concepts = ["performance bugs: the same code, suddenly much slower", "denormal (subnormal) floating-point numbers", "microcode assists", "MXCSR: flush-to-zero and denormals-are-zero", "other cliffs: 4K aliasing, split accesses"]
+introduces = ["denormals", "MXCSR", "FTZ / DAZ", "stmxcsr / ldmxcsr"]
+
+hints = [
+  "The work per sample is the same at every size, so look at the data. After the sound stops, y keeps halving. What happens to a double after 1000 halvings? Make your witness n large enough for y to get there.",
+  "Below about 2.2e-308 doubles become denormal (subnormal): no implicit leading 1, gradual underflow. Hardware handles them in slow microcode: the report shows 'denormal assists', ~100 cycles each.",
+  "MXCSR controls SSE arithmetic: bit 15 (FTZ) flushes denormal results to 0, bit 6 (DAZ) treats denormal inputs as 0. stmxcsr [mem] / or dword [mem], 0x8040 / ldmxcsr [mem]. (A store below rsp is fine for a moment: the red zone.)",
+]
+
+[constraints]
+max_changed_lines = 6
+max_steps = 200000
+
+[random]
+count = 1
