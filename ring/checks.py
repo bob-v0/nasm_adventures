@@ -234,10 +234,13 @@ def _cancel_sweep(level: Level, build: Build, test: TestCase):
     if not result.passed:
         result.problems.insert(0, "(without any cancellation)")
         return result, m
-    awaits = list(m.kernel.awaits)
+    awaits, fns = list(m.kernel.awaits), list(m.kernel.await_fns)
     only = sweep.get("tasks")
+    by_fn = {build.symbols[f] for f in sweep.get("functions", []) if f in build.symbols}
     for k, task in enumerate(awaits[:400], 1):
         if only and task not in only:
+            continue
+        if sweep.get("functions") and fns[k - 1] not in by_fn:
             continue
         r, mm = _run_one(level, build, _without(test, "cancel_sweep", cancel_at=k))
         if not r.passed:

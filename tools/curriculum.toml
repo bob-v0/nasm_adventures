@@ -128,7 +128,7 @@ levels = [
   { title = "Cancellation Leak", dir = "bug_cancellation_leak", bug = 3, concepts = "a task cancelled at an await while holding a lock or buffer", gate = "Make cancellation release everything; the grader cancels at every await" },
   { title = "Actors", dir = "actors", concepts = "actors with mailboxes, message ownership", gate = "An actor-based chat room" },
   { title = "Actor Lifetimes", dir = "bug_actor_lifetimes", bug = 3, concepts = "lifetime across actors: an actor freed while messages addressed to it (or borrowed from it) are in flight", gate = "Fix with ownership transfer and generation-checked handles" },
-  { title = "Async Chat Server", boss = true, concepts = "everything in the arc", gate = "Chat server that survives schedule exploration, cancellation and slow clients" },
+  { title = "Async Chat Server", dir = "async_chat", boss = true, concepts = "everything in the arc", gate = "Chat server that survives schedule exploration, cancellation and slow clients" },
 ]
 
 [[arc]]

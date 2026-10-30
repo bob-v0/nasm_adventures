@@ -11,7 +11,8 @@ it closes the pipe when its steps are done.
 
 A peer is a client script from the test, e.g.
     {"connect": 7000, "at": 1000, "steps": [{"send": "hi\\n"}, {"expect": "hi\\n"}, {"close": true}]}
-Steps: send / send_hex, expect (wait for exactly these bytes; optionally "after" / "within":
+Steps: send / send_hex, expect_lines (these complete lines in this order; lines starting
+with "ignore_prefix" may come in between), expect (wait for exactly these bytes; optionally "after" / "within":
 µs since the step began, for things that must happen at the right time), drain (take what's there),
 sleep (µs), until (µs since the start: wait until then), shutdown (stop sending: the
 server reads EOF), close (stop sending and
@@ -59,6 +60,7 @@ class Peer:
     tries: int = 0
     pipe: int | None = None          # a pipe peer: the pipe it writes
     step_started: int = 0
+    line: int = 0                    # expect_lines: how many matched so far
 
     @property
     def name(self) -> str:
@@ -214,6 +216,29 @@ class EventsMixin:
                 self._peer_fail(p, f"got {want!r} too early: {_ms(waited)} after the previous "
                                    f"step, expected at least {_ms(s['after'])}")
                 return False
+        elif "expect_lines" in s:
+            want, skip = s["expect_lines"], s.get("ignore_prefix")
+            while p.line < len(want):
+                end = c.to_client.find(b"\n")
+                if end < 0:
+                    if self._server_closed(p.conn):
+                        self._peer_fail(p, f"the server closed the connection before "
+                                           f"{want[p.line]!r} (line {p.line + 1} of {len(want)})")
+                        return False
+                    return self._peer_wait(p, f"waited for line {p.line + 1} of {len(want)}: "
+                                              f"{want[p.line]!r}")
+                line = bytes(c.to_client[:end + 1]).decode("utf-8", "replace")
+                del c.to_client[:end + 1]
+                p.received += line.encode()
+                p.waiting_since = None
+                if skip and line.startswith(skip):
+                    continue
+                if line != want[p.line]:
+                    self._peer_fail(p, f"expected line {p.line + 1} of {len(want)} to be "
+                                       f"{want[p.line]!r}, got {line!r}")
+                    return False
+                p.line += 1
+            p.line = 0
         elif "drain" in s:
             p.received += c.to_client
             c.to_client.clear()

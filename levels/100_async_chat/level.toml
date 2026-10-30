@@ -1,0 +1,22 @@
+level = 100
+slug = "async_chat"
+title = "Async Chat Server"
+arc = "VI"
+boss = true
+mode = "program"
+runtime = ["rt"]
+concepts = ["everything in the arc", "a line protocol over byte streams", "slow consumers: bounded buffering and kicking", "cancellation as a normal way to end", "who frees what, and when"]
+introduces = []
+
+hints = [
+  "Start from your level 101/102 room: an acceptor, a room actor, and per client a reader (socket -> room) and a writer (mailbox -> socket). Add line assembly to the reader: bytes accumulate in a per-session line buffer; at each newline, the first line is the name (JOIN), the rest are SAYs.",
+  "Slow clients: the writer writes non-blocking; on -EAGAIN it rt_await_writable()s. The room counts the bytes queued for each session; if a delivery would push it past 16384, it kicks that session instead: remove it, rt_cancel its reader and its writer, tell the others '* name left'.",
+  "Lifetimes: give each session a reference count of 2 (reader, writer); whoever finishes last closes the socket and frees it. A writer finishes on K_STOP (sent by the room after removing the member) or when cancelled (kicked: free what's queued). A reader that is cancelled behaves like a client that left. A client that never sent a name was never a member: its own reader must stop its writer.",
+]
+
+[constraints]
+max_instructions = 450
+max_steps = 8000000
+
+[random]
+count = 3

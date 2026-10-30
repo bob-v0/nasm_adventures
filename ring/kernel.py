@@ -13,6 +13,7 @@ step backwards across syscalls (within one process: forks and execs end the hist
 
 from __future__ import annotations
 
+import bisect
 import copy
 import random
 import struct
@@ -215,6 +216,7 @@ class Kernel(EventsMixin):
         self.init_events(self.inject.peers)
         self.sched_rng = random.Random(f"schedule:{self.inject.schedule}")
         self.awaits: list[int] = []             # task id at each await point
+        self.await_fns: list[int] = []          # ...and the function that task runs
 
     def new_proc(self, ppid: int) -> Proc:
         p = Proc(self.next_pid, ppid)
@@ -353,6 +355,7 @@ class Kernel(EventsMixin):
             return self.sched_rng.randrange(n)
         if nr == SYS_RING_AWAIT:       # a task reached an await point: cancel it here?
             self.awaits.append(args[0])
+            self.await_fns.append(args[1])
             return int(len(self.awaits) == self.inject.cancel_at)
         handler = getattr(self, "sys_" + name, None)
         if handler is None:
@@ -820,7 +823,24 @@ class Kernel(EventsMixin):
         return 0
 
     def checked_block(self, addr: int) -> tuple[int, dict] | None:
-        for start, b in self.blocks.items():
+        last = getattr(self, "_last_block", None)          # accesses come in runs
+        if last is not None and last[1] is self.blocks.get(last[0]) \
+                and last[0] - 16 <= addr < last[0] + last[1]["size"] + 16:
+            return last
+        found = self._find_block(addr)
+        if found is not None:
+            self._last_block = found
+        return found
+
+    def _find_block(self, addr: int) -> tuple[int, dict] | None:
+        # Blocks are handed out at increasing addresses, so the dict's keys are sorted.
+        cache = getattr(self, "_block_starts", None)   # (the dict it was made from, its keys)
+        if cache is None or cache[0] is not self.blocks or len(cache[1]) != len(self.blocks):
+            cache = self._block_starts = (self.blocks, list(self.blocks))
+        starts = cache[1]
+        i = bisect.bisect_right(starts, addr + 16) - 1
+        for start in starts[max(i - 1, 0):i + 2]:
+            b = self.blocks[start]
             if start - 16 <= addr < start + b["size"] + 16:
                 return start, b
         return None

@@ -834,9 +834,16 @@ the internet directly.
    and `getdents64`. Native levels can link as PIE or be a raw `nasm -f bin` file, and
    levels can audit the produced binary (PIE without text relocations, GOT-only
    relocations, ELF headers read the way the kernel reads them).
-5. **M5 – Concurrency engine:** deterministic thread/task scheduler, schedule
-   exploration (random, PCT, bounded exhaustive), x86-TSO store-buffer model, race and
-   lifetime detectors, multi-thread replay; Arcs VI and VIII.
+5. **M5 – Concurrency engine:** Arc VI done (levels 110–100), on the emulated kernel:
+   non-blocking I/O, sockets whose clients are scripted (sends, expected bytes and lines,
+   timing bounds), epoll, timerfd, and a virtual clock that jumps ahead when everyone
+   waits. From level 106 the game links its own task runtime (`ring/runtime/rt.asm`:
+   spawn, park/unpark, sleep, I/O awaits, async mutex, cancellation); it asks the kernel
+   which ready task runs next and whether to cancel at each await point, so the grader
+   sweeps schedules (a failing schedule number is a witness) and cancels at every await.
+   The checked allocator watches every message and session for leaks and use after free.
+   Remaining for Arc VIII: threads (`clone`), schedule exploration at instruction level
+   (random, PCT, bounded exhaustive), the x86-TSO store-buffer model, race detection.
 6. **M6 – Performance, SIMD, machine code:** benchmark harness, CPU feature gating,
    cost model for non-Linux hosts, SIMD and encoding panels; Arcs VII, IX, X.
 7. **M7 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch

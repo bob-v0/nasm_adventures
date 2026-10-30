@@ -134,6 +134,7 @@ rt__checkpoint:                  ; the start of every await: rax = 0, or -125 if
     mov rdx, [rt_cur]
     mov eax, SYS_RING_AWAIT
     mov rdi, [rdx + T_ID]
+    mov rsi, [rdx + T_FN]        ; (so the grader can pick tasks by their function)
     syscall
     mov rdx, [rt_cur]
     test rax, rax

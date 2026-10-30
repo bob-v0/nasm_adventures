@@ -726,6 +726,10 @@ class Machine:
 
     def _on_heap_access(self, uc, access, addr, size, _value, _user) -> None:
         found = self.kernel.checked_block(addr)
+        if found is not None:                        # the common case: a fine access
+            start, b = found
+            if not b["freed"] and start <= addr and addr + size <= start + b["size"]:
+                return
         kind = "write" if access == 17 or access == 0x11 else "read"   # UC_MEM_WRITE = 17
         line = self.build.addr_to_line.get(self.pc)
         where = f" at line {line}" if line else f" at rip={self.pc:#x}"
