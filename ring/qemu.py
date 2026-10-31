@@ -181,7 +181,8 @@ class Run:
 
     def __init__(self, image: bytes, profile: str = "seabios", disk_size: int = 0,
                  memory: str = MEMORY, extra_args: list[str] | None = None,
-                 note: tuple | None = None, rtc: str = "2025-01-01T00:00:00"):
+                 note: tuple | None = None, rtc: str = "2025-01-01T00:00:00",
+                 kernel: Path | None = None, cmdline: str = "", modules: list[bytes] = ()):
         if not available():
             raise BuildError("this level runs on a whole emulated PC: qemu-system-x86_64 must be "
                              "installed (it is in the game's Docker image).")
@@ -199,17 +200,32 @@ class Run:
                 "-qmp", f"unix:{self.sock},server=on,wait=off",
                 "-icount", "shift=3,sleep=off", "-rtc", f"base={rtc},clock=vm",
                 "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
-                "-d", "cpu_reset,guest_errors", "-D", str(self.dir / "qemu.log")]
-        if note and profile == "seabios":
+                "-d", "int,cpu_reset,guest_errors", "-D", str(self.dir / "qemu.log")]
+        if kernel is not None:                    # a multiboot kernel, loaded by QEMU itself
+            k = self.dir / "kernel.elf"
+            shutil.copy(kernel, k)
+            # (relative names: QEMU passes them to the kernel, in the command line and as
+            # the modules' strings)
+            args += ["-kernel", k.name, "-append", cmdline]
+            paths = []
+            for n, data in enumerate(modules):
+                m = self.dir / f"module{n}.bin"
+                m.write_bytes(data)
+                paths.append(m.name)
+            if paths:
+                args += ["-initrd", ",".join(paths)]
+        elif note and profile == "seabios":
             profile = "plain"
-        if profile != "seabios":
+        if kernel is not None:
+            pass
+        elif profile != "seabios":
             stub = _stub(profile, self.dir, note)
             args += ["-drive", f"file={stub},format=raw,if=floppy,index=0", "-boot", "order=a"]
         else:
             args += ["-boot", "order=c"]
         args += extra_args or []
         self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE)
+                                     stderr=subprocess.PIPE, cwd=self.dir)
         self.started = time.monotonic()
         self.exit_code: int | None = None       # what the guest wrote to port 0xF4
         self.reset = False                      # the machine reset (triple fault)
@@ -365,3 +381,127 @@ _CP437 = {0xB0: "░", 0xB1: "▒", 0xB2: "▓", 0xDB: "█", 0xDC: "▄", 0xDF:
           0xDA: "┌", 0xBF: "┐", 0xC0: "└", 0xD9: "┘", 0xCD: "═", 0xBA: "║", 0xC9: "╔", 0xBB: "╗",
           0xC8: "╚", 0xBC: "╝", 0x01: "☺", 0x02: "☻", 0x03: "♥", 0x04: "♦", 0x05: "♣", 0x06: "♠",
           0xFE: "■", 0x07: "•", 0x10: "►", 0x11: "◄", 0x1E: "▲", 0x1F: "▼", 0xF9: "·"}
+
+
+EXCEPTIONS = {0: ("#DE", "divide error"), 1: ("#DB", "debug"), 2: ("NMI", "non-maskable interrupt"),
+              3: ("#BP", "breakpoint"), 4: ("#OF", "overflow"), 5: ("#BR", "bound range"),
+              6: ("#UD", "invalid opcode"), 7: ("#NM", "device not available"),
+              8: ("#DF", "double fault"), 10: ("#TS", "invalid TSS"),
+              11: ("#NP", "segment not present"), 12: ("#SS", "stack-segment fault"),
+              13: ("#GP", "general protection"), 14: ("#PF", "page fault"),
+              16: ("#MF", "x87 error"), 17: ("#AC", "alignment check"), 18: ("#MC", "machine check"),
+              19: ("#XM", "SIMD error")}
+_SELECTOR_ERRORS = {10, 11, 12, 13}
+
+
+def describe_vector(v: int) -> str:
+    name, what = EXCEPTIONS.get(v, (f"vector {v}", "an interrupt"))
+    return f"{name} ({what}, vector {v})" if v in EXCEPTIONS else f"vector {v}"
+
+
+def describe_error(v: int, e: int, cr2: int | None = None) -> str:
+    if v == 14:
+        bits = ["present page (a protection violation)" if e & 1 else "page not present",
+                "write" if e & 2 else "read", "from ring 3" if e & 4 else "from ring 0"]
+        if e & 16:
+            bits.append("instruction fetch")
+        return f"error code {e:#x}: {', '.join(bits)}" + (f"; the address (cr2) was {cr2:#x}" if cr2 is not None else "")
+    if v in _SELECTOR_ERRORS:
+        if e == 0:
+            return "error code 0"
+        table = "IDT" if e & 2 else "LDT" if e & 4 else "GDT"
+        idx = e >> 3
+        what = f"IDT entry {idx} (the gate for vector {idx})" if table == "IDT" else \
+            f"selector {e & 0xFFF8:#x}: {table} entry {idx}"
+        return f"error code {e:#x}: {what}" + (" (while delivering an interrupt)" if e & 1 else "")
+    return f"error code {e:#x}"
+
+
+def fault_chain(log: str) -> list[dict]:
+    """The exceptions QEMU logged (-d int) since the last CPU reset that preceded a
+    triple fault: [{vector, error, cs, eip, cpl, idt, gdt, cr0, cr2}], oldest first."""
+    end = log.rfind("Triple fault")
+    if end < 0:
+        return []
+    start = log.rfind("CPU Reset", 0, end)
+    text = log[start if start >= 0 else 0:end]
+    out = []
+    for m in re.finditer(r"v=([0-9a-f]+) e=([0-9a-f]+) i=(\d) cpl=(\d) IP=([0-9a-f]+):([0-9a-f]+)"
+                         r"(.*?)(?=\n\s*\d+: v=|\Z)", text, re.S):
+        v, e, soft = int(m.group(1), 16), int(m.group(2), 16), m.group(3) == "1"
+        regs = parse_registers(m.group(7))
+        out.append({"vector": v, "error": e, "software": soft, "cpl": int(m.group(4)),
+                    "cs": int(m.group(5), 16), "eip": int(m.group(6), 16),
+                    "idt": (regs.values.get("idt_base"), regs.values.get("idt_limit")),
+                    "gdt": (regs.values.get("gdt_base"), regs.values.get("gdt_limit")),
+                    "cr0": regs.values.get("cr0"), "cr2": regs.values.get("cr2")})
+    # the exceptions that led to the reset: the last #DF and the one it interrupted
+    df = max((k for k, f in enumerate(out) if f["vector"] == 8 and not f["software"]), default=None)
+    if df is None:
+        return out[-1:]
+    return out[max(df - 1, 0):df + 1]
+
+
+def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
+    """The game's fault explainer: how a triple fault happened, in words."""
+    chain = fault_chain(log)
+    if not chain:
+        return ("the machine reset (a triple fault, or a jump to the reset vector); the log has "
+                "no exceptions before it")
+    lines = ["the machine reset: a triple fault. The exceptions before it:"]
+    first = None
+    for f in chain:
+        v = f["vector"]
+        if v == 8:
+            lines.append(f"  - then {describe_vector(8)}: delivering that exception faulted too")
+            continue
+        if first is None:
+            first = f
+        if f["software"]:
+            lines.append(f"  - int {v} at {f['cs']:04x}:{f['eip']:08x}{where(f['cs'], f['eip'])}")
+        else:
+            lines.append(f"  - {describe_vector(v)} at {f['cs']:04x}:{f['eip']:08x}"
+                         f"{where(f['cs'], f['eip'])}, {describe_error(v, f['error'], f['cr2'])}")
+    lines.append("  - then a fault while delivering #DF: the CPU gives up and resets" if any(
+        f["vector"] == 8 for f in chain) else
+        "  - delivering it faulted twice in a row: the CPU gave up and reset")
+    if first is not None:
+        base, limit = first["idt"]
+        v = first["vector"]
+        pe = (first["cr0"] or 0) & 1
+        if pe and base is not None and limit is not None:
+            if base == 0 and limit == 0x3FF:
+                lines.append("Why delivering failed: the IDT register still holds the real-mode "
+                             "table (base 0, limit 0x3ff): no protected-mode IDT is loaded (lidt).")
+            elif v * 8 + 7 > limit:
+                lines.append(f"Why delivering failed: the IDT's limit is {limit:#x}, so it has "
+                             f"{(limit + 1) // 8} gates, and vector {v} isn't one of them.")
+            else:
+                lines.append(f"Why delivering failed: vector {v}'s gate (at IDT base {base:#x} + "
+                             f"{v * 8:#x}) is invalid: not present, the wrong type, or a bad "
+                             "code selector.")
+    return "\n".join(lines)
+
+
+# ---- building the game's own code (modules, reference kernels) for tests -----------------
+
+def assemble_flat(text: str) -> bytes:
+    """`nasm -f bin` of NASM source text: the game's modules for kernel levels."""
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "m.asm").write_text(text)
+        r = subprocess.run(["nasm", "-f", "bin", "-o", f"{d}/m.bin", f"{d}/m.asm"], capture_output=True,
+                           text=True)
+        if r.returncode:
+            raise BuildError(f"the game's module failed to assemble:\n{r.stderr}")
+        return (Path(d) / "m.bin").read_bytes()
+
+
+def link_kernel(source: Path, out_dir: Path) -> Path:
+    """A multiboot kernel from a NASM source file (for a level's own reference runs)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    obj, elf = out_dir / "k.o", out_dir / "k.elf"
+    subprocess.run(["nasm", "-f", "elf32", "-o", str(obj), str(source)], check=True, capture_output=True)
+    subprocess.run(["ld", "-m", "elf_i386", "--no-warn-rwx-segments", "-T",
+                    str(Path(__file__).parent / "multiboot.ld"), "-o", str(elf), str(obj)],
+                   check=True, capture_output=True)
+    return elf

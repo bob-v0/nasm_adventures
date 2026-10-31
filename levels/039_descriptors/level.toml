@@ -1,0 +1,16 @@
+level = 39
+slug = "descriptors"
+title = "Descriptors"
+arc = "XII"
+mode = "boot"
+concepts = ["protected mode's segments: descriptors in a table, not segment × 16", "the GDT and the GDTR", "a descriptor: base, limit, access byte, flags, scattered over 8 bytes", "granularity: a 20-bit limit in bytes or in 4 KiB pages", "the flat model: every segment from 0 to 4 GiB", "selectors: index × 8 + table + RPL"]
+introduces = ["GDT", "lgdt", "segment descriptors", "access byte", "G / D flags", "selectors"]
+
+hints = [
+  "A descriptor, as 8 bytes: dw limit[0:15] / dw base[0:15] / db base[16:23] / db access / db flags << 4 | limit[16:19] / db base[24:31]. For flat segments the base is 0 and the limit 0xFFFFF.",
+  "Access byte: P (bit 7) = 1, DPL (bits 5-6) = 0, S (bit 4) = 1 for code/data, then the type: 1010 for code you can execute and read, 0010 for data you can read and write. That's 0x9A and 0x92. Flags: G (bit 3) = 1 (limit in 4 KiB units: 0xFFFFF means 4 GiB), D (bit 2) = 1 (32-bit): 0xC.",
+  "lgdt reads a 6-byte pointer: dw limit (the table's size minus one: 3 entries × 8 − 1 = 23), dd base (the table's linear address: with org 0x7C00, the label itself).",
+]
+
+[constraints]
+max_instructions = 20

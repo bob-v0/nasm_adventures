@@ -219,7 +219,7 @@ def cmd_debug(args, prog: Progress) -> int:
         s = Session(b)
     else:
         lv = get_level(args.level, prog)
-        if lv.mode == "boot":
+        if lv.mode in ("boot", "multiboot"):
             return _debug_boot(lv, prog, Path(args.file) if args.file else None)
         if lv.mode == "native":
             raise CliError("this level runs natively with the C library, which `ring debug` can't "
@@ -250,15 +250,37 @@ def _debug_boot(lv, prog: Progress, file: Path | None) -> int:
     if not qemu.available() or not shutil.which("gdb"):
         raise CliError("this needs qemu-system-x86_64 and gdb (both are in the game's Docker image)")
     d = Path(tempfile.mkdtemp(prefix="ring-gdb-"))
+    kernel = lv.mode == "multiboot"
     disk = d / "disk.img"
-    disk.write_bytes(b.elf.read_bytes().ljust(64 * 512, b"\0"))
+    if kernel:                    # with the first public test's command line and modules
+        boot = ["-kernel", str(b.elf)]
+        tests = lv.all_tests(context(prog), include_hidden=False)
+        inj = tests[0].inject if tests else {}
+        boot += ["-append", inj.get("cmdline", "")]
+        mods = []
+        for n, h in enumerate(inj.get("modules", [])):
+            (d / f"module{n}.bin").write_bytes(bytes.fromhex(h))
+            mods.append(str(d / f"module{n}.bin"))
+        if mods:
+            boot += ["-initrd", ",".join(mods)]
+    else:
+        disk.write_bytes(b.elf.read_bytes().ljust(64 * 512, b"\0"))
+        boot = ["-drive", f"file={disk},format=raw,if=ide,index=0"]
     # (qemu-system-i386: the same PC, but gdb accepts its registers in 16-bit mode)
     q = subprocess.Popen(["qemu-system-i386" if shutil.which("qemu-system-i386") else
                           "qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
-                          "-drive", f"file={disk},format=raw,if=ide,index=0", "-serial", f"file:{d / 'serial.txt'}",
+                          *boot, "-serial", f"file:{d / 'serial.txt'}",
                           "-no-reboot", "-S", "-gdb", "tcp:127.0.0.1:1234"])
     script = d / "gdbinit"
-    script.write_text("target remote 127.0.0.1:1234\nset architecture i8086\n"
+    if kernel:                    # 32-bit, with the kernel's symbols and source lines
+        script.write_text(f"file {b.elf}\ntarget remote 127.0.0.1:1234\n"
+                          "set disassembly-flavor intel\nbreak _start\ndisplay/i $pc\n"
+                          "echo \\nStopped at the reset vector. `continue` runs the BIOS and "
+                          "QEMU's multiboot loader up to _start;\\nthen `si`, `next`, "
+                          "`info registers`, `x/16xw $esp`, `break label`.\\n\n"
+                          f"echo The serial port goes to {d / 'serial.txt'}.\\n\\n\n")
+    else:
+        script.write_text("target remote 127.0.0.1:1234\nset architecture i8086\n"
                       "set disassembly-flavor intel\nbreak *0x7c00\ndisplay/i $cs*16 + $pc\n"
                       "echo \\nStopped at the reset vector, F000:FFF0. `continue` runs the BIOS up "
                       "to your boot sector,\\n`si` steps one instruction; also `info registers`, "

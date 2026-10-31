@@ -1,0 +1,16 @@
+level = 38
+slug = "the_switch"
+title = "The Switch"
+arc = "XII"
+mode = "boot"
+concepts = ["CR0.PE: the bit that turns protected mode on", "the far jump that loads cs from the GDT", "bits 32: telling NASM the code changed", "reloading every data segment register", "no BIOS any more: it's real-mode code", "interrupts off until there's an IDT"]
+introduces = ["cr0", "PE", "jmp 0x08:label", "bits 32", "32-bit addressing"]
+
+hints = [
+  "The switch: cli, lgdt, then mov eax, cr0 / or eax, 1 / mov cr0, eax. The CPU is now in protected mode but still runs with the old cs (the one cached from real mode): a far jump, jmp 0x08:label, loads cs from GDT entry 1 and starts 32-bit execution.",
+  "After the jump the code is 32-bit: put `bits 32` before the label, or NASM keeps producing 16-bit encodings and everything decodes wrong. Then mov ax, 0x10 and into ds, es, fs, gs, ss, and mov esp, somewhere free (0x90000).",
+  "The BIOS is gone (int 0x10 is real-mode code, and there's no IDT). The screen at 0xB8000 and COM1 work as before, with 32-bit addresses: mov edi, 0xB8000 needs no segment.",
+]
+
+[constraints]
+max_instructions = 60

@@ -42,7 +42,11 @@ def build_solution(level: Level, src: Path) -> Build:
     if not src.exists():
         raise BuildError(f"{src} does not exist. Start the level first.")
     b = build(src, src.parent / ".build", level.mode, **level.build_options())
-    if level.mode == "boot":
+    if level.mode == "multiboot":
+        # A kernel: boot it yourself with
+        #   qemu-system-i386 -kernel solution.elf -serial stdio -display none
+        shutil.copy(b.elf, src.parent / (src.stem + ".elf"))
+    elif level.mode == "boot":
         # A disk image: boot it yourself with
         #   qemu-system-x86_64 -drive format=raw,file=solution.img -display curses
         shutil.copy(b.elf, src.parent / (src.stem + ".img"))

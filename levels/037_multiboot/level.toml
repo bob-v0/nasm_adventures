@@ -1,0 +1,19 @@
+level = 37
+slug = "multiboot"
+title = "Multiboot"
+arc = "XII"
+mode = "multiboot"
+concepts = ["boot loaders and the multiboot standard", "the multiboot header: magic, flags, checksum", "the machine state a loader promises: protected mode, flat segments, eax and ebx", "the multiboot information structure", "modules: files loaded next to the kernel", "an ELF kernel linked at 1 MiB"]
+introduces = ["the multiboot header", "0x2BADB002", "the info structure (flags, mem_lower, mem_upper, cmdline, mods)", "section .multiboot", "nasm -f elf32"]
+
+hints = [
+  "The header: three dwords in `section .multiboot` (the game's linker script puts that section first, where the loader looks), 4-byte aligned: 0x1BADB002, the flags (bit 0: page-align the modules, bit 1: give memory information), and a checksum such that the three add up to 0: -(magic + flags).",
+  "At _start: eax = 0x2BADB002, ebx = the address of the information structure. Its offsets: +0 flags, +4 mem_lower (KiB below 1 MiB), +8 mem_upper (KiB above 1 MiB), +16 cmdline (a pointer to a C string), +20 mods_count, +24 mods_addr (a pointer to 16-byte entries: mod_start, mod_end, string, reserved).",
+  "There's no stack yet: reserve one in .bss (resb 4096 and a label after it) and mov esp to it before the first call. Printing a number in decimal: divide by 10 repeatedly, push the remainders, pop them off as digits.",
+]
+
+[constraints]
+max_instructions = 120
+
+[random]
+count = 2

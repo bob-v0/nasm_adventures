@@ -147,7 +147,9 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         asm_input, line_offset = source, 0
 
     obj, elf, lst = out_dir / "solution.o", out_dir / "solution", out_dir / "solution.lst"
-    if link == "bin" or mode == "boot":    # no linker: NASM's output is the file
+    if mode == "multiboot":                # a 32-bit ELF kernel for QEMU's multiboot loader
+        cmd = ["nasm", "-f", "elf32", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
+    elif link == "bin" or mode == "boot":    # no linker: NASM's output is the file
         cmd = ["nasm", "-f", "bin", "-l", str(lst), "-o", str(elf)]
     else:
         cmd = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
@@ -162,6 +164,17 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
     if r.returncode != 0:
         raise BuildError(msgs)
 
+    if mode == "multiboot":
+        script = Path(__file__).parent / "multiboot.ld"
+        r = _run(["ld", "-m", "elf_i386", "--no-warn-rwx-segments", "-T", str(script), "-o", str(elf), str(obj)],
+                 source.parent)
+        if r.returncode != 0:
+            raise BuildError(r.stderr.replace(str(obj), "solution.o").strip())
+        b = _inspect(elf, source, "multiboot", player_object=obj)
+        b.warnings = msgs
+        b.listing = lst.read_text()
+        _map_lines(b, b.listing, 0, count_lines=text.count("\n") + 1)
+        return b
     if mode == "boot":
         # A disk image for QEMU (Arcs XI-XIV): sector 0 is what the BIOS loads at 0x7C00.
         b = Build(elf=elf, source=source, mode=mode, entry=0x7C00, symbols={}, sections={},

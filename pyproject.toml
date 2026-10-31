@@ -19,5 +19,5 @@ ring = "ring.cli:main"
 packages = ["ring", "ring.web"]
 
 [tool.setuptools.package-data]
-ring = ["docs/*.toml", "bin/*.asm", "bin/*.inc", "runtime/*.asm"]
+ring = ["docs/*.toml", "bin/*.asm", "bin/*.inc", "runtime/*.asm", "*.ld"]
 "ring.web" = ["static/*", "static/vendor/*"]

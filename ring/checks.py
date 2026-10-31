@@ -9,7 +9,7 @@ import struct
 import re
 from dataclasses import dataclass, field
 
-from capstone import CS_ARCH_X86, CS_MODE_16, CS_MODE_64, Cs
+from capstone import CS_ARCH_X86, CS_MODE_16, CS_MODE_32, CS_MODE_64, Cs
 from elftools.elf.elffile import ELFFile
 
 from .build import Build
@@ -60,6 +60,13 @@ class Report:
 
 def disassemble(build: Build) -> list[tuple[int, str, str]]:
     """(address, mnemonic, operands) for the player's code."""
+    if build.mode == "multiboot":           # 32-bit code: the kernel's .text
+        with open(build.elf, "rb") as fh:
+            sec = ELFFile(fh).get_section_by_name(".text")
+            code, start = (sec.data(), sec["sh_addr"]) if sec else (b"", 0)
+        md = Cs(CS_ARCH_X86, CS_MODE_32)
+        md.skipdata = True
+        return [(i.address, i.mnemonic, i.op_str) for i in md.disasm(code, start)]
     if build.mode == "boot":                # 16-bit code: the listing's instruction lines
         md = Cs(CS_ARCH_X86, CS_MODE_16)
         image = build.elf.read_bytes()
@@ -228,7 +235,20 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
     from . import qemu
     image = build.elf.read_bytes()
     exp, inj = test.expect, test.inject
-    if len(image) < 512 or image[510:512] != b"\x55\xAA":
+    kernel = build.mode == "multiboot"
+    if kernel:
+        header = next((k for k in range(0, min(len(image), 8192) - 11, 4)
+                       if image[k:k + 4] == b"\x02\xb0\xad\x1b"), None)
+        problem = None
+        if header is None:
+            problem = ("QEMU can't boot this: no multiboot header (dd 0x1BADB002, flags, checksum) "
+                       "in the first 8 KiB of the kernel: put it in `section .multiboot`")
+        elif sum(int.from_bytes(image[header + 4 * i:header + 4 * i + 4], "little")
+                 for i in range(3)) & 0xFFFFFFFF:
+            problem = "the multiboot header's checksum is wrong: magic + flags + checksum must be 0"
+        if problem:
+            return TestResult(test.name, test.hidden, False, [problem], 0)
+    elif len(image) < 512 or image[510:512] != b"\x55\xAA":
         got = image[510:512].hex(" ") if len(image) >= 512 else f"only {len(image)} bytes"
         return TestResult(test.name, test.hidden, False, [
             "the BIOS won't boot this: a boot sector is 512 bytes and ends with the bytes "
@@ -245,7 +265,10 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                 f"your image is {len(image)} bytes: this level's disk has the game's code from "
                 "sector 2 on, so yours must be exactly one sector (512 bytes)"], 0)
         image = image + bytes.fromhex(inj["append"])
-    with qemu.Run(image, profile=inj.get("bios", "seabios"), disk_size=inj.get("disk_size", 0),
+    with qemu.Run(b"" if kernel else image, profile=inj.get("bios", "seabios"),
+                  disk_size=inj.get("disk_size", 0),
+                  kernel=build.elf if kernel else None, cmdline=inj.get("cmdline", ""),
+                  modules=[bytes.fromhex(m) for m in inj.get("modules", [])],
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
                   if note else None) as run:
@@ -262,13 +285,19 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
         screen = run.screen() if run.alive else []
         serial = run.serial()
         if why == "reset":
-            problems.append("the machine reset: a triple fault (an exception while the CPU "
-                            "couldn't deliver one, e.g. no valid interrupt table) or a jump "
-                            "to the reset vector" + _boot_where(build, run))
+            log = (run.dir / "qemu.log").read_text(errors="replace") \
+                if (run.dir / "qemu.log").exists() else ""
+
+            def where(cs, eip):
+                addr = eip if kernel else (cs * 16 + eip if eip < 0x10000 else eip)
+                line = build.addr_to_line.get(addr)
+                return f" (line {line})" if line else ""
+            problems.append(qemu.explain_triple_fault(log, where))
         elif why == "timeout" and until == "halt":
+            here = (regs["eip"] if kernel or regs and regs["cr0"] & 1 else
+                    regs["cs"] * 16 + regs["eip"]) if regs else None
             where = f" (it's at {regs['cs']:04x}:{regs['eip']:04x}" + (
-                f", line {build.addr_to_line[regs['cs'] * 16 + regs['eip']]}"
-                if regs and regs["cs"] * 16 + regs["eip"] in build.addr_to_line else "") + ")" \
+                f", line {build.addr_to_line[here]}" if here in build.addr_to_line else "") + ")" \
                 if regs else ""
             problems.append(f"didn't halt within {exp.get('timeout', qemu.TIMEOUT_S):g} seconds"
                             f"{where}: end with cli and hlt")
@@ -322,20 +351,8 @@ def _compare_text(what: str, want: bytes, got: bytes) -> str:
     return f"{what}: expected {w!r}, got {g!r} (they differ from character {k}, on line {line})"
 
 
-def _boot_where(build: Build, run) -> str:
-    log = (run.dir / "qemu.log").read_text(errors="replace") if (run.dir / "qemu.log").exists() else ""
-    dumps = log.split("CPU Reset")
-    if len(dumps) < 3:
-        return ""
-    from .qemu import parse_registers
-    r = parse_registers(dumps[-1])
-    addr = r.values.get("cs_base", 0) + r.values.get("eip", 0)
-    line = build.addr_to_line.get(addr)
-    return f"; last at {r['cs']:04x}:{r['eip']:04x}" + (f" (line {line})" if line else "")
-
-
 def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Machine]:
-    if level.mode == "boot":
+    if level.mode in ("boot", "multiboot"):
         return run_boot_test(level, build, test), None
     if level.mode == "native":
         return run_native_test(level, build, test), None

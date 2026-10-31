@@ -231,21 +231,21 @@ id = "XII"
 name = "Protected Mode"
 runner = "qemu"
 levels = [
-  { title = "Descriptors", concepts = "GDT, `lgdt`", gate = "A flat GDT" },
-  { title = "The Switch", concepts = "CR0.PE, far jump, `bits 32`", gate = "Enter protected mode" },
-  { title = "Multiboot", concepts = "multiboot2 header and info", gate = "Boot as a multiboot2 kernel" },
-  { title = "Exceptions", concepts = "IDT, gates, error codes", gate = "Report faulting vector and EIP" },
-  { title = "Triple Fault Hunt", bug = 2, concepts = "reading the fault chain: #GP → #DF → reset", gate = "Fix a kernel that reboots instantly, using the fault explainer" },
-  { title = "Hardware IRQs", concepts = "PIC remap, EOI, `sti`/`cli`", gate = "Timer + keyboard into a ring buffer" },
-  { title = "Interrupt Reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader fires IRQs at every instruction" },
-  { title = "The sti;hlt Race", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through input" },
-  { title = "Paging I", concepts = "CR3, page tables, CR0.PG", gate = "Higher-half alias" },
-  { title = "Page Faults", concepts = "CR2, demand mapping", gate = "Lazy allocation" },
-  { title = "Physical Memory", concepts = "frame allocator", gate = "Bitmap allocator under stress" },
-  { title = "Privilege Rings", concepts = "CPL/DPL/RPL, TSS, `iret` to ring 3", gate = "Drop to ring 3" },
-  { title = "System Calls", concepts = "`int 0x80` gate with DPL 3", gate = "Ring-3 program prints via your kernel" },
-  { title = "Task Switching", concepts = "saving and restoring state", gate = "Cooperative ring-3 tasks" },
-  { title = "Protected Kernel", boss = true, concepts = "everything in the arc", gate = "32-bit preemptive kernel" },
+  { title = "Descriptors", dir = "descriptors", concepts = "GDT, `lgdt`", gate = "A flat GDT" },
+  { title = "The Switch", dir = "the_switch", concepts = "CR0.PE, far jump, `bits 32`", gate = "Enter protected mode" },
+  { title = "Multiboot", dir = "multiboot", concepts = "multiboot2 header and info", gate = "Boot as a multiboot2 kernel" },
+  { title = "Exceptions", dir = "exceptions", concepts = "IDT, gates, error codes", gate = "Report faulting vector and EIP" },
+  { title = "Triple Fault Hunt", dir = "bug_triple_fault", bug = 2, concepts = "reading the fault chain: #GP → #DF → reset", gate = "Fix a kernel that reboots instantly, using the fault explainer" },
+  { title = "Hardware IRQs", dir = "hardware_irqs", concepts = "PIC remap, EOI, `sti`/`cli`", gate = "Timer + keyboard into a ring buffer" },
+  { title = "Interrupt Reentrancy", dir = "bug_irq_reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader fires IRQs at every instruction" },
+  { title = "The sti;hlt Race", dir = "bug_sti_hlt", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through input" },
+  { title = "Paging I", dir = "paging", concepts = "CR3, page tables, CR0.PG", gate = "Higher-half alias" },
+  { title = "Page Faults", dir = "page_faults", concepts = "CR2, demand mapping", gate = "Lazy allocation" },
+  { title = "Physical Memory", dir = "physical_memory", concepts = "frame allocator", gate = "Bitmap allocator under stress" },
+  { title = "Privilege Rings", dir = "privilege_rings", concepts = "CPL/DPL/RPL, TSS, `iret` to ring 3", gate = "Drop to ring 3" },
+  { title = "System Calls", dir = "system_calls", concepts = "`int 0x80` gate with DPL 3", gate = "Ring-3 program prints via your kernel" },
+  { title = "Task Switching", dir = "task_switching", concepts = "saving and restoring state", gate = "Cooperative ring-3 tasks" },
+  { title = "Protected Kernel", dir = "protected_kernel", boss = true, concepts = "everything in the arc", gate = "32-bit preemptive kernel" },
 ]
 
 [[arc]]
