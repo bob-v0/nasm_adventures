@@ -7,7 +7,7 @@ concepts = ["an instruction is bytes: opcode, ModRM, SIB, displacement, immediat
 introduces = ["opcode", "ModRM", "SIB", "disp8 / disp32", "imm8 / imm32", "/digit", "rel8"]
 
 hints = [
-  "Register numbers: eax 0, ecx 1, edx 2, ebx 3, esp 4, ebp 5, esi 6, edi 7. ModRM = mod << 6 | reg << 3 | rm. Register to register: mod = 3. `add eax, ecx` is opcode 01 (add r/m32, r32): r/m = eax (0), reg = ecx (1): 11 001 000 = 0xC8.",
+  "Register numbers: eax 0, ecx 1, edx 2, ebx 3, esp 4, ebp 5, esi 6, edi 7. ModRM = mod << 6 | reg << 3 | rm. Register to register: mod = 3. `mov ebx, eax` is opcode 89 (mov r/m32, r32): r/m = ebx (3), reg = eax (0): 11 000 011 = 0xC3, so the line is db 0x89, 0xC3.",
   "Memory at [rsp-8]: r/m = 4 means 'a SIB byte follows' (that's why rsp needs one), mod = 1 means 'an 8-bit displacement follows'. SIB = scale << 6 | index << 3 | base; index 4 means none: [rsp] is SIB 0x24. Then the displacement byte: −8 = 0xF8. lea edi, [rax+rcx*2+16]: SIB with scale 1 (×2), index ecx, base eax, disp8 16.",
   "Group opcodes keep part of the opcode in the reg field: 83 /5 ib is sub r/m32, imm8 (reg = 5), C1 /4 ib is shl, F7 /3 is neg, FF /0 inc, FF /1 dec, C6 /0 ib mov byte. Jumps: 75 cb is jnz rel8, counted from the END of the jnz: back to the add is −6.",
 ]

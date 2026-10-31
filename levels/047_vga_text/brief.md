@@ -4,9 +4,11 @@
 
 ## Lesson: the screen is memory
 
-In text mode, the VGA card shows a grid of 80 × 25 **cells** stored in memory at physical
-**B8000** (segment 0xB800). Writing a byte there changes the screen immediately: this is
-**memory-mapped I/O**. Each cell is two bytes:
+In text mode, the VGA card shows a grid of 80 × 25 **cells**, stored in memory at
+physical **B8000** (segment 0xB800). Writing a byte there changes the screen at once.
+Devices that you control by writing memory like this use **memory-mapped I/O**.
+
+Each cell is two bytes: the character, then its **attribute** (its colours):
 
 ```
   byte 0: the character (code page 437)     byte 1: the attribute
@@ -14,7 +16,9 @@ In text mode, the VGA card shows a grid of 80 × 25 **cells** stored in memory a
                                               blink background foreground
 ```
 
-Cell (row, column) is at offset `row × 160 + column × 2`.
+![A cell: the character byte and the attribute byte's bit fields](cell.svg)
+
+Cell (row, column) is at offset `row × 160 + column × 2` (160 = 80 cells × 2 bytes).
 
 | colour | value | | colour | value |
 |---|---|---|---|---|
@@ -27,23 +31,26 @@ Cell (row, column) is at offset `row × 160 + column × 2`.
 | brown | 6 | | yellow | E |
 | light grey | 7 | | white | F |
 
-Attribute 0x1E is yellow (E) on blue (1). Backgrounds are 0-7 (bit 7 is blink).
+Example: attribute 0x1E is yellow (E) on blue (1). Backgrounds only go from 0 to 7,
+because bit 7 is blink.
 
-**Code page 437**, the PC's original character set, has line and block characters above
-127: `C9 ╔  CD ═  BB ╗  BA ║  C8 ╚  BC ╝`, `C4 ─  B3 │`, `DB █  B0 ░`.
+**Code page 437**, the PC's original character set, has line and block characters
+above 127: `C9 ╔  CD ═  BB ╗  BA ║  C8 ╚  BC ╝`, `C4 ─  B3 │`, `DB █  B0 ░`.
 
 ## Lesson: filling memory
 
 `stosw` stores ax at es:di and advances di by 2 (if the direction flag is clear: `cld`).
-`rep stosw` does it cx times: one instruction fills the whole screen.
+`rep stosw` does it cx times, so one instruction can fill the whole screen. With al =
+the character and ah = the attribute, each stosw draws one cell.
 
 ## Lesson: the cursor
 
-The blinking cursor isn't in memory: it's in the VGA's CRT controller, reached through
-I/O **ports** (level 46): write register 0x0F (cursor low byte) and 0x0E (high byte) of
-the position row × 80 + column, by writing the register number to port 0x3D4 and the value
-to port 0x3D5. Not graded here; try it in QEMU (`-display curses`).
+The blinking cursor isn't in video memory: it's in the VGA's CRT controller, reached
+through I/O **ports** (level 46). Its position is row × 80 + column. Write register
+number 0x0F (the position's low byte) to port 0x3D4, then the value to port 0x3D5; same
+for register 0x0E (the high byte). Not graded here; try it in QEMU (`-display curses`).
 
 ## Gate
 
-The exact screen in the starter, drawn by writing video memory (no `int`).
+Draw the exact screen described in the starter by writing video memory, then halt. No
+`int` instructions (the tests check). Every cell's character and attribute must match.

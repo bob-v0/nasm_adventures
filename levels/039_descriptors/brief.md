@@ -5,13 +5,16 @@ table that tells the CPU what a segment is.*
 
 ## Lesson: segments become descriptors
 
-In real mode a segment register holds a number that is multiplied by 16. In **protected
-mode** it holds a **selector**, an index into a table of **segment descriptors**, and the
-descriptor says where the segment starts (its **base**), how long it is (its **limit**),
-and what may be done with it: execute, read, write, at which privilege level.
+In real mode a segment register holds a number that the CPU multiplies by 16. In
+**protected mode** it holds a **selector**: an index into a table of **segment
+descriptors**. Each descriptor says three things about its segment:
 
-The table is the **GDT**, the global descriptor table, wherever you put it in memory. The
-CPU finds it through the **GDTR** register, loaded with `lgdt [pointer]` from 6 bytes:
+- where it starts (its **base**);
+- how long it is (its **limit**);
+- what may be done with it: execute, read, write, and at which privilege level.
+
+The table is the **GDT**, the global descriptor table. It can be anywhere in memory; the
+CPU finds it through the **GDTR** register, which `lgdt [pointer]` loads from 6 bytes:
 
 ```
 gdt_pointer:
@@ -21,7 +24,7 @@ gdt_pointer:
 
 ## Lesson: a descriptor
 
-Eight bytes, with the fields scattered for compatibility with the 286:
+A descriptor is eight bytes, with the fields scattered for compatibility with the 286:
 
 ```
  byte:   0-1          2-3         4          5          6                   7
@@ -33,19 +36,31 @@ Eight bytes, with the fields scattered for compatibility with the 286:
  flags:  G D L 0             G = limit counts 4 KiB pages, D = 32-bit, L = 64-bit
 ```
 
+![The flat code descriptor, byte by byte, with its access byte and flags](descriptor.svg)
+
 Entry 0 must be the **null descriptor** (all zeros): selector 0 means "no segment".
 
 ## Lesson: the flat model
 
 Every 32-bit OS (Linux, Windows, the BSDs) uses segments as little as possible: one code
-and one data segment, both with base 0 and a limit of 4 GiB (0xFFFFF in 4 KiB units). Then
-an address is just an address, and protection comes from paging (level 31) instead.
+and one data segment, both with base 0 and a limit of 4 GiB (0xFFFFF in 4 KiB units).
+Then an address is just an address, and protection comes from paging (level 31)
+instead.
 
-A **selector** is the entry's offset: entry 1 is 0x08, entry 2 is 0x10. Its low 3 bits
-are flags (bit 2: the LDT instead of the GDT; bits 0-1: the requested privilege, RPL),
-which is why entries are 8 bytes apart.
+A **selector** is the entry's offset in the table: entry 1 is 0x08, entry 2 is 0x10.
+That works because entries are 8 bytes apart, which leaves a selector's low 3 bits free
+for flags: bit 2 picks the LDT instead of the GDT, and bits 0–1 are the requested
+privilege (RPL).
 
 ## Gate
 
-A GDT with the null descriptor, a flat 32-bit ring-0 code segment (0x08) and a flat data
-segment (0x10), loaded with `lgdt`. The game reads GDTR and checks each field.
+Build a GDT and load it with `lgdt` (staying in real mode: level 38 switches), then
+halt:
+
+| entry | selector | descriptor |
+|---|---|---|
+| 0 | 0x00 | the null descriptor |
+| 1 | 0x08 | code: base 0, 4 GiB, ring 0, execute/read, 32-bit |
+| 2 | 0x10 | data: base 0, 4 GiB, ring 0, read/write, 32-bit |
+
+The game reads GDTR (its limit must be 0x17, for three entries) and checks each field.

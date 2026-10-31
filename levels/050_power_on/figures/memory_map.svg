@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 390" width="720" font-family="sans-serif" font-size="14">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect width="720" height="390" fill="#ffffff"/>
+<text x="360.0" y="22" font-size="15" text-anchor="middle" fill="#222" font-weight="bold">The first megabyte in real mode (not to scale)</text>
+<rect x="170" y="40" width="250" height="46" fill="#f4c7c3" stroke="#222"/>
+<text x="295.0" y="68.0" font-size="13" text-anchor="middle" fill="#222">BIOS ROM</text>
+<text x="162" y="52" font-size="12" text-anchor="end" fill="#555" font-family="monospace">FFFFF</text>
+<text x="162" y="83" font-size="12" text-anchor="end" fill="#555" font-family="monospace">F0000</text>
+<text x="432" y="68.0" font-size="12" text-anchor="start" fill="#333">the reset vector at FFFF0 (F000:FFF0)</text>
+<rect x="170" y="86" width="250" height="32" fill="#eeeeee" stroke="#222"/>
+<text x="295.0" y="107.0" font-size="13" text-anchor="middle" fill="#222">video BIOS and other ROMs</text>
+<text x="162" y="98" font-size="12" text-anchor="end" fill="#555" font-family="monospace">EFFFF</text>
+<text x="162" y="115" font-size="12" text-anchor="end" fill="#555" font-family="monospace">C0000</text>
+<rect x="170" y="118" width="250" height="40" fill="#c9daf8" stroke="#222"/>
+<text x="295.0" y="143.0" font-size="13" text-anchor="middle" fill="#222">video memory</text>
+<text x="162" y="130" font-size="12" text-anchor="end" fill="#555" font-family="monospace">BFFFF</text>
+<text x="162" y="155" font-size="12" text-anchor="end" fill="#555" font-family="monospace">A0000</text>
+<text x="432" y="143.0" font-size="12" text-anchor="start" fill="#333">text mode: B8000 (segment 0xB800)</text>
+<rect x="170" y="158" width="250" height="32" fill="#eeeeee" stroke="#222"/>
+<text x="295.0" y="179.0" font-size="13" text-anchor="middle" fill="#222">extended BIOS data area (typical)</text>
+<text x="162" y="170" font-size="12" text-anchor="end" fill="#555" font-family="monospace">9FFFF</text>
+<text x="162" y="187" font-size="12" text-anchor="end" fill="#555" font-family="monospace">9FC00</text>
+<rect x="170" y="190" width="250" height="50" fill="#ffffff" stroke="#222"/>
+<text x="295.0" y="220.0" font-size="13" text-anchor="middle" fill="#222">free</text>
+<text x="162" y="202" font-size="12" text-anchor="end" fill="#555" font-family="monospace">9FBFF</text>
+<text x="162" y="237" font-size="12" text-anchor="end" fill="#555" font-family="monospace">07E00</text>
+<text x="432" y="220.0" font-size="12" text-anchor="start" fill="#333">about 600 KiB</text>
+<rect x="170" y="240" width="250" height="30" fill="#d9ead3" stroke="#222"/>
+<text x="295.0" y="260.0" font-size="13" text-anchor="middle" fill="#222">your boot sector</text>
+<text x="162" y="252" font-size="12" text-anchor="end" fill="#555" font-family="monospace">07DFF</text>
+<text x="162" y="267" font-size="12" text-anchor="end" fill="#555" font-family="monospace">07C00</text>
+<text x="432" y="260.0" font-size="12" text-anchor="start" fill="#333">512 bytes, loaded by the BIOS</text>
+<rect x="170" y="270" width="250" height="40" fill="#ffffff" stroke="#222"/>
+<text x="295.0" y="295.0" font-size="13" text-anchor="middle" fill="#222">free</text>
+<text x="162" y="282" font-size="12" text-anchor="end" fill="#555" font-family="monospace">07BFF</text>
+<text x="162" y="307" font-size="12" text-anchor="end" fill="#555" font-family="monospace">00500</text>
+<text x="432" y="295.0" font-size="12" text-anchor="start" fill="#333">about 30 KiB: a usual place for the stack</text>
+<rect x="170" y="310" width="250" height="32" fill="#fff2cc" stroke="#222"/>
+<text x="295.0" y="331.0" font-size="13" text-anchor="middle" fill="#222">BIOS data area (BDA)</text>
+<text x="162" y="322" font-size="12" text-anchor="end" fill="#555" font-family="monospace">004FF</text>
+<text x="162" y="339" font-size="12" text-anchor="end" fill="#555" font-family="monospace">00400</text>
+<rect x="170" y="342" width="250" height="32" fill="#fff2cc" stroke="#222"/>
+<text x="295.0" y="363.0" font-size="13" text-anchor="middle" fill="#222">interrupt vector table (IVT)</text>
+<text x="162" y="354" font-size="12" text-anchor="end" fill="#555" font-family="monospace">003FF</text>
+<text x="162" y="371" font-size="12" text-anchor="end" fill="#555" font-family="monospace">00000</text>
+<text x="432" y="363.0" font-size="12" text-anchor="start" fill="#333">256 vectors × 4 bytes</text>
+<text x="20" y="60" font-size="12" text-anchor="start" fill="#555">physical</text>
+<text x="20" y="76" font-size="12" text-anchor="start" fill="#555">address</text>
+</svg>
