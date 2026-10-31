@@ -78,7 +78,7 @@ ap_entry:
     mov ss, ax
     mov eax, 1                      ; my number: per-CPU data starts with this
     lock xadd [next_cpu], eax
-    inc eax                         ; (the stacks: one each, the first is the BSP's)
+    inc eax                         ; (n + 1: ap_stacks slot n, its top)
     imul eax, eax, STACK_SIZE
     lea esp, [ap_stacks + eax]
     call hello

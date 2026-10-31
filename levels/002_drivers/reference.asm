@@ -383,7 +383,6 @@ read_sectors:
     ; offer descriptor 0's chain: the next available ring slot, then publish the index
     mov ebx, [avail]
     movzx eax, word [ebx + 2]
-    mov edx, eax
     xor edx, edx
     div dword [qsize]
     mov word [ebx + 4 + edx * 2], 0
