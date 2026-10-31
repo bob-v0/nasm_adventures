@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 330" width="700" height="330" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f6fb2"/>
+    </marker>
+  </defs>
+  <rect width="700" height="330" fill="#fff"/>
+  <!-- file -->
+  <text x="150" y="26" text-anchor="middle" font-weight="bold">the file (file offsets)</text>
+  <rect x="80" y="40" width="140" height="80" fill="#fdebd3" stroke="#b35900"/>
+  <text x="150" y="76" text-anchor="middle">ELF header</text>
+  <text x="150" y="94" text-anchor="middle" font-size="12" fill="#555">64 bytes</text>
+  <rect x="80" y="120" width="140" height="70" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="150" y="152" text-anchor="middle">program header</text>
+  <text x="150" y="170" text-anchor="middle" font-size="12" fill="#555">PT_LOAD, 56 bytes</text>
+  <rect x="80" y="190" width="140" height="80" fill="#f4f4f4" stroke="#555"/>
+  <text x="150" y="226" text-anchor="middle">code and data</text>
+  <text x="150" y="244" text-anchor="middle" font-size="12" fill="#555">_start, msg</text>
+  <g font-family="monospace" font-size="13" text-anchor="end" fill="#333">
+    <text x="72" y="45">0</text>
+    <text x="72" y="125">64</text>
+    <text x="72" y="195">120</text>
+    <text x="72" y="275">FILE_SIZE</text>
+  </g>
+  <!-- memory -->
+  <text x="530" y="26" text-anchor="middle" font-weight="bold">memory (virtual addresses)</text>
+  <rect x="460" y="40" width="140" height="230" fill="#fafafa" stroke="#555"/>
+  <line x1="460" y1="120" x2="600" y2="120" stroke="#bbb"/>
+  <line x1="460" y1="190" x2="600" y2="190" stroke="#bbb"/>
+  <text x="530" y="84" text-anchor="middle" fill="#555" font-size="13">(headers too)</text>
+  <text x="530" y="226" text-anchor="middle">_start: ...</text>
+  <g font-family="monospace" font-size="13" fill="#333">
+    <text x="608" y="45">0x400000</text>
+    <text x="608" y="125">0x400040</text>
+    <text x="608" y="195">0x400078</text>
+  </g>
+  <!-- mapping -->
+  <path d="M220,40 L460,40" stroke="#999" stroke-dasharray="5,4"/>
+  <path d="M220,270 L460,270" stroke="#999" stroke-dasharray="5,4"/>
+  <text x="340" y="292" text-anchor="middle" font-size="13" fill="#333">one PT_LOAD maps the whole file</text>
+  <text x="340" y="310" text-anchor="middle" font-size="13" fill="#333">p_offset = 0 → p_vaddr = 0x400000, R+X</text>
+  <!-- pointers -->
+  <path d="M222,60 C300,60 300,140 224,142" fill="none" stroke="#1f6fb2" stroke-width="2" marker-end="url(#b)"/>
+  <text x="286" y="80" font-size="13" fill="#1f6fb2">e_phoff = 64</text>
+  <path d="M222,104 C330,110 360,226 456,226" fill="none" stroke="#1f6fb2" stroke-width="2" marker-end="url(#b)"/>
+  <text x="290" y="226" font-size="13" fill="#1f6fb2">e_entry =</text>
+  <text x="290" y="242" font-size="13" fill="#1f6fb2" font-family="monospace">0x400078</text>
+</svg>

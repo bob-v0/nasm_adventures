@@ -5,19 +5,34 @@
 
 ## Lesson: function pointers
 
-A function's name is an address, so a register or variable can hold it, and you can
-call through it:
+A function's name is just the address of its first instruction. So a register or a
+variable can hold it (a **function pointer**), and you can call through it:
 
 ```
     lea rax, [some_function]
-    call rax                ; indirect call
+    call rax                ; indirect call: call whatever rax points to
     call [table + rcx*8]    ; or through memory, like a jump table
 ```
 
-That's how C function pointers, C++ virtual methods and callbacks work underneath.
-The function you call is **unknown code**: it follows the ABI and nothing more, so it
-may destroy every scratch register. Anything your loop needs across the call (the
-function pointer itself, the array, the counters) lives in callee-saved registers.
+A **callback** is a function you hand to other code so that it can call you back.
+That's how C function pointers, C++ virtual methods and event handlers work
+underneath.
+
+The function you call through a pointer is **unknown code**. It follows the ABI and
+nothing more, so it may destroy every scratch register. Anything your loop needs across
+the call (the function pointer itself, the array, the counters) must live in
+callee-saved registers.
+
+## Lesson: higher-order functions
+
+A **higher-order function** takes a function as an argument. The three classics, on
+the array `[1, 2, 3, 4]`:
+
+| call | result |
+|---|---|
+| `map` with "add 3" | `[4, 5, 6, 7]` |
+| `filter` with "is odd" | `[1, 3]` |
+| `reduce` with "sum", starting from 0 | `10` |
 
 ## Gate
 

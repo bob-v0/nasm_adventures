@@ -8,8 +8,8 @@ introduces = ["%macro", "%endmacro", "%1 %2 ...", "%%label", "%0"]
 
 hints = [
   "`%macro sys_write 3` ... `%endmacro` defines a macro with 3 parameters, used as %1, %2, %3 inside. Its body is pasted wherever you write `sys_write 1, buf, rax`.",
-  "print \"text\": inside the macro, switch to `section .rodata`, define `%%str: db %1` and `%%len equ $ - %%str`, switch back to `section .text`, then expand sys_write 1, %%str, %%len. %% gives each expansion its own labels.",
-  "The program: read up to 256 bytes into a .bss buffer, `print \"you said: \"`, sys_write 1, buffer, rax (the count read), `print \"bye\", 10`, exit 0. Watch out: sys_write's own `mov eax, 1` destroys the count in rax unless you move it first (or load rdx before rax in the macro).",
+  "print \"text\": inside the macro, switch to `section .rodata`, define `%%str: db %1` and `%%len equ $ - %%str`, switch back to `section .text`, then expand sys_write 1, %%str, %%len. %% gives each expansion its own labels. Declare it `%macro print 1+` so `print \"bye\", 10` works.",
+  "The program: read up to 256 bytes into a .bss buffer, `print \"you said: \"`, sys_write 1, buffer, count, `print 10`, `print \"bye\", 10`, exit 0. Watch out: every syscall returns its result in rax, so the `print` right after the read overwrites the count. Move it into a register the macros don't touch (rbx, r12...) first.",
 ]
 
 [constraints]

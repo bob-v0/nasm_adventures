@@ -20,9 +20,11 @@ two new descriptors in an `int fds[2]`: `fds[0]` is the **read end**, `fds[1]` t
 ## Lesson: dup2
 
 `dup2(old, new)` (syscall 33) makes descriptor `new` refer to the same open file as
-`old`, closing whatever `new` was first. Programs read from descriptor 0 and write to 1
-without knowing what they are. So a shell redirects a command by fixing up 0 and 1 in the
-child, between `fork` and `execve`. The descriptors survive the `execve`:
+`old`, closing whatever `new` was first.
+
+Why that's enough to build a pipeline: programs read from descriptor 0 and write to 1
+without knowing what they are. So a shell **redirects** a command by fixing up 0 and 1
+in the child, between `fork` and `execve`. Descriptors survive the `execve`:
 
 ```
 child:  dup2(fds[1], 1)     ; my stdout is now the pipe's write end
@@ -30,6 +32,8 @@ child:  dup2(fds[1], 1)     ; my stdout is now the pipe's write end
         close(fds[1])
         execve(...)
 ```
+
+![A pipeline: the left child's fd 1 is the pipe's write end, the right child's fd 0 its read end](pipeline.svg)
 
 ## Lesson: close what you don't use
 

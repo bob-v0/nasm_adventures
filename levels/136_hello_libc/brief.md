@@ -5,10 +5,12 @@ conventions.*
 
 ## Lesson: main and the C runtime
 
-When you link with gcc, the C runtime's `_start` sets things up and calls **your
-`main`**, a normal function under the ABI. When main returns, the value in `eax` becomes
-the exit status. You declare library functions with `extern` and call them like any
-other:
+**libc**, the C library, is the collection of functions every C program uses:
+`printf`, `scanf`, `malloc` and hundreds more. When you link with gcc, you also get the
+**C runtime**: its `_start` sets things up and calls **your `main`**, a normal
+function under the ABI. When main returns, the value in `eax` becomes the exit status.
+
+You declare library functions with `extern` and call them like any other function:
 
 ```
 extern printf
@@ -35,11 +37,12 @@ your program **natively**, as a real process. Debug it with `gdb ./solution` in
 
 ## Lesson: variadic calls and pointers
 
-`printf` takes a variable number of arguments. For such functions the ABI requires
-**al = the number of vector (xmm) registers** used for arguments, which is 0 for integers
-only. Forgetting it usually works by luck, until it doesn't.
+`printf` is **variadic**: it takes a variable number of arguments. For such functions
+the ABI requires **al = the number of vector (xmm) registers** used for arguments,
+which is 0 when you pass only integers and pointers. Forgetting it usually works by
+luck, until it doesn't.
 
-`scanf("%ld", &n)` needs the **address** of somewhere to put n: a slot you reserved on
+`scanf("%ld", &n)` needs the **address** of a place to put n: a slot you reserved on
 the stack (`lea rsi, [rsp]`) or a variable in `.bss`.
 
 The two rules interact, and you can see it for yourself (measured with glibc 2.39):

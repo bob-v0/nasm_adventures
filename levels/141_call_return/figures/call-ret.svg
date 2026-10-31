@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="arrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f6fb2"/>
+    </marker>
+    <marker id="arro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+  <rect width="640" height="300" fill="#fff"/>
+  <text x="20" y="26" font-weight="bold">Code</text>
+  <g font-family="monospace" font-size="14">
+    <text x="20" y="56" fill="#777">0x401000</text><text x="110" y="56">print_uint:</text>
+    <text x="128" y="80">...</text>
+    <text x="20" y="104" fill="#777">0x401010</text><text x="128" y="104" font-weight="bold">call utoa</text>
+    <text x="20" y="128" fill="#777">0x401015</text><text x="128" y="128">mov rdx, rax</text>
+    <text x="128" y="152">...</text>
+    <text x="20" y="200" fill="#777">0x401040</text><text x="110" y="200">utoa:</text>
+    <text x="128" y="224">...</text>
+    <text x="128" y="248" font-weight="bold">ret</text>
+  </g>
+  <!-- call: jump to utoa -->
+  <path d="M235,99 C300,110 300,180 160,195" fill="none" stroke="#1f6fb2" stroke-width="2" marker-end="url(#arrb)"/>
+  <text x="285" y="150" fill="#1f6fb2">1. call jumps</text>
+  <!-- ret: back to 0x401015 -->
+  <path d="M160,244 C40,270 0,150 105,128" fill="none" stroke="#c0392b" stroke-width="2" marker-end="url(#arro)"/>
+  <text x="22" y="285" fill="#c0392b">3. ret pops 0x401015 and jumps there</text>
+  <!-- stack -->
+  <text x="430" y="26" font-weight="bold">Stack, inside utoa</text>
+  <rect x="430" y="44" width="170" height="40" fill="#eee" stroke="#555"/>
+  <text x="515" y="69" text-anchor="middle" fill="#555">caller's data</text>
+  <rect x="430" y="84" width="170" height="40" fill="#e3effa" stroke="#1f6fb2" stroke-width="2"/>
+  <text x="515" y="109" text-anchor="middle" font-family="monospace">0x401015</text>
+  <text x="515" y="144" text-anchor="middle" fill="#1f6fb2">return address</text>
+  <text x="515" y="162" text-anchor="middle" fill="#1f6fb2">(2. pushed by call)</text>
+  <path d="M640,104 L606,104" stroke="#333" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="606" y="128" font-family="monospace" font-size="13">rsp</text>
+  <text x="430" y="200" fill="#555">higher addresses up,</text>
+  <text x="430" y="218" fill="#555">the stack grows down</text>
+</svg>

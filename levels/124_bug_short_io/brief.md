@@ -12,17 +12,25 @@ bytes.
 ## Background
 
 `read(fd, buf, n)` returns **up to** n bytes: whatever is available right now. For a
-regular file that's usually everything you asked for, which is why the bug hides. For
-pipes, terminals and network sockets, data arrives in pieces: a pipe holds at most 64 KB,
-a terminal hands over one line at a time, a network packet maybe 1500 bytes. Only a return
-value of **0** means "end of input".
+regular file that's usually everything you asked for, which is why bugs here hide. For
+pipes, terminals and network sockets, data arrives in pieces:
 
-`write` has the same property: when the receiver is slow, or the call is interrupted by a
-signal, it can accept fewer bytes than you offered, and the rest is still yours to
-write.
+```
+you ask:     read(0, buf, 4096)
+pipe holds:  "hello wor"           (the rest is still on its way)
+you get:     9
+```
 
-So a correct copy has a loop on each side. Every robust C program wraps these calls in
-helpers like `read_full` / `write_all`.
+A pipe holds at most 64 KB, a terminal hands over one line at a time, a network packet
+maybe 1500 bytes. Getting fewer bytes than you asked for is a **short read**, and it's
+normal. Only a return value of **0** means "end of input".
+
+`write` has the same property, the **short write**: when the receiver is slow, or the
+call is interrupted by a signal, it can accept fewer bytes than you offered. The rest is
+still yours to write.
+
+Every robust C program wraps these calls in helpers like `read_full` / `write_all` for
+this reason.
 
 ## How the game tests it
 

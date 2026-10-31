@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 270" width="680" height="270" font-family="sans-serif" font-size="14">
+  <rect width="680" height="270" fill="#fff"/>
+  <!-- scratch row -->
+  <text x="20" y="30" font-weight="bold" fill="#b35900">Scratch (caller-saved): any call may destroy these</text>
+  <g font-family="monospace" font-size="15" text-anchor="middle">
+    <rect x="20"  y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="52"  y="67">rdi</text>
+    <rect x="92"  y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="124" y="67">rsi</text>
+    <rect x="164" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="196" y="67">rdx</text>
+    <rect x="236" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="268" y="67">rcx</text>
+    <rect x="308" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="340" y="67">r8</text>
+    <rect x="380" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="412" y="67">r9</text>
+    <rect x="452" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="484" y="67">rax</text>
+    <rect x="524" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="556" y="67">r10</text>
+    <rect x="596" y="44" width="64" height="36" rx="5" fill="#fdebd3" stroke="#b35900"/><text x="628" y="67">r11</text>
+  </g>
+  <g font-size="13" text-anchor="middle" fill="#333">
+    <text x="52"  y="98">arg 1</text>
+    <text x="124" y="98">arg 2</text>
+    <text x="196" y="98">arg 3</text>
+    <text x="268" y="98">arg 4</text>
+    <text x="340" y="98">arg 5</text>
+    <text x="412" y="98">arg 6</text>
+    <text x="484" y="98">result</text>
+  </g>
+  <path d="M22,108 L22,114 L410,114 L410,108" fill="none" stroke="#333"/>
+  <text x="216" y="132" font-size="13" text-anchor="middle" fill="#333">arguments, in this order (more go on the stack)</text>
+  <!-- preserved row -->
+  <text x="20" y="176" font-weight="bold" fill="#1f6fb2">Preserved (callee-saved): every function returns them unchanged</text>
+  <g font-family="monospace" font-size="15" text-anchor="middle">
+    <rect x="20"  y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="52"  y="213">rbx</text>
+    <rect x="92"  y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="124" y="213">rbp</text>
+    <rect x="164" y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="196" y="213">r12</text>
+    <rect x="236" y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="268" y="213">r13</text>
+    <rect x="308" y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="340" y="213">r14</text>
+    <rect x="380" y="190" width="64" height="36" rx="5" fill="#e3effa" stroke="#1f6fb2"/><text x="412" y="213">r15</text>
+    <rect x="524" y="190" width="64" height="36" rx="5" fill="#eee" stroke="#555"/><text x="556" y="213">rsp</text>
+  </g>
+  <text x="556" y="246" font-size="13" text-anchor="middle" fill="#333">restored too</text>
+  <text x="20" y="252" font-size="13" fill="#333">use one: push it in the prologue, pop it in the epilogue</text>
+</svg>

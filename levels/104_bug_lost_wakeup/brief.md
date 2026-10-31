@@ -22,7 +22,18 @@ The other side does: change the state (add a value), then wake whoever registere
 
 If the other side runs **between 1 and 2**, it changes the state, finds nobody to wake,
 and moves on. Then you register and sleep, waiting for something that has already
-happened. That's a **lost wakeup**. With threads the window is between two
+happened:
+
+```
+waiting task                          other side
+1. check: empty, so I must wait
+   (others get to run here)  ───────▶ add a value
+                                      wake whoever registered: nobody yet
+2. register my waker         ◀───────
+3. sleep ... forever                  (it won't knock again)
+```
+
+That's a **lost wakeup**. With threads the window is between two
 instructions, which is why condition variables take the mutex into `wait()` and why
 `while (!cond) wait()` is always a loop. With tasks the window is any **await** between
 the check and the sleep, and `note_idle` is one.

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#999"/>
+    </marker>
+  </defs>
+  <rect width="700" height="340" fill="#fff"/>
+  <!-- parent -->
+  <rect x="200" y="14" width="300" height="56" rx="8" fill="#f4f4f4" stroke="#555"/>
+  <text x="350" y="37" text-anchor="middle" font-weight="bold">parent (your program)</text>
+  <text x="350" y="58" text-anchor="middle" font-size="13">pipe, fork twice, close both ends, wait</text>
+  <path d="M260,70 L140,118" stroke="#999" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#g)"/>
+  <path d="M440,70 L560,118" stroke="#999" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#g)"/>
+  <text x="170" y="92" font-size="13" fill="#777" text-anchor="end">fork</text>
+  <text x="530" y="92" font-size="13" fill="#777">fork</text>
+  <!-- left child -->
+  <rect x="20" y="120" width="220" height="160" rx="8" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="130" y="144" text-anchor="middle" font-weight="bold">LEFT child</text>
+  <text x="130" y="163" text-anchor="middle" font-family="monospace" font-size="13">execve /bin/echo</text>
+  <g font-family="monospace" font-size="13">
+    <text x="36" y="196">fd 0  stdin</text>
+    <text x="36" y="220" font-weight="bold">fd 1  pipe write end</text>
+    <text x="36" y="244">fd 2  stderr</text>
+  </g>
+  <text x="36" y="268" font-size="12" fill="#555">dup2(fds[1], 1), then close both</text>
+  <!-- pipe -->
+  <rect x="285" y="190" width="130" height="44" rx="22" fill="#fdebd3" stroke="#b35900"/>
+  <text x="350" y="210" text-anchor="middle" font-size="13">pipe</text>
+  <text x="350" y="226" text-anchor="middle" font-size="12" fill="#555">kernel buffer</text>
+  <path d="M230,216 L281,212" stroke="#333" stroke-width="2.5" marker-end="url(#k)"/>
+  <path d="M419,208 L470,194" stroke="#333" stroke-width="2.5" marker-end="url(#k)"/>
+  <!-- right child -->
+  <rect x="460" y="120" width="220" height="160" rx="8" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="570" y="144" text-anchor="middle" font-weight="bold">RIGHT child</text>
+  <text x="570" y="163" text-anchor="middle" font-family="monospace" font-size="13">execve /bin/wc</text>
+  <g font-family="monospace" font-size="13">
+    <text x="476" y="196" font-weight="bold">fd 0  pipe read end</text>
+    <text x="476" y="220">fd 1  stdout</text>
+    <text x="476" y="244">fd 2  stderr</text>
+  </g>
+  <text x="476" y="268" font-size="12" fill="#555">dup2(fds[0], 0), then close both</text>
+  <text x="350" y="316" text-anchor="middle" font-size="13" fill="#333">Neither program knows about the pipe: echo writes to fd 1, wc reads fd 0.</text>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 470" width="660" height="470" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f6fb2"/>
+    </marker>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="660" height="470" fill="#fff"/>
+  <text x="230" y="22" fill="#555" font-size="13">higher addresses</text>
+  <!-- frame C (outermost) -->
+  <rect x="200" y="34" width="200" height="34" fill="#fdebd3" stroke="#b35900"/>
+  <text x="300" y="56" text-anchor="middle">return address</text>
+  <rect x="200" y="68" width="200" height="34" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="300" y="90" text-anchor="middle" font-family="monospace">saved rbp = 0</text>
+  <rect x="200" y="102" width="200" height="34" fill="#f4f4f4" stroke="#999"/>
+  <text x="300" y="124" text-anchor="middle" fill="#777">locals</text>
+  <text x="420" y="56" fill="#555">outermost frame</text>
+  <!-- frame B -->
+  <rect x="200" y="146" width="200" height="34" fill="#fdebd3" stroke="#b35900"/>
+  <text x="300" y="168" text-anchor="middle">return address</text>
+  <rect x="200" y="180" width="200" height="34" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="300" y="202" text-anchor="middle">saved rbp</text>
+  <rect x="200" y="214" width="200" height="34" fill="#f4f4f4" stroke="#999"/>
+  <text x="300" y="236" text-anchor="middle" fill="#777">locals</text>
+  <!-- frame A: your caller -->
+  <rect x="200" y="258" width="200" height="34" fill="#fdebd3" stroke="#b35900"/>
+  <text x="300" y="280" text-anchor="middle">return address</text>
+  <rect x="200" y="292" width="200" height="34" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="300" y="314" text-anchor="middle">saved rbp</text>
+  <rect x="200" y="326" width="200" height="34" fill="#f4f4f4" stroke="#999"/>
+  <text x="300" y="348" text-anchor="middle" fill="#777">locals</text>
+  <text x="420" y="360" fill="#555">your caller's frame</text>
+  <!-- your return address -->
+  <rect x="200" y="370" width="200" height="34" fill="#fdebd3" stroke="#b35900"/>
+  <text x="300" y="392" text-anchor="middle">your return address</text>
+  <text x="230" y="432" fill="#555" font-size="13">lower addresses</text>
+  <!-- chain arrows -->
+  <path d="M400,309 C470,300 470,200 404,197" fill="none" stroke="#1f6fb2" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M400,197 C470,188 470,88 404,85" fill="none" stroke="#1f6fb2" stroke-width="2" marker-end="url(#a)"/>
+  <text x="476" y="250" fill="#1f6fb2">[rbp] = the</text>
+  <text x="476" y="268" fill="#1f6fb2">next frame's rbp</text>
+  <!-- registers -->
+  <rect x="560" y="292" width="70" height="34" rx="5" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="595" y="314" text-anchor="middle" font-family="monospace">rbp</text>
+  <path d="M560,309 C520,340 470,340 404,312" fill="none" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <rect x="560" y="370" width="70" height="34" rx="5" fill="#eee" stroke="#555"/>
+  <text x="595" y="392" text-anchor="middle" font-family="monospace">rsp</text>
+  <path d="M560,387 L404,387" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <!-- entries -->
+  <g font-size="13" fill="#b35900" text-anchor="end">
+    <text x="190" y="390">entry 0: [rsp]</text>
+    <text x="190" y="278">entry 1: [rbp + 8]</text>
+    <text x="190" y="166">entry 2</text>
+    <text x="190" y="54">entry 3</text>
+  </g>
+  <text x="20" y="460" font-size="13" fill="#333">Follow rbp from frame to frame; stop at the saved rbp that is 0.</text>
+</svg>

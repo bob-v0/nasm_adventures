@@ -5,7 +5,14 @@
 ## Lesson: clocks
 
 `clock_gettime(clock, &ts)` (228) fills a **timespec**: two qwords, seconds and
-nanoseconds.
+nanoseconds. For example 1.25 s is
+
+```
+ts: dq 1            ; tv_sec:  whole seconds
+    dq 250000000    ; tv_nsec: the rest, 0 .. 999 999 999 nanoseconds
+```
+
+Linux has several clocks. Two matter here:
 
 | clock | meaning | use it for |
 |---|---|---|
@@ -15,9 +22,10 @@ nanoseconds.
 Measuring with the wall clock is a classic bug: when the clock is adjusted, durations come
 out negative or huge.
 
-`nanosleep(&req, &rem)` (35) sleeps for a timespec. Sleeping is not precise (the kernel
-wakes you *at least* that late), so robust code sleeps **until a deadline** it computed
-from the monotonic clock, rather than for a fixed time.
+`nanosleep(&req, &rem)` (35) sleeps for the timespec `req`. Sleeping is not precise: the
+kernel wakes you *at least* that late, often a bit later. So robust code computes a
+**deadline** from the monotonic clock and sleeps until then, rather than for a fixed
+time.
 
 On real Linux, `clock_gettime` is so frequent that the kernel maps a small library into
 every process, the **vDSO**, so it runs without entering the kernel at all. (Its address

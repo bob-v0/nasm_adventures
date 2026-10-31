@@ -17,8 +17,8 @@ the allocator again. Reading or writing it afterwards is a **use after free**:
 
 - usually the bytes are still there, so it "works"
 - after the next `malloc` reuses the block, the old pointer reads or overwrites someone
-  else's data, which can be far away in time and code from the bug
-- **double free** (freeing the same block twice) corrupts the allocator's own lists, as
+  else's data. The damage can show up far away, in time and in code, from the bug.
+- a **double free** (freeing the same block twice) corrupts the allocator's own lists, as
   your free list from level 125 would show
 
 These are among the most exploited bugs in C and C++ software. Tools such as

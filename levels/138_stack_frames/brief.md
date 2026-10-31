@@ -5,7 +5,9 @@ leaves on the stack.*
 
 ## Lesson: frame pointers
 
-A traditional function prologue builds a **frame**:
+A function's **frame** is its own piece of the stack: its return address, the
+registers it saved and its local variables. The traditional prologue gives each frame
+a fixed reference point, the **frame pointer** `rbp`:
 
 ```
 f:
@@ -17,10 +19,18 @@ f:
     ret
 ```
 
-Inside f, `[rbp]` holds the caller's rbp and `[rbp + 8]` holds f's return address. Since
-each caller did the same, the saved rbps form a **linked list** through the stack: the
-frame chain. Debuggers (`bt` in gdb), profilers and crash reporters walk it to show the
-call stack. `enter 32, 0` is an old one-instruction prologue; it's slow, but `leave` is
+Inside f, two slots sit at fixed places next to rbp:
+
+- `[rbp]` holds the **caller's** rbp (pushed by the prologue)
+- `[rbp + 8]` holds f's **return address** (pushed by `call`)
+
+Each caller did the same, so every saved rbp points at the previous frame's saved rbp.
+The frames form a **linked list** through the stack: the *frame chain*.
+
+![The frame chain: each saved rbp points at the next frame's saved rbp, and the return address sits just above it](frame-chain.svg)
+
+Debuggers (`bt` in gdb), profilers and crash reporters walk this chain to show the call
+stack. `enter 32, 0` is an old one-instruction prologue; it's slow, but `leave` is
 still common.
 
 Compilers often skip the frame pointer for speed (`-fomit-frame-pointer`) and record

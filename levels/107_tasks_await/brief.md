@@ -9,7 +9,8 @@ straight line of code again, and still never block.*
 In level 109 a client's life ("read, echo, read, echo, close") is spread across visits of
 the event loop. Any state that must survive between visits (a half-read line, a
 position in a protocol) has to live in a per-client struct, and the code becomes a
-**state machine**. Real protocols make that painful.
+**state machine**: a big "what was I doing last time?" switch. Real protocols make that
+painful.
 
 A **task** keeps its state where ordinary code keeps it: in registers, local variables
 and the call stack, because each task **has its own stack**. You built the key piece in
@@ -21,6 +22,8 @@ level 129: `co_switch` saves one context and resumes another. The trick:
 - the **event loop** keeps a **run queue** of ready tasks. It runs them one by one until
   each awaits or ends. With none ready, it calls `epoll_wait`, and every task whose fd is
   ready joins the run queue.
+
+![A task's life: spawned into the run queue, run by the loop, waiting in epoll after await, back in the run queue when its fd is ready](task-states.svg)
 
 That's all `async`/`await` is in Rust, Python, C# or JavaScript. Those compilers turn
 each async function into the state machine for you instead of giving it a stack

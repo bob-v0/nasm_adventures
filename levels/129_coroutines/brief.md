@@ -14,14 +14,13 @@ operating system threads (Arc XII) are all built on the same trick:
 
 ## Lesson: a context switch
 
-The state of a suspended coroutine is just:
+The state of a suspended coroutine, its **context**, is just:
 
 - its **stack pointer** (its stack holds its return addresses and locals)
 - its **callee-saved registers** (rbx, rbp, r12–r15)
 
-Scratch registers needn't be saved: the switch is called like a function, so the
-code calling it already expects them to be destroyed. That's why a context switch is
-cheap:
+Scratch registers needn't be saved. The switch is called like a function, so the code
+calling it already expects them to be destroyed. That's why a context switch is cheap:
 
 ```
 co_switch(save, load):
@@ -29,6 +28,13 @@ co_switch(save, load):
     load rsp, rbx, rbp, r12, r13, r14, r15 from *load
     ret            ; pops a return address from the NEW stack: we're in the other context
 ```
+
+![co_switch stores the registers into *save, loads them from *load, and ret pops the return address from the new stack](co-switch.svg)
+
+The `ret` at the end is the clever part. The `call co_switch` pushed a return address
+onto the *old* stack, and that's where the old context will resume one day. But by the
+time `ret` runs, rsp points into the *new* stack, so it pops the return address that the
+other context left there when *it* last called `co_switch`.
 
 To start a coroutine for the first time, give it a stack whose top holds the address of
 its entry function, and a context whose rsp points there. The first switch "returns"

@@ -13,7 +13,7 @@ or `signal` appears twice.
 
 A signal handler runs **in the middle of** whatever the program was doing, possibly
 halfway through a function that the handler then calls again. That function is now
-running twice at once, and both copies share its global state. A function is
+running twice at once, and both runs share its global state. A function is
 **reentrant** if that's safe.
 
 `print_number` isn't: it formats into the shared buffer `out`, stores the start and length
@@ -28,15 +28,15 @@ a syscall can overwrite the `errno` the main program is about to read.
 
 ## The safe pattern
 
-Do as little as possible in the handler: **record** that the signal happened (set or
-increment a flag in a single instruction) and let the main program **act** on it at a safe
-point. Production servers handle SIGTERM, SIGHUP and SIGCHLD this way.
+Do as little as possible in the handler. **Record** that the signal happened (set or
+increment a flag, in a single instruction), and let the main program **act** on it at a
+safe point. Production servers handle SIGTERM, SIGHUP and SIGCHLD this way.
 
 ## How the game tests it
 
 One test delivers SIGUSR1 **after every single instruction** of the program, in turn,
-from the moment the handler is installed until just before exit, and checks the output
-each time. The report says where the signal landed.
+from the moment the handler is installed until just before exit, and
+checks the output each time. The report says where the signal landed.
 
 ## Gate
 

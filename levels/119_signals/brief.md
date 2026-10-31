@@ -5,9 +5,10 @@ interrupts your program to tell it something.*
 
 ## Lesson: signals and handlers
 
-A **signal** interrupts a program between two instructions. Each signal has a default
-action (SIGINT and SIGSEGV terminate the process), or you install a **handler** with
-`rt_sigaction` (13):
+A **signal** is a notification from the kernel that interrupts a program between two
+instructions. Each signal has a number (SIGINT, the one Ctrl+C sends, is 2) and a
+default action: SIGINT and SIGSEGV terminate the process. Or you install a **handler**,
+a function of yours that runs instead, with `rt_sigaction` (13):
 
 ```
 mov eax, 13             ; rt_sigaction(SIGINT, &act, NULL, 8)
@@ -23,21 +24,32 @@ act: dq on_sigint       ; handler
      dq 0               ; signals to block while it runs
 ```
 
-When the signal arrives, the kernel saves **everything**: all registers, flags and the
-signal mask go into a *signal frame* on your stack. Then it calls the handler as
-`handler(signo, &siginfo, &ucontext)`, with the return address pointing at your
-**restorer**. The restorer calls `rt_sigreturn` (15), which reloads everything from the
-frame, so the interrupted code continues as if nothing happened. (C libraries supply the
-restorer for you; that's what `SA_RESTORER` is about.)
+Here is what happens when the signal arrives:
+
+```
+your code runs ... ── SIGINT ──┐
+                               │ kernel saves EVERYTHING in a signal frame on your stack:
+                               │   all registers, flags, rip, the signal mask
+                               │ kernel calls handler(signo, &siginfo, &ucontext)
+                               │ handler runs, then ret ...
+                               │ ... into your restorer: mov eax, 15 / syscall
+                               │ rt_sigreturn (15) reloads everything from the frame
+your code continues ◄──────────┘   as if nothing happened
+```
+
+The **restorer** is the address the handler returns to; it only calls `rt_sigreturn`.
+C libraries supply it for you; that's what `SA_RESTORER` is about.
 
 ## Lesson: faults are signals too
 
 A bad memory access raises **SIGSEGV**, a division error **SIGFPE**. With a handler
 installed, the handler runs instead of the program dying, and when it returns, the
-faulting instruction runs **again**. Unless the handler changes where execution resumes:
-the saved rip is in the ucontext, at offset **168** (`uc_mcontext.gregs[REG_RIP]`).
-Editing it is how debuggers, JITs and some garbage collectors recover from faults on
-purpose.
+faulting instruction runs **again**, and faults again.
+
+Unless the handler changes where execution resumes. The saved rip is part of the
+ucontext, at offset **168** (`uc_mcontext.gregs[REG_RIP]`). Whatever the handler writes
+there is where `rt_sigreturn` continues. Debuggers, JITs and some garbage collectors
+recover from faults on purpose this way.
 
 ## Gate
 

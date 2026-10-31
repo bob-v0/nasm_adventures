@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 410" width="700" height="410" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b35900"/>
+    </marker>
+  </defs>
+  <rect width="700" height="410" fill="#fff"/>
+  <!-- regions -->
+  <rect x="10" y="10" width="440" height="300" rx="10" fill="none" stroke="#bbb" stroke-dasharray="6,4"/>
+  <text x="24" y="32" font-weight="bold" fill="#555">your program</text>
+  <rect x="490" y="10" width="200" height="300" rx="10" fill="none" stroke="#bbb" stroke-dasharray="6,4"/>
+  <text x="504" y="32" font-weight="bold" fill="#555">libc.so.6</text>
+  <!-- PLT path -->
+  <text x="24" y="62" font-size="13" fill="#777">.text</text>
+  <rect x="24" y="70" width="210" height="34" rx="5" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="129" y="92" text-anchor="middle" font-family="monospace" font-size="13">call puts wrt ..plt</text>
+  <text x="24" y="126" font-size="12" fill="#555">PLT style: a call to a stub,</text>
+  <text x="24" y="142" font-size="12" fill="#555">which jumps through a slot</text>
+  <text x="260" y="62" font-size="13" fill="#777">.plt (a stub per function)</text>
+  <rect x="260" y="70" width="170" height="34" rx="5" fill="#f4f4f4" stroke="#555"/>
+  <text x="345" y="92" text-anchor="middle" font-family="monospace" font-size="13">jmp [slot]</text>
+  <text x="260" y="152" font-size="13" fill="#777">.got.plt slot</text>
+  <rect x="260" y="160" width="170" height="34" rx="5" fill="#fdebd3" stroke="#b35900"/>
+  <text x="345" y="182" text-anchor="middle" font-size="13">address of puts</text>
+  <path d="M234,87 L256,87" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <path d="M345,104 L345,156" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <!-- GOT path -->
+  <text x="24" y="232" font-size="13" fill="#777">.text</text>
+  <rect x="24" y="240" width="210" height="34" rx="5" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="129" y="262" text-anchor="middle" font-family="monospace" font-size="13">call [rel puts wrt ..got]</text>
+  <text x="24" y="296" font-size="12" fill="#555">-fno-plt style: one indirect call</text>
+  <text x="260" y="232" font-size="13" fill="#777">.got slot</text>
+  <rect x="260" y="240" width="170" height="34" rx="5" fill="#fdebd3" stroke="#b35900"/>
+  <text x="345" y="262" text-anchor="middle" font-size="13">address of puts</text>
+  <path d="M234,257 L256,257" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <!-- libc -->
+  <rect x="510" y="200" width="160" height="34" rx="5" fill="#e3effa" stroke="#1f6fb2"/>
+  <text x="590" y="222" text-anchor="middle" font-family="monospace" font-size="13">puts: ...</text>
+  <path d="M430,177 L506,209" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <path d="M430,257 L506,226" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <!-- ld.so -->
+  <rect x="260" y="340" width="170" height="44" rx="8" fill="#fdebd3" stroke="#b35900"/>
+  <text x="345" y="359" text-anchor="middle" font-weight="bold" font-size="13">ld.so</text>
+  <text x="345" y="376" text-anchor="middle" font-size="12">fills the slots</text>
+  <path d="M345,338 L345,278" stroke="#b35900" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#o)"/>
+  <text x="440" y="370" font-size="12" fill="#b35900">writes the real address,</text>
+  <text x="440" y="386" font-size="12" fill="#b35900">chosen at load time</text>
+</svg>

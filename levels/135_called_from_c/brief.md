@@ -5,6 +5,10 @@ signs and side effects.*
 
 ## Lesson: reading a prototype as registers
 
+A C **prototype** declares a function's name, argument types and return type. With
+the calling convention from level 140, each one tells you exactly which register holds
+what:
+
 ```c
 int64_t dot(const int64_t *a, const int64_t *b, size_t n);
 //  rax         rdi                rsi              rdx
@@ -21,16 +25,18 @@ size_t count_char(const char *s, int c);
 - C strings end with a 0 byte; `char` is a byte.
 
 The game's `harness.c` (in your level folder) reads test data, calls your functions,
-and prints the results. It's compiled and linked with your object by gcc, and runs
+and prints the results. gcc compiles it and links it with your object file, and it runs
 natively. Use `global` for each function.
 
 ## Lesson: comparators
 
-`qsort` sorts anything: you give it a **comparator** that receives *pointers* to two
-elements and returns a negative int if the first should come first, 0 if equal,
-positive otherwise. The tempting `return *y - *x;` is a classic bug. The subtraction
-overflows for large values of opposite sign, and the sort quietly produces garbage.
-Compare instead.
+`qsort` sorts arrays of anything. You give it a **comparator**: a function that
+receives *pointers* to two elements and returns a negative int if the first should
+come first, 0 if they're equal, and a positive int otherwise.
+
+The tempting `return *y - *x;` is a classic bug. The subtraction overflows for large
+values of opposite sign: with -2⁶³ and 2⁶³ − 1 the result wraps around and gets the
+wrong sign, and the sort quietly produces garbage. Compare instead.
 
 ## Gate
 
