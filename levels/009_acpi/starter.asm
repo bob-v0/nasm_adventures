@@ -8,9 +8,11 @@
 ;     ...
 ;     io apic: id 0, address 0xfec00000, gsi base 0
 ;     override: irq 0 -> gsi 2, flags 0x00000000
+;     ...
 ;
-; one line per entry, in the order the table has them (CPUs, I/O APICs, overrides; other
-; entries: nothing). Paging is off: every physical address is usable as it is.
+; one line per entry, in the order the table has them (enabled CPUs, I/O APICs,
+; overrides; other entries: nothing). Paging is off: every physical address is usable as
+; it is.
 ; Helpers: puts (esi), decimal (eax), hex (eax: 0x%08x), newline.
 
 bits 32

@@ -9,7 +9,7 @@ concepts = ["a bug that vanishes when you look", "one instruction isn't one step
 introduces = ["the lock prefix on read-modify-write"]
 
 hints = [
-  "It never fails one CPU at a time, and fails every time in parallel: so it's a race between CPUs, in code that touches shared memory. Which shared memory does every CPU change, all the time? The objects' reference counts.",
+  "It never fails with the CPUs one at a time, and fails with them in parallel: so it's a race between CPUs, in code that touches shared memory. Which shared memory does every CPU change, all the time? The objects' reference counts.",
   "`inc dword [edi]` is one instruction, but for the memory it's three steps: read the dword, add 1, write it back. Two CPUs can both read 5 and both write 6: one reference lost. A lost increment means the count reaches 0 while someone still holds a reference (freed in use); a lost decrement means it never does (never freed).",
   "x86 makes a read-modify-write atomic with the `lock` prefix: `lock inc dword [edi + O_REFS]`, `lock dec dword [edi + O_REFS]` (dec sets ZF from the new value, atomically, so `jnz` after it still says whether this was the last reference). The counters around them already have it.",
 ]

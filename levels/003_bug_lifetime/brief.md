@@ -6,9 +6,10 @@
 
 The kernel has a list that is read all the time and changed now and then. The other CPUs
 walk it again and again, **without a lock**: readers never write it, and making every
-reader wait for a lock would serialize them all. The first CPU changes it, 400 times:
-it unlinks the second node, frees it, and puts a fresh node in front. A freed node is
-poisoned, so a reader that comes across one counts it:
+reader wait for a lock would make them take turns. The first CPU changes it, 400 times:
+it unlinks the second node, frees it, and puts a fresh node in front. Freeing a node
+**poisons** it (its magic word becomes 0xDEADDEAD instead of the live one), so a reader
+that comes across a freed node can tell, and counts it:
 
 ```
 updates: 400, freed nodes seen: 16
@@ -33,6 +34,10 @@ have seen the node is over by then.
 That's the heart of Linux's **RCU** (read-copy-update): readers pay nothing, and writers
 wait.
 
+As in levels 5 and 4, the CPUs run truly in parallel, and the race doesn't show on every
+run: the fix must make it impossible, not rare.
+
 ## Gate
 
-No freed node is ever seen, on 3 and 4 CPUs, run after run; the readers unchanged.
+No freed node is ever seen, on 3 and 4 CPUs, run after run; the readers' code
+unchanged. At most 30 changed lines.

@@ -3,13 +3,13 @@
 ; List the PCI devices on bus 0, reading their configuration space through ECAM (its base
 ; is found for you, in ACPI's MCFG table, as level 9 found the MADT). For every function:
 ;
-;     00:02.0 8086:100e class 02.00.00         bus:device.function vendor:device class
-;       bar 0: memory 0xfeb80000, 131072 bytes  (subclass, prog-if); then each BAR in use:
-;       bar 1: io 0xc100, 64 bytes              type, address, size
+;     00:02.0 1af4:1005 class 00.ff.00         bus:device.function vendor:device class
+;       bar 0: io 0xc140, 32 bytes              (subclass, prog-if); then each BAR in use:
+;       bar 1: memory 0xfebf1000, 4096 bytes    type, address, size
 ;       bar 4: memory64 0x00000000fe000000, 16384 bytes
 ;
-; Helpers: puts, putc, decimal, hex2 / hex4 / hex8_bare (digits only), hex8 and
-; hex4_prefixed (with 0x), newline.
+; Helpers: puts (esi), putc (al), decimal (eax), hex2 / hex4 / hex8_bare (digits only;
+; al, ax, eax), hex8 and hex4_prefixed (with 0x), newline. The strings are in .data.
 
 bits 32
 

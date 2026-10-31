@@ -8,16 +8,20 @@
 ;    sectors and bytes, stdin's sectors and bytes; then the image; then stdin); collect the
 ;    memory map (int 0x15, e820); build the information block the kernel reads (multiboot's
 ;    layout: flags, modules (the filesystem, stdin), memory map); enter protected mode; put
-;    the kernel at 1 MiB with its .bss zeroed; jump to it with ebx = the block.
-; 2. Your kernel, on every CPU (-smp 4): level 10's kernel is below, as it was, for one
-;    CPU. Wake the others (levels 7 and 25: their trampoline must reach long mode); give
-;    each its own TSS, per-CPU data, system call MSRs; one scheduler for them all, any
-;    process on any CPU; and a lock (or several) wherever CPUs share kernel state.
+;    the kernel at 1 MiB with its .bss zeroed; jump to it with ebx = the block. (The
+;    section lines below already link the kernel at 1 MiB and place it in the image
+;    right after the second stage, at sector 1 + STAGE2_SECTORS.)
+; 2. Your kernel, on every CPU (the tests use 1, 2 or 4): level 10's kernel is below, as
+;    it was, for one CPU. Wake the others (level 7; their trampoline must go on to long
+;    mode, as level 25 did); give each its own TSS, per-CPU data, system call MSRs; one
+;    scheduler for them all, any process on any CPU; and a lock (or several) wherever
+;    CPUs share kernel state.
 ; 3. Your programs, concurrently: besides /bin/sh, start every program in /init at boot.
 ;    Their output, line by line (a whole line at a time: nothing in the middle of another
 ;    program's line), each line starting with [name]; when each ends:
 ;        [name] exited with status N          (the shell: shell exited with status N)
-;    and when the last one has, `all done: user code ran on N cpus`, and every CPU stops.
+;    and when the last one has, `all done: user code ran on N cpus` (N: how many CPUs
+;    ran a program at some point), and every CPU stops.
 
 ; ---- sector 0: yours ---------------------------------------------------------------------
 
