@@ -1,0 +1,17 @@
+level = 13
+slug = "task_switching"
+title = "Task Switching"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["a task: an address space, a kernel stack, saved CPU state", "a context switch is a kernel stack switch", "what switch_to must keep: the callee-saved registers", "a new task's stack, faked so the first switch can return into it", "round-robin scheduling", "per-task TSS.RSP0"]
+introduces = ["context switching", "kernel stacks per task", "sched_yield"]
+
+hints = [
+  "switch_to is a function call that returns in another task. Push rbx, rbp, r12-r15 (the C convention says the caller expects those kept; the rest a yield saves itself), store rsp in tasks[from].T_KSP; then for the new task: [current] = to, CR3 = its T_SPACE, TSS.RSP0 (tss + 4) and percpu[0] = its kernel stack's top (DIRECT + T_STACK + 4096), rsp = its T_KSP, pop the six registers in reverse order, ret. That ret returns wherever *that* task called switch_to.",
+  "A new task never called switch_to, so fake it: prepare_stack writes, from the top down, the iretq frame (ss = USER_DS | 3, rsp, rflags 0x202, cs = USER_CS | 3, rip = entry), then first_run's address (HIGH + first_run) where switch_to's ret will find it, then six zeros for the registers it pops. Return the address of the last one: that's the task's saved rsp.",
+  "schedule: from [current] + 1, wrapping around after TASKS - 1, look for T_STATE = 1 (tasks are T_SIZE bytes, in `tasks`); stop after TASKS tries. Found the current one again: just return. Another: switch_to(current, it). None: s_all, cli, hlt. ([current] starts at -1, so the first one found is task 0; switch_to(-1, ...) has nothing to save.)",
+]
+
+[random]
+count = 2

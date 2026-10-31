@@ -1,0 +1,17 @@
+level = 14
+slug = "elf_loader"
+title = "ELF Loader"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["the ELF header: magic, class, machine, type, entry", "program headers: PT_LOAD segments, filesz and memsz", ".bss: memory that isn't in the file", "segments that share a page", "the initial stack: argc, argv, envp, auxv", "validating a file you didn't write"]
+introduces = ["ELF64 loading", "the System V initial process stack"]
+
+hints = [
+  "Check before trusting: 0x7F 'E' 'L' 'F' at offset 0, byte 4 = 2 (64-bit), byte 5 = 1 (little-endian), the word at 16 = 2 (ET_EXEC), the word at 18 = 0x3E (x86-64). Then the program headers: e_phoff (qword at 32), e_phentsize (word at 54), e_phnum (word at 56); each must lie inside the file.",
+  "For each header of type 1 (PT_LOAD): p_offset (+8), p_vaddr (+16), p_filesz (+32), p_memsz (+40). Map every page from p_vaddr rounded down to p_vaddr + p_memsz (alloc_frame + map_user: fresh pages are zero, which is exactly what .bss needs), unless user_page_present says an earlier segment already did; then copy p_filesz bytes from the file to p_vaddr. Refuse anything outside [USER, USER_END) or past the file's end.",
+  "make_stack: map USER_STACK - 4096; put \"program\" near the top (USER_STACK - 16); then 16-aligned below it six qwords: 1 (argc), the string's address (argv[0]), 0 (argv's end), 0 (envp's end), 0, 0 (AT_NULL). rsp points at argc. The entry point is e_entry (qword at 24).",
+]
+
+[random]
+count = 1

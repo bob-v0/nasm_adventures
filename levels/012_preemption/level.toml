@@ -1,0 +1,17 @@
+level = 12
+slug = "preemption"
+title = "Preemption"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["preemption: the timer takes the CPU back", "an interrupted task keeps every register, flags included", "the same switch_to, called from an interrupt", "starvation, and why cooperative scheduling isn't enough", "the APIC through the direct map, in every address space"]
+introduces = ["preemptive scheduling"]
+
+hints = [
+  "A system call is a function call: the program expects rax, rcx and r11 to change, and switch_to keeps the rest. An interrupt is not: it can land between any two instructions, so the task expects *every* register back. Push all 15 general registers first (rflags and rip are in the frame the CPU pushed), pop them in reverse at the end.",
+  "In between: inc qword [preemptions], the EOI (`mov rax, DIRECT + APIC`, write 0 at + APIC_EOI) before switching (the next task may not come back through here for a while), then call schedule: the same one sched_yield uses. When it returns, this task's turn has come again.",
+  "The gs base: the timer only arrives from ring 3 (interrupts are off in the kernel), so GS_BASE (0xC0000101) is the task's own. Another task may change it: rdmsr it before schedule, push edx and eax, and wrmsr it back after, as sched_yield does.",
+]
+
+[random]
+count = 2

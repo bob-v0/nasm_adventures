@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 250" width="740" height="250" role="img">
+<title>Two kernel stacks: switch_to saves rsp in one task and loads it from the other</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555555"/></marker></defs>
+<rect x="0" y="0" width="740" height="250" fill="#ffffff"/>
+<text x="130" y="22" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">task A's kernel stack</text>
+<rect x="40" y="32" width="180" height="26" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>
+<text x="130" y="49" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">user ss, rsp, …</text>
+<rect x="40" y="58" width="180" height="26" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>
+<text x="130" y="75" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rcx, r11, … (syscall)</text>
+<rect x="40" y="84" width="180" height="26" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>
+<text x="130" y="101" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rdx rsi rdi r8-r10 (yield)</text>
+<rect x="40" y="110" width="180" height="26" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>
+<text x="130" y="127" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">return into schedule</text>
+<rect x="40" y="136" width="180" height="26" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>
+<text x="130" y="153" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rbx rbp r12-r15</text>
+<text x="610" y="22" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">task B's kernel stack</text>
+<rect x="520" y="32" width="180" height="26" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>
+<text x="610" y="49" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">user ss, rsp, …</text>
+<rect x="520" y="58" width="180" height="26" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>
+<text x="610" y="75" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rcx, r11, … (syscall)</text>
+<rect x="520" y="84" width="180" height="26" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>
+<text x="610" y="101" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rdx rsi rdi r8-r10 (yield)</text>
+<rect x="520" y="110" width="180" height="26" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>
+<text x="610" y="127" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">return into schedule</text>
+<rect x="520" y="136" width="180" height="26" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>
+<text x="610" y="153" font-family="monospace" font-size="11" text-anchor="middle" fill="#222222">rbx rbp r12-r15</text>
+<text x="130" y="180" font-family="monospace" font-size="11" text-anchor="middle" fill="#1d4ed8">↑ tasks[A].ksp = rsp</text>
+<text x="610" y="180" font-family="monospace" font-size="11" text-anchor="middle" fill="#15803d">↑ rsp = tasks[B].ksp</text>
+<path d="M230,149 C 330,202 420,202 516,149" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<text x="373" y="208" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">switch_to(A, B)</text>
+<text x="40" y="236" font-family="sans-serif" font-size="12" fill="#555555">Also switched: CR3 (B's memory) and TSS.RSP0 (where B's next entry from ring 3 lands). Then pop, ret: B continues.</text>
+</svg>
