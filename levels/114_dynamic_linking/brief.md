@@ -5,16 +5,19 @@ has to connect the two after the program starts.*
 
 ## Lesson: shared libraries and ld.so
 
-A dynamically linked program contains only **its own** code. Its `PT_INTERP` header
-names the **dynamic linker**, `/lib64/ld-linux-x86-64.so.2`. The kernel starts that first.
-`ld.so` maps the shared libraries (`libc.so.6`…) at random addresses, fixes up the
-program, and then jumps to its entry point. All programs share one copy of libc in
-memory, and a libc security fix needs no relinking.
+A **shared library** (`libc.so.6`…) is code that many programs use, kept in its own
+file. A dynamically linked program contains only **its own** code. Its `PT_INTERP`
+header names the **dynamic linker**, `/lib64/ld-linux-x86-64.so.2`, and the kernel starts
+that first. `ld.so` maps the shared libraries at random addresses, fixes up the program,
+and then jumps to its entry point.
+
+The payoff: all programs share one copy of libc in memory, and a libc security fix
+needs no relinking.
 
 ## Lesson: the GOT
 
 Your code can't contain libc's addresses: they're chosen at load time. So the linker
-gives the program a **Global Offset Table**, an array of 8-byte slots in writable
+gives the program a **Global Offset Table** (GOT): an array of 8-byte slots in writable
 memory, one per external symbol. The code refers to the **slot** (RIP-relative, so that
 works in a PIE), and `ld.so` writes the real address into it.
 
@@ -28,10 +31,15 @@ NASM emits an `R_X86_64_GOTPCREL` relocation for each such use.
 ## Lesson: the PLT and lazy binding
 
 `call puts wrt ..plt` (what you used so far) calls a small stub in your program, in the
-**Procedure Linkage Table**: `jmp [puts's slot in .got.plt]`. The extra hop exists for
-**lazy binding**. Originally each slot pointed back into the PLT, at code that asked
-`ld.so` to look the symbol up on the **first** call and patch the slot. Programs started
-faster when they called only a few of libc's thousands of functions.
+**Procedure Linkage Table** (PLT): `jmp [puts's slot in .got.plt]`. So a PLT call takes
+one extra hop:
+
+![Two ways to reach puts: through a PLT stub and its .got.plt slot, or straight through a .got slot; ld.so fills the slots](plt-got.svg)
+
+The extra hop exists for **lazy binding**. Originally each slot pointed back into the
+PLT, at code that asked `ld.so` to look the symbol up on the **first** call and patch the
+slot. Programs started faster when they called only a few of libc's thousands of
+functions.
 
 Lazy binding means a writable table of code pointers for the program's whole life, which
 attackers love. Many distributions now link with `-z now` by default (`BIND_NOW`, often with

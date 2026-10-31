@@ -6,7 +6,7 @@ kernel ever reads.*
 ## Lesson: what execve reads
 
 An executable is an **ELF** file (Executable and Linkable Format). Before running
-anything, `execve` reads two kinds of structure from the file:
+anything, `execve` reads two kinds of structure from it:
 
 - the **ELF header**, 64 bytes at offset 0: "this is a 64-bit x86-64 executable, start
   at this address, the program headers are there";
@@ -41,11 +41,19 @@ exist for linkers and debuggers; the kernel ignores them, and a file can have no
 ## Lesson: nasm -f bin
 
 `nasm -f bin` writes your bytes as they are: no headers, no sections, no relocations.
+Two numbers describe every byte, and it's easy to mix them up:
+
+- its **file offset**: where it is in the file (the first byte is at 0);
+- its **virtual address**: where it will be in memory once the file is mapped.
+
 `org 0x400000` tells NASM where the file will be in memory, so labels have their
 run-time values: `dq _start` is the entry address. `$$` is the address of the file's first
 byte, so `label - $$` is a **file offset**, and `FILE_SIZE equ $ - $$` at the very end is
-the file's size. The simplest layout maps the whole file, headers included, as one
-segment.
+the file's size.
+
+The simplest layout maps the whole file, headers included, as one segment:
+
+![The starter's layout: ELF header at offset 0, program header at 64, code at 120; one PT_LOAD maps it all at 0x400000](elf-layout.svg)
 
 ## Gate
 

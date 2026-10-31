@@ -5,6 +5,9 @@ generating it.*
 
 ## Lesson: %macro
 
+A **macro** is a named piece of source text with parameters. NASM's *preprocessor*
+replaces each use of it with its body before assembling:
+
 ```
 %macro sys_write 3          ; name, number of parameters
     mov rdx, %3             ; %1, %2, %3 are the arguments, pasted as text
@@ -19,9 +22,10 @@ generating it.*
 
 A macro isn't a function: there's no `call`, no stack, no return. Its body is **pasted**
 at every use, with the arguments substituted as text. That makes macros free at run
-time, but each use adds code, and arguments are evaluated where they're pasted. With
-the macro above, `sys_write 1, rdx, rsi` breaks: `mov rdx, rsi` runs first and destroys
-the buffer address before `mov rsi, rdx` reads it.
+time, but each use adds code, and arguments are evaluated where they're pasted.
+
+For example, `sys_write 1, rdx, rsi` breaks with the macro above. It expands to
+`mov rdx, rsi` first, which destroys the buffer address before `mov rsi, rdx` reads it.
 
 ## Lesson: labels and sections inside macros
 
@@ -41,9 +45,10 @@ section .text
     print "hello", 10           ; one argument: the whole list after the name?
 ```
 
-Careful: arguments are separated by commas, so `print "hello", 10` passes **two**. Use
-`%macro print 1+`, where the last parameter swallows the rest of the line, commas and
-all. `%0` is the number of arguments given.
+Careful: arguments are separated by commas, so `print "hello", 10` passes **two**, and
+a macro declared with 1 parameter rejects it. Use `%macro print 1+`: the `+` makes the
+last parameter swallow the rest of the line, commas and all. `%0` is the number of
+arguments given.
 
 Put macros in a `.inc` file and `%include` it, and you have a macro library.
 

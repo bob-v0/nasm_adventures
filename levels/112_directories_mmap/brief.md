@@ -8,15 +8,26 @@ become memory.*
 Open a directory like a file (`O_DIRECTORY`, 0o200000, makes `open` fail if it isn't
 one), then call `getdents64(fd, buf, size)` (syscall 217). It fills `buf` with as many
 **records** as fit and returns how many bytes it wrote; 0 means you've seen them all.
-Each record is a `struct linux_dirent64`:
+Each record is a `struct linux_dirent64`, and records have different lengths because
+names do:
 
 | offset | size | field |
 |---|---|---|
-| 0 | 8 | `d_ino`: the inode number |
+| 0 | 8 | `d_ino`: the inode number (the file's id inside the filesystem) |
 | 8 | 8 | `d_off`: a cookie for the next record (you don't need it) |
 | 16 | 2 | **`d_reclen`**: this record's length, so `+ d_reclen` is the next one |
 | 18 | 1 | **`d_type`**: 4 = directory (`DT_DIR`), 8 = regular file (`DT_REG`), 10 = symlink |
 | 19 | … | **`d_name`**: the name, NUL-terminated (padded to a multiple of 8) |
+
+So you walk the buffer by adding each record's `d_reclen`, until you reach the byte
+count `getdents64` returned. For example (19 bytes of header, the name and its NUL,
+rounded up to a multiple of 8):
+
+```
+offset:  0          24          48                  80
+         [ "."    ] [ ".."    ] [ "notes.txt"     ] [ "sub"   ] ...
+         reclen 24  reclen 24   reclen 32           reclen 24
+```
 
 Every directory lists `.` (itself) and `..` (its parent). Skip them, or a recursive walk
 never ends. The order is **whatever the filesystem stores**. On real Linux that's usually
@@ -34,8 +45,9 @@ afterwards.
 
 ## Lesson: mapping a file
 
-`mmap(addr, length, prot, flags, fd, offset)` (syscall 9) with a descriptor instead of
-−1 maps the **file's contents** into memory. The bytes appear at the returned address,
+Instead of copying a file into a buffer with `read`, you can ask the kernel to make the
+file *appear* in memory. `mmap(addr, length, prot, flags, fd, offset)` (syscall 9) with a
+descriptor instead of −1 maps the **file's contents** into memory. The bytes appear at the returned address,
 and pages are loaded from the file only when touched (each first touch is a page fault
 the kernel handles silently). With `PROT_READ` (1) and `MAP_PRIVATE` (2) you can read
 the file as an array: no `read` loop, no buffer, no copying. Databases, linkers and

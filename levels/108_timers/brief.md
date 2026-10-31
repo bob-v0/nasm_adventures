@@ -15,18 +15,25 @@ timerfd_settime(fd, 0, &spec, 0)                  ; (286) arm it
 ```
 
 `spec` is a `struct itimerspec`: an **interval** (`dq seconds, nanoseconds`) followed by
-the **first expiry** (same format). An interval of 0 fires once. When the timer has
-fired, the fd is readable: `read(fd, &n, 8)` returns the number of expirations since the
-last read (more than 1 if you were late) and resets it. Put it in the epoll set and the
+the **first expiry** (same format). An interval of 0 fires once. For example, a timer
+that first fires after half a second, then every 2 seconds:
+
+```
+spec: dq 2, 0               ; interval: every 2 s
+      dq 0, 500000000       ; first expiry: in 0.5 s
+```
+
+When the timer has fired, the fd is readable: `read(fd, &n, 8)` returns the number of
+expirations since the last read (more than 1 if you were late) and resets it. Put it in the epoll set and the
 loop wakes for clients **and** for time.
 
 (`epoll_wait`'s timeout argument is the other way to wait for time, in milliseconds.)
 
 ## Lesson: which clock
 
-`clock_gettime(CLOCK_MONOTONIC, &ts)` counts time since an arbitrary start, and never
-jumps. `CLOCK_REALTIME` is the wall clock: an administrator or NTP can set it backwards.
-Timeouts always use the monotonic clock. (The game's clock is virtual: when your server
+`clock_gettime(CLOCK_MONOTONIC, &ts)` (228, level 117) counts time since an arbitrary
+start, and never jumps. `CLOCK_REALTIME` is the wall clock: an administrator or NTP can
+set it backwards. Timeouts always use the monotonic clock. (The game's clock is virtual: when your server
 and every client are waiting, it jumps straight to the next event. So waiting 5 seconds
 costs nothing, and every run is identical.)
 
@@ -36,7 +43,8 @@ Every connection has its own deadline. Options, from simplest:
 
 - **one periodic tick** (say every 100 ms) and a scan of all connections. Simple, and
   accurate to one tick;
-- a **timer heap** (a priority queue of deadlines), with the timerfd set to the earliest;
+- a **timer heap** (a priority queue that always knows the earliest deadline), with the
+  timerfd set to that one;
 - a **timer wheel**: an array of buckets by expiry time, one bucket per tick. It's O(1)
   to add and remove, which is what the Linux kernel and high-performance servers use.
 

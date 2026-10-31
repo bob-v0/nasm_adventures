@@ -25,8 +25,9 @@ C (`strcpy`, `gets`, `sprintf`), and the reason bounded functions exist (`strlcp
 
 ## Gate
 
-1. **Witness:** a name that makes the original corrupt the balance:
-   `;! witness name = "..."` (up to 63 characters).
+1. **Witness:** a name that makes the original corrupt the balance, as a line
+   `;! witness name = "..."` (up to 63 characters). A *witness* is an input that
+   proves the bug exists.
 2. **Fix** `set_name` so a name always fits: copy at most 15 characters and always
    end with a NUL inside the field. Longer names are cut short. At most **5 changed
    lines**.

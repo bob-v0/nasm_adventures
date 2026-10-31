@@ -17,11 +17,20 @@ Yet users of this machine are reading root's password hashes.
 
 `access(path)` and `open(path)` each **resolve the name** from scratch: walk the
 directories, follow the symlinks, find the file. Nothing guarantees that both find the
-**same** file. Another process can change what the name means in between: delete
-`/tmp/report` and put a symlink to `/etc/shadow` in its place. The check passed for the old
-file, the open gets the new one. This is a **TOCTOU** race (time of check to time of use).
-It's a *logical* race: every syscall is atomic and there's no shared memory, but the
-**sequence** isn't atomic.
+**same** file. Another process can change what the name means in between:
+
+```
+showfile                              another process
+--------                              ---------------
+access("/tmp/report")  → allowed      (it's the user's own file)
+                                      delete /tmp/report
+                                      symlink /tmp/report → /etc/shadow
+open("/tmp/report")    → /etc/shadow
+```
+
+The check passed for the old file; the open gets the new one. This is a **TOCTOU** race
+(time of check to time of use). It's a *logical* race: every syscall is atomic and
+there's no shared memory, but the **sequence** isn't atomic.
 
 The window is a few microseconds, so an attacker simply tries a million times.
 Real-world TOCTOU bugs have broken `sudo`, package managers, container runtimes and

@@ -5,7 +5,8 @@ state has exactly one owner, and everyone else asks it by message.*
 
 ## Lesson: actors
 
-An **actor** is a task with **private state** and a **mailbox**. Other actors never
+An **actor** is a task with **private state** and a **mailbox** (a queue of incoming
+messages). Other actors never
 touch its state; they send it **messages**. The actor handles one message at a time, so
 inside it there are no races and no locks. Erlang/Elixir, Akka, Orleans and Swift's
 `actor` are built on this; so, in spirit, is every "one goroutine owns this map" design.
@@ -17,6 +18,8 @@ Here a chat room:
   when the client goes;
 - one **room** actor (yours): the only one that knows who's in the room and the only one
   that writes to sockets.
+
+![Readers turn socket data into messages in the room's mailbox; the room handles them one at a time and writes to the members' sockets](chat-actors.svg)
 
 ## Lesson: ownership moves with the message
 

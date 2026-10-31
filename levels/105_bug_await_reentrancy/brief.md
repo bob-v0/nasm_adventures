@@ -19,10 +19,22 @@ When the task resumes, every value it read *before* the await may be **stale**.
 
 `transfer` reads the balance into r13, awaits the audit log, then writes
 `r13 - amount`. Two transfers from the same account can both read 1000, both pass the
-check, both await, and each write its own idea of the new balance. The second write
-erases the first, so 700 is paid out but only 600 is subtracted. This is **reentrancy
-at an await point**: the function is entered again (for another request) while one
-call of it is suspended in the middle. The real-world versions are JavaScript, Python
+check, both await, and each write its own idea of the new balance:
+
+```
+transfer A: 700 from account 0        transfer B: 600 from account 0
+r13 = balance (1000)
+1000 >= 700: ok
+call audit   ... await ...  ────────▶ r13 = balance (1000)
+                                      1000 >= 600: ok
+                            ◀──────── call audit   ... await ...
+balance = 1000 - 700 = 300
+                                      balance = 1000 - 600 = 400
+```
+
+The second write erases the first: 1300 is paid out, but the account only lost 600.
+This is **reentrancy at an await point**: the function is entered again (for another
+request) while one call of it is suspended in the middle. The real-world versions are JavaScript, Python
 and Rust async code: a balance or a cache or a "seen already" flag checked, then used
 after an `await`.
 

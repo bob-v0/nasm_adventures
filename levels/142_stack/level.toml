@@ -7,9 +7,9 @@ concepts = ["the hardware stack: rsp, push, pop", "last in, first out", "the sta
 introduces = ["push", "pop", "rsp"]
 
 hints = [
-  "Reversing: push every character (as a qword: `movzx eax, byte [...]` then `push rax`), then pop them back into `out`; they come out in reverse order. Count how many you pushed, so you pop exactly that many.",
-  "Brackets: push each opening bracket. On a closing one, the stack must not be empty (you need your own counter: there's other data below), and the popped bracket must match. At the end the count must be 0.",
-  "If you stop early on a mismatch, you still have to pop what you pushed (or `add rsp, 8 * count`) so rsp ends where it started. lea rsp, [rsp + rcx*8] drops rcx qwords.",
+  "Reversing: push every character, then pop them back into `out`; they come out in reverse order. A push moves a whole qword, so load each byte into a full register first (`movzx eax, byte [...]`, then `push rax`). Count how many you pushed, so you pop exactly that many.",
+  "Brackets: push each opening bracket. On a closing one, the stack must not be empty, and the bracket you pop must be its partner. You can't tell \"empty\" by looking at rsp's data (there's other data below), so keep your own counter. At the end the counter must be 0.",
+  "If you stop early on a mismatch, you still have to drop what you pushed, so rsp ends where it started: `add rsp, 8 * count` for a constant count, or `lea rsp, [rsp + rcx*8]` to drop rcx qwords.",
 ]
 
 [constraints]

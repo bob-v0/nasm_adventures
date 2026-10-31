@@ -5,6 +5,11 @@ Linux, BSD and macOS on x86-64 all use the same one.*
 
 ## Lesson: the System V AMD64 calling convention
 
+A **calling convention** is the set of rules that lets any function call any other:
+where the arguments go, where the result comes back, and which registers a call may
+wreck. The one used on x86-64 Unix systems is part of the *System V ABI* (application
+binary interface):
+
 | | Registers |
 |---|---|
 | integer/pointer arguments 1–6 | `rdi`, `rsi`, `rdx`, `rcx`, `r8`, `r9` (more go on the stack) |
@@ -13,22 +18,30 @@ Linux, BSD and macOS on x86-64 all use the same one.*
 | **callee-saved** ("preserved") | `rbx`, `rbp`, `r12`–`r15`: a function must return them unchanged |
 | also | `rsp` restored, DF clear on return; rsp 16-byte aligned at every `call` (next level) |
 
-The split is a deal. A function may use the scratch registers freely, so short
-functions need no saving at all. If it needs a value to **survive a call**, it keeps it
-in a preserved register, and pays by saving that register first:
+![The general-purpose registers by role: scratch registers (arguments and result) and preserved registers](registers.svg)
+
+## Lesson: why the split is a good deal
+
+Most functions are short. Because scratch registers need no saving, a short function
+can use them freely and pay nothing. The cost appears only when a value must
+**survive a call**: then you keep it in a preserved register, and save that register
+first, because your own caller is relying on it too:
 
 ```
 poly:
-    push rbx            ; prologue: save what we'll use
+    push rbx            ; prologue: save the preserved registers we'll use
     push r12
-    ...                 ; body: rbx and r12 survive our calls
-    pop r12             ; epilogue: restore in reverse order
+    ...                 ; body: rbx and r12 now survive our calls
+    pop r12             ; epilogue: restore them, in reverse order
     pop rbx
     ret
 ```
 
+The **prologue** is the code at the start of a function that sets things up; the
+**epilogue** undoes it before `ret`.
+
 Note the argument order: `rcx` is the 4th argument here, but the `syscall` instruction
-destroys rcx, which is why Linux syscalls pass their 4th argument in `r10`.
+destroys rcx, which is why Linux syscalls pass their 4th argument in `r10` instead.
 
 ## Gate
 

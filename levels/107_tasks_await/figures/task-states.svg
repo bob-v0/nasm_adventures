@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 345" width="700" height="345" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="700" height="345" fill="#fff"/>
+  <!-- states -->
+  <rect x="40" y="160" width="170" height="70" rx="12" fill="#f4f4f4" stroke="#555" stroke-width="2"/>
+  <text x="125" y="190" text-anchor="middle" font-weight="bold">ready</text>
+  <text x="125" y="210" text-anchor="middle" font-size="13">in the run queue</text>
+  <rect x="265" y="60" width="170" height="70" rx="12" fill="#e3effa" stroke="#1f6fb2" stroke-width="2"/>
+  <text x="350" y="90" text-anchor="middle" font-weight="bold">running</text>
+  <text x="350" y="110" text-anchor="middle" font-size="13">on its own stack</text>
+  <rect x="490" y="160" width="170" height="70" rx="12" fill="#fdebd3" stroke="#b35900" stroke-width="2"/>
+  <text x="575" y="190" text-anchor="middle" font-weight="bold">waiting</text>
+  <text x="575" y="210" text-anchor="middle" font-size="13">for its fd, in epoll</text>
+  <!-- ready -> running -->
+  <path d="M150,158 C170,110 210,95 261,95" fill="none" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <text x="20" y="84" font-size="13">run pops it:</text>
+  <text x="20" y="101" font-size="13" font-family="monospace">co_switch(&amp;main_ctx,</text>
+  <text x="40" y="118" font-size="13" font-family="monospace">&amp;task-&gt;ctx)</text>
+  <!-- running -> waiting -->
+  <path d="M439,95 C490,95 530,110 552,156" fill="none" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <text x="470" y="30" font-size="13">await_readable(fd):</text>
+  <text x="470" y="47" font-size="13">epoll_ctl with data = the task,</text>
+  <text x="470" y="64" font-size="13">then co_switch to main_ctx</text>
+  <!-- waiting -> ready -->
+  <path d="M488,210 L214,210" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <text x="400" y="200" text-anchor="middle" font-size="13">epoll_wait: fd ready</text>
+  <text x="400" y="230" text-anchor="middle" font-size="13">task joins the run queue</text>
+  <!-- spawn -->
+  <path d="M125,302 L125,234" stroke="#333" stroke-width="2" marker-end="url(#k)"/>
+  <text x="125" y="322" text-anchor="middle" font-size="13" font-family="monospace">spawn(fn, arg)</text>
+  <!-- end -->
+  <path d="M300,132 L300,292" stroke="#333" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#k)"/>
+  <text x="300" y="312" text-anchor="middle" font-size="13">fn returns: the task is over,</text>
+  <text x="300" y="329" text-anchor="middle" font-size="13">its slot is free</text>
+</svg>

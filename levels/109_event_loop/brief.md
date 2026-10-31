@@ -5,6 +5,10 @@ They ask the kernel "wake me when any of these is ready".*
 
 ## Lesson: a server socket
 
+A **socket** is a descriptor for a network connection. A server makes one *listening*
+socket, which only receives new connections; each connection it accepts becomes a new
+descriptor of its own:
+
 ```
 socket(AF_INET = 2, SOCK_STREAM = 1, 0)   ; (41) a TCP socket: returns an fd
 bind(fd, &addr, 16)                       ; (49) claim 127.0.0.1:7000
@@ -20,7 +24,8 @@ A `read` of 0 means the client closed its side.
 
 ## Lesson: epoll
 
-**epoll** is a kernel object that watches descriptors for you.
+**epoll** is a kernel object that watches many descriptors for you, so you can sleep
+until *any* of them is ready instead of guessing which one to read.
 
 1. `epoll_create1(0)` (291) creates it and returns an fd.
 2. `epoll_ctl(ep, EPOLL_CTL_ADD = 1, fd, &event)` (233) says "watch fd for these
@@ -47,6 +52,8 @@ forever:
         listening socket?  accept, and watch the new client
         a client?          read; echo it back, or close it if read returned 0
 ```
+
+![epoll watches every descriptor; epoll_wait returns the ready ones, and the loop handles each and waits again](event-loop.svg)
 
 Nothing ever blocks except `epoll_wait`, so one slow client can't hold up the others.
 (Almost: a `write` to a client that doesn't read could block. The boss of this arc deals

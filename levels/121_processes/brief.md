@@ -3,6 +3,18 @@
 *A shell, a web server, a build system: they all start other programs. On Unix that takes
 three syscalls, and none of them is "run this program".*
 
+## The big picture
+
+A **process** is a running program: its memory, its registers, its open file
+descriptors, and a number that names it, the **pid** (process id). To run another
+program, a Unix process:
+
+1. **forks**: makes a copy of itself, the *child*;
+2. the child calls **execve**, which replaces the copy's program with the new one;
+3. the *parent* calls **wait4** to sleep until the child has ended, and learn how.
+
+![fork splits one process into two; the child execs a new program; the parent waits for it](fork-exec-wait.svg)
+
 ## Lesson: fork
 
 `fork()` (syscall 57) makes a **copy of the calling process**: the same code, the same
@@ -11,7 +23,7 @@ processes continue right after the `syscall`. The only difference is `rax`:
 
 | process | `rax` after `fork` |
 |---|---|
-| the parent | the child's **pid** (process id) |
+| the parent | the child's **pid** |
 | the child | **0** |
 
 ```
@@ -39,7 +51,7 @@ it failed (`-ENOENT`: no such file, `-EACCES`: not an executable file...). The c
 then exit on its own, or there would be two copies of the parent running. Shells use exit
 status **127** for "command not found".
 
-Here `fork` + `execve` = "run this program", the same way a shell runs every command.
+So `fork` + `execve` = "run this program", the same way a shell runs every command.
 The game's kernel has a few tiny programs in `/bin`: `true`, `false`, `exit3`, `hello`,
 `echo`, `cat`, `wc`, `crash` and more.
 

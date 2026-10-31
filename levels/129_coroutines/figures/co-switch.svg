@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" width="700" height="440" font-family="sans-serif" font-size="14">
+  <defs>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b35900"/>
+    </marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f6fb2"/>
+    </marker>
+    <marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="700" height="440" fill="#fff"/>
+  <!-- context A (save) -->
+  <text x="20" y="24" font-weight="bold">*save (rdi)</text>
+  <g font-family="monospace" font-size="13">
+    <rect x="20" y="34" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="52">+0  rsp</text>
+    <rect x="20" y="60" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="78">+8  rbx</text>
+    <rect x="20" y="86" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="104">+16 rbp</text>
+    <rect x="20" y="112" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="130">+24 r12</text>
+    <rect x="20" y="138" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="156">+32 r13</text>
+    <rect x="20" y="164" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="182">+40 r14</text>
+    <rect x="20" y="190" width="150" height="26" fill="#fdebd3" stroke="#b35900"/><text x="28" y="208">+48 r15</text>
+  </g>
+  <!-- CPU registers -->
+  <text x="350" y="24" font-weight="bold" text-anchor="middle">CPU registers</text>
+  <g font-family="monospace" font-size="13">
+    <rect x="290" y="34" width="120" height="182" rx="6" fill="#f4f4f4" stroke="#555"/>
+    <text x="350" y="52" text-anchor="middle">rsp</text>
+    <text x="350" y="78" text-anchor="middle">rbx</text>
+    <text x="350" y="104" text-anchor="middle">rbp</text>
+    <text x="350" y="130" text-anchor="middle">r12</text>
+    <text x="350" y="156" text-anchor="middle">r13</text>
+    <text x="350" y="182" text-anchor="middle">r14</text>
+    <text x="350" y="208" text-anchor="middle">r15</text>
+  </g>
+  <!-- context B (load) -->
+  <text x="530" y="24" font-weight="bold">*load (rsi)</text>
+  <g font-family="monospace" font-size="13">
+    <rect x="530" y="34" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="52">+0  rsp</text>
+    <rect x="530" y="60" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="78">+8  rbx</text>
+    <rect x="530" y="86" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="104">+16 rbp</text>
+    <rect x="530" y="112" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="130">+24 r12</text>
+    <rect x="530" y="138" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="156">+32 r13</text>
+    <rect x="530" y="164" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="182">+40 r14</text>
+    <rect x="530" y="190" width="150" height="26" fill="#e3effa" stroke="#1f6fb2"/><text x="538" y="208">+48 r15</text>
+  </g>
+  <!-- store / load arrows -->
+  <path d="M288,125 L174,125" stroke="#b35900" stroke-width="3" marker-end="url(#o)"/>
+  <text x="254" y="114" text-anchor="middle" fill="#b35900">1. store</text>
+  <path d="M528,125 L414,125" stroke="#1f6fb2" stroke-width="3" marker-end="url(#b)"/>
+  <text x="448" y="114" text-anchor="middle" fill="#1f6fb2">2. load</text>
+  <!-- stacks -->
+  <text x="20" y="262" font-weight="bold">the old context's stack</text>
+  <rect x="20" y="272" width="150" height="30" fill="#f4f4f4" stroke="#999"/><text x="95" y="292" text-anchor="middle" fill="#777">its locals</text>
+  <rect x="20" y="302" width="150" height="30" fill="#fdebd3" stroke="#b35900"/><text x="95" y="322" text-anchor="middle">return address</text>
+  <path d="M174,47 C230,60 230,300 174,317" fill="none" stroke="#333" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#k)"/>
+  <text x="20" y="356" font-size="13" fill="#333">where it resumes, the next time</text>
+  <text x="20" y="373" font-size="13" fill="#333">someone switches back to it</text>
+  <text x="530" y="262" font-weight="bold">the new context's stack</text>
+  <rect x="530" y="272" width="150" height="30" fill="#f4f4f4" stroke="#999"/><text x="605" y="292" text-anchor="middle" fill="#777">its locals</text>
+  <rect x="530" y="302" width="150" height="30" fill="#e3effa" stroke="#1f6fb2"/><text x="605" y="322" text-anchor="middle">return address</text>
+  <path d="M526,47 C470,60 470,300 526,317" fill="none" stroke="#333" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#k)"/>
+  <text x="400" y="404" font-size="14" fill="#1f6fb2" text-anchor="middle">3. ret pops this one: execution continues in the other context</text>
+  <path d="M605,336 C605,380 560,392 520,394" fill="none" stroke="#1f6fb2" stroke-width="1.5"/>
+</svg>

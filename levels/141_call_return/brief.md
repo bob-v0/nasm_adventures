@@ -4,6 +4,9 @@
 
 ## Lesson: call and ret
 
+A **function** is a piece of code you can jump into from anywhere and that knows how
+to get back. Two instructions do it:
+
 ```
     call utoa       ; push the address of the next instruction, then jump to utoa
     ...             ; ...and execution continues here when utoa returns
@@ -12,10 +15,15 @@ utoa:
     ret             ; pop that address and jump to it
 ```
 
-That's all a function call is: a jump that remembers where to come back to, stored on
-the stack. A function can call other functions, because each `call` pushes its own
-return address. The stack must be exactly as `call` left it when `ret` runs, or `ret`
-jumps somewhere random.
+The address `call` pushes is the **return address**. So a call is just a jump that
+leaves a note on the stack saying where to come back to.
+
+![call pushes the return address and jumps; ret pops it and jumps back](call-ret.svg)
+
+A function can call other functions, because each `call` pushes its own return
+address on top of the others. The one rule: when `ret` runs, rsp must point at that
+return address again, exactly as `call` left it. Leave an extra push behind and `ret`
+jumps to whatever value you pushed.
 
 ## New: function levels
 

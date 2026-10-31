@@ -7,9 +7,9 @@ concepts = ["linking with the C library", "main and its return value", "calling 
 introduces = ["extern printf", "extern scanf", "main", "gcc as the linker", "default rel"]
 
 hints = [
-  "main is an ordinary function called by the C runtime: keep the ABI (save callee-saved registers you use, align the stack). Return 0 in eax. Strings for printf need a terminating 0 (`db \"...\", 10, 0`).",
-  "printf and scanf are variadic: before calling them set al = 0 (the number of vector registers used for arguments). scanf needs the ADDRESS of a variable: reserve stack space and pass `lea rsi, [rsp + 8]`, or use a .bss variable.",
-  "At main's entry rsp % 16 == 8. push rbx / push r12 / push r13 then sub rsp, 16 → aligned, with [rsp] free for the scanned number. If printf crashes with SIGSEGV inside libc, check alignment first.",
+  "main is an ordinary function called by the C runtime: keep the ABI (save the callee-saved registers you use, align the stack). Return 0 in eax. Strings for printf need a terminating 0 (`db \"...\", 10, 0`).",
+  "printf and scanf are variadic: before calling them set al = 0 (the number of vector registers used for arguments). scanf needs the ADDRESS of a variable: reserve stack space and pass its address (`lea rsi, [rsp]`), or use a .bss variable.",
+  "At main's entry rsp % 16 == 8. push rbx / push r12 / push r13, then sub rsp, 16 → aligned, with [rsp] free for the scanned number. If printf crashes with SIGSEGV inside libc, check alignment first.",
 ]
 
 [constraints]

@@ -25,7 +25,8 @@ syscall
 ```
 
 (Or pass `O_NONBLOCK` to `open`, `pipe2`, `socket`… when you create the descriptor.)
-`EAGAIN` isn't an error, it's an answer. A read of **0** still means end of file.
+`EAGAIN` isn't an error, it's an answer: "nothing right now". A read of **0** still
+means end of file.
 
 ## Lesson: polling, and its price
 
@@ -36,8 +37,15 @@ saves the CPU but adds delay. Neither is great: the next level fixes this proper
 
 ## Lesson: data arrives in pieces
 
-A pipe delivers bytes, not lines. A read can return half a line, or two and a half.
-Keep a buffer per input, append what arrives, and only act on complete lines, keeping
+A pipe delivers bytes, not lines. A read can return half a line, or two and a half:
+
+```
+read 1:  "temp=2"          no newline yet: keep it in the buffer
+read 2:  "1\nhum=4"        buffer "temp=21\nhum=4": print "temp=21", keep "hum=4"
+read 3:  "0\n"             buffer "hum=40\n": print "hum=40"
+```
+
+So keep a buffer per input, append what arrives, act only on complete lines, and keep
 the rest for later.
 
 ## Gate

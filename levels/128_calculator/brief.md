@@ -5,6 +5,9 @@ that call each other recursively.*
 
 ## The language
 
+A **grammar** describes which inputs are valid. Read `:=` as "is made of", `{ ... }` as
+"repeated zero or more times" and `|` as "or":
+
 ```
 expr   := term   { ('+' | '-') term }
 term   := factor { ('*' | '/') factor }
@@ -18,8 +21,8 @@ factor := number | '(' expr ')' | '-' factor
 
 ## Lesson: recursive descent
 
-Each rule of the grammar becomes a function that consumes its part of the input
-and returns its value:
+**Recursive descent** turns each rule of the grammar into a function that consumes its
+part of the input and returns its value:
 
 ```
 expr():   v = term();   while next is + or -: consume it; v = v ± term();   return v
@@ -29,9 +32,13 @@ factor(): if '-': consume; return -factor()
           else: parse a number
 ```
 
+For `2 * (3 + 4)`: expr calls term; term calls factor, which reads 2; term sees `*`
+and calls factor again; that factor sees `(` and calls expr, which computes 3 + 4 = 7;
+term returns 2 · 7 = 14.
+
 The call stack does the bookkeeping: an expression nested ten parentheses deep is ten
-`expr` frames waiting for their inner result. Compilers parse this way (GCC and Clang
-both use hand-written recursive-descent parsers).
+`expr` frames waiting for their inner result. Real compilers parse this way (GCC and
+Clang both use hand-written recursive-descent parsers).
 
 ## Gate ★
 

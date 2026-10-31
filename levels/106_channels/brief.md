@@ -18,16 +18,28 @@ From here on the game links in its own task runtime, your level 107 runtime grow
 | `rt_unpark(task)` | make a parked task ready (no effect on a task that isn't parked) |
 | `rt_sleep(ms)`, `rt_await_readable(fd)`, `rt_lock(m)` / `rt_unlock(m)`, `rt_cancel(task)` | later levels |
 
-Each call that can suspend is an **await point**: other tasks may run before it
-returns. When several tasks are ready, **the game picks which runs next**. The tests
+A *task* is a function running on its own stack that the runtime can suspend and
+resume (level 107). Each call that can suspend is an **await point**: other tasks may run
+before it returns. When several tasks are ready, **the game picks which runs next**. The tests
 try many different orders (*schedules*), so code that only works in one order fails.
 
 ## Lesson: a bounded channel
 
-A channel is a queue with a **capacity**: a ring buffer of `cap` slots, plus `head` (the
-oldest) and `count`. When it's **full**, `send` waits. That's **backpressure**: a fast
-producer is slowed to the speed of its consumers instead of filling memory. When it's
-**empty**, `recv` waits.
+A **channel** is a queue between tasks with a **capacity**: a *ring buffer* of `cap`
+slots (an array whose end wraps around to its start), plus `head` (the index of the
+oldest value) and `count`:
+
+```
+cap = 4, head = 1, count = 2
+
+slot:      0      1      2      3
+        [    ] [ 10 ] [ 11 ] [    ]
+                  ↑ head: recv takes 10 next
+                                  ↑ send puts the next value at (head + count) % cap = 3
+```
+
+When it's **full**, `send` waits. That's **backpressure**: a fast producer is slowed to
+the speed of its consumers instead of filling memory. When it's **empty**, `recv` waits.
 
 ## Lesson: wakers
 
