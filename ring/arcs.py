@@ -12,7 +12,7 @@ ARCS = {
     "IX": "Floating Point & SIMD",
     "X": "Machine Code",
     "XI": "Real Mode & Boot",
-    "XII": "Protected Mode",
+    "XII": "Protected Mode & Interrupts",
     "XIII": "Long Mode",
     "XIV": "Ring 0",
 }

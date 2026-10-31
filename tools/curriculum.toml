@@ -228,24 +228,20 @@ levels = [
 
 [[arc]]
 id = "XII"
-name = "Protected Mode"
-runner = "qemu"
+name = "Protected Mode & Interrupts"
+runner = "qemu: 32-bit protected mode as the bridge to long mode; interrupts on the APIC, as every x86-64 kernel uses them"
 levels = [
   { title = "Descriptors", dir = "descriptors", concepts = "GDT, `lgdt`", gate = "A flat GDT" },
   { title = "The Switch", dir = "the_switch", concepts = "CR0.PE, far jump, `bits 32`", gate = "Enter protected mode" },
-  { title = "Multiboot", dir = "multiboot", concepts = "multiboot2 header and info", gate = "Boot as a multiboot2 kernel" },
+  { title = "Multiboot", dir = "multiboot", concepts = "multiboot header and info, modules", gate = "Boot as a multiboot kernel and report what the loader says" },
   { title = "Exceptions", dir = "exceptions", concepts = "IDT, gates, error codes", gate = "Report faulting vector and EIP" },
   { title = "Triple Fault Hunt", dir = "bug_triple_fault", bug = 2, concepts = "reading the fault chain: #GP → #DF → reset", gate = "Fix a kernel that reboots instantly, using the fault explainer" },
-  { title = "Hardware IRQs", dir = "hardware_irqs", concepts = "PIC remap, EOI, `sti`/`cli`", gate = "Timer + keyboard into a ring buffer" },
-  { title = "Interrupt Reentrancy", dir = "bug_irq_reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader fires IRQs at every instruction" },
+  { title = "Silencing the PIC", dir = "legacy_pic", concepts = "the 8259 is still there: remap it off the exception vectors, mask it, spurious IRQ 7", gate = "Remap and mask the legacy PIC; survive its spurious interrupt" },
+  { title = "Local APIC", dir = "local_apic", concepts = "memory-mapped registers at 0xFEE00000, the spurious vector register, EOI, the APIC timer calibrated against the PIT", gate = "A 100 Hz APIC timer" },
+  { title = "I/O APIC", dir = "io_apic", concepts = "the redirection table, routing an ISA IRQ to a vector, a ring buffer between handler and main loop", gate = "Keyboard input through the I/O APIC" },
+  { title = "Interrupt Reentrancy", dir = "bug_irq_reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader moves the interrupts across every instruction" },
   { title = "The sti;hlt Race", dir = "bug_sti_hlt", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through input" },
-  { title = "Paging I", dir = "paging", concepts = "CR3, page tables, CR0.PG", gate = "Higher-half alias" },
-  { title = "Page Faults", dir = "page_faults", concepts = "CR2, demand mapping", gate = "Lazy allocation" },
-  { title = "Physical Memory", dir = "physical_memory", concepts = "frame allocator", gate = "Bitmap allocator under stress" },
-  { title = "Privilege Rings", dir = "privilege_rings", concepts = "CPL/DPL/RPL, TSS, `iret` to ring 3", gate = "Drop to ring 3" },
-  { title = "System Calls", dir = "system_calls", concepts = "`int 0x80` gate with DPL 3", gate = "Ring-3 program prints via your kernel" },
-  { title = "Task Switching", dir = "task_switching", concepts = "saving and restoring state", gate = "Cooperative ring-3 tasks" },
-  { title = "Protected Kernel", dir = "protected_kernel", boss = true, concepts = "everything in the arc", gate = "32-bit preemptive kernel" },
+  { title = "Interrupt-Driven Console", dir = "interrupt_console", boss = true, concepts = "everything in the arc", gate = "Timer, keyboard and serial input on the APIC: a console that never loses or garbles input" },
 ]
 
 [[arc]]
@@ -254,18 +250,22 @@ name = "Long Mode"
 runner = "qemu"
 levels = [
   { title = "CPUID & MSRs", concepts = "feature detection, `rdmsr`/`wrmsr`, EFER", gate = "Report CPU features" },
+  { title = "Physical Memory", concepts = "the multiboot memory map, a frame allocator", gate = "Bitmap frame allocator under stress" },
   { title = "4-Level Paging", concepts = "PML4…PT, 2 MiB pages, NX", gate = "Identity + higher half" },
   { title = "Enter Long Mode", concepts = "PAE, EFER.LME, 64-bit GDT", gate = "Reach 64-bit mode" },
   { title = "64-bit IDT", concepts = "16-byte gates, IST", gate = "Survive #DF via IST" },
   { title = "Kernel Stack Overflow", bug = 3, concepts = "deep kernel recursion silently corrupting memory; guard pages", gate = "Turn silent corruption into a clean #DF report" },
-  { title = "Local APIC", concepts = "xAPIC/x2APIC, APIC timer", gate = "APIC-driven preemption" },
-  { title = "syscall/sysret", concepts = "STAR/LSTAR/SFMASK, `swapgs`", gate = "Fast syscalls" },
+  { title = "Page Faults", concepts = "CR2, error codes, demand mapping", gate = "Lazy allocation" },
+  { title = "Privilege Rings", concepts = "CPL/DPL/RPL, the 64-bit TSS and RSP0, `iretq` to ring 3", gate = "Drop to ring 3" },
+  { title = "syscall/sysret", concepts = "STAR/LSTAR/SFMASK, `swapgs`", gate = "A ring-3 program prints through your kernel" },
   { title = "swapgs Confusion", bug = 4, concepts = "nested interrupts from kernel vs user mode with the wrong GS base", gate = "Fix a kernel that crashes only when an IRQ lands during a syscall" },
   { title = "Virtual Memory Manager", concepts = "per-process address spaces, `invlpg`", gate = "Isolated processes" },
   { title = "Stale TLB", bug = 3, concepts = "remapping without invalidation", gate = "Fix a remap that reads old data" },
   { title = "Kernel Heap", concepts = "slab allocator", gate = "kmalloc/kfree under stress" },
   { title = "printk", concepts = "kernel formatting (reuses `itoa`)", gate = "Kernel log with hex dumps" },
   { title = "ELF Loader", concepts = "ELF64 from an initrd", gate = "Run an Arc I program on your kernel" },
+  { title = "Task Switching", concepts = "saving and restoring state, kernel stacks per task", gate = "Cooperative ring-3 tasks" },
+  { title = "Preemption", concepts = "the APIC timer drives the switch; what an interrupted task must keep", gate = "Preemptive ring-3 tasks" },
   { title = "Scheduler", concepts = "round-robin, priorities, blocking", gate = "Fair scheduling" },
   { title = "Long Kernel", boss = true, concepts = "everything in the arc", gate = "Your kernel runs your Tiny Shell" },
 ]
@@ -282,7 +282,7 @@ levels = [
   { title = "Spinlocks & IPIs", concepts = "SMP locks, TLB shootdown", gate = "Race-free multi-core scheduler" },
   { title = "TLB Shootdown Race", bug = 4, concepts = "freeing a page before every CPU has flushed it", gate = "Fix use-after-unmap across cores" },
   { title = "Lifetime Across CPUs", bug = 4, concepts = "freeing a task or page table another CPU still uses; RCU-style grace periods", gate = "Safe process teardown on 4 cores" },
-  { title = "Drivers", concepts = "interrupt-driven UART / virtio-blk, I/O APIC routing", gate = "Read a file into a user process" },
+  { title = "Drivers", concepts = "interrupt-driven UART / virtio-blk; routing PCI interrupts through the I/O APIC (level 32) or MSI", gate = "Read a file into a user process" },
   { title = "Heisenbug", bug = 4, concepts = "the final hunt: a rare race in your own kernel; schedule exploration, record and replay", gate = "Find it, explain it, fix it" },
   { title = "Ring 0", boss = true, concepts = "everything", gate = "Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win." },
 ]

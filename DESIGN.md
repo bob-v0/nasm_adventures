@@ -417,47 +417,47 @@ Runner: qemu. 11 levels, 1 of them bug levels.
 | 41 | Memory Map & A20 | E820, A20 | Print the memory map |
 | 40 | Boot Sector Game ★ | everything in the arc | A game in ≤ 512 bytes |
 
-### Arc XII — Protected Mode (Levels 39–25)
+### Arc XII — Protected Mode & Interrupts (Levels 39–29)
 
-Runner: qemu. 15 levels, 3 of them bug levels.
+Runner: qemu: 32-bit protected mode as the bridge to long mode; interrupts on the APIC, as every x86-64 kernel uses them. 11 levels, 3 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
 | 39 | Descriptors | GDT, `lgdt` | A flat GDT |
 | 38 | The Switch | CR0.PE, far jump, `bits 32` | Enter protected mode |
-| 37 | Multiboot | multiboot2 header and info | Boot as a multiboot2 kernel |
+| 37 | Multiboot | multiboot header and info, modules | Boot as a multiboot kernel and report what the loader says |
 | 36 | Exceptions | IDT, gates, error codes | Report faulting vector and EIP |
 | 35 | **Bug:** Triple Fault Hunt ◆◆ | reading the fault chain: #GP → #DF → reset | Fix a kernel that reboots instantly, using the fault explainer |
-| 34 | Hardware IRQs | PIC remap, EOI, `sti`/`cli` | Timer + keyboard into a ring buffer |
-| 33 | **Bug:** Interrupt Reentrancy ◆◆◆ | an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC | Fix corruption; the grader fires IRQs at every instruction |
-| 32 | **Bug:** The sti;hlt Race ◆◆◆ | lost wakeup between the check and `hlt`; the `sti` interrupt shadow | Fix an idle loop that sometimes sleeps through input |
-| 31 | Paging I | CR3, page tables, CR0.PG | Higher-half alias |
-| 30 | Page Faults | CR2, demand mapping | Lazy allocation |
-| 29 | Physical Memory | frame allocator | Bitmap allocator under stress |
-| 28 | Privilege Rings | CPL/DPL/RPL, TSS, `iret` to ring 3 | Drop to ring 3 |
-| 27 | System Calls | `int 0x80` gate with DPL 3 | Ring-3 program prints via your kernel |
-| 26 | Task Switching | saving and restoring state | Cooperative ring-3 tasks |
-| 25 | Protected Kernel ★ | everything in the arc | 32-bit preemptive kernel |
+| 34 | Silencing the PIC | the 8259 is still there: remap it off the exception vectors, mask it, spurious IRQ 7 | Remap and mask the legacy PIC; survive its spurious interrupt |
+| 33 | Local APIC | memory-mapped registers at 0xFEE00000, the spurious vector register, EOI, the APIC timer calibrated against the PIT | A 100 Hz APIC timer |
+| 32 | I/O APIC | the redirection table, routing an ISA IRQ to a vector, a ring buffer between handler and main loop | Keyboard input through the I/O APIC |
+| 31 | **Bug:** Interrupt Reentrancy ◆◆◆ | an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC | Fix corruption; the grader moves the interrupts across every instruction |
+| 30 | **Bug:** The sti;hlt Race ◆◆◆ | lost wakeup between the check and `hlt`; the `sti` interrupt shadow | Fix an idle loop that sometimes sleeps through input |
+| 29 | Interrupt-Driven Console ★ | everything in the arc | Timer, keyboard and serial input on the APIC: a console that never loses or garbles input |
 
-### Arc XIII — Long Mode (Levels 24–10)
+### Arc XIII — Long Mode (Levels 28–10)
 
-Runner: qemu. 15 levels, 3 of them bug levels.
+Runner: qemu. 19 levels, 3 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|
-| 24 | CPUID & MSRs | feature detection, `rdmsr`/`wrmsr`, EFER | Report CPU features |
-| 23 | 4-Level Paging | PML4…PT, 2 MiB pages, NX | Identity + higher half |
-| 22 | Enter Long Mode | PAE, EFER.LME, 64-bit GDT | Reach 64-bit mode |
-| 21 | 64-bit IDT | 16-byte gates, IST | Survive #DF via IST |
-| 20 | **Bug:** Kernel Stack Overflow ◆◆◆ | deep kernel recursion silently corrupting memory; guard pages | Turn silent corruption into a clean #DF report |
-| 19 | Local APIC | xAPIC/x2APIC, APIC timer | APIC-driven preemption |
-| 18 | syscall/sysret | STAR/LSTAR/SFMASK, `swapgs` | Fast syscalls |
-| 17 | **Bug:** swapgs Confusion ◆◆◆◆ | nested interrupts from kernel vs user mode with the wrong GS base | Fix a kernel that crashes only when an IRQ lands during a syscall |
-| 16 | Virtual Memory Manager | per-process address spaces, `invlpg` | Isolated processes |
-| 15 | **Bug:** Stale TLB ◆◆◆ | remapping without invalidation | Fix a remap that reads old data |
-| 14 | Kernel Heap | slab allocator | kmalloc/kfree under stress |
-| 13 | printk | kernel formatting (reuses `itoa`) | Kernel log with hex dumps |
-| 12 | ELF Loader | ELF64 from an initrd | Run an Arc I program on your kernel |
+| 28 | CPUID & MSRs | feature detection, `rdmsr`/`wrmsr`, EFER | Report CPU features |
+| 27 | Physical Memory | the multiboot memory map, a frame allocator | Bitmap frame allocator under stress |
+| 26 | 4-Level Paging | PML4…PT, 2 MiB pages, NX | Identity + higher half |
+| 25 | Enter Long Mode | PAE, EFER.LME, 64-bit GDT | Reach 64-bit mode |
+| 24 | 64-bit IDT | 16-byte gates, IST | Survive #DF via IST |
+| 23 | **Bug:** Kernel Stack Overflow ◆◆◆ | deep kernel recursion silently corrupting memory; guard pages | Turn silent corruption into a clean #DF report |
+| 22 | Page Faults | CR2, error codes, demand mapping | Lazy allocation |
+| 21 | Privilege Rings | CPL/DPL/RPL, the 64-bit TSS and RSP0, `iretq` to ring 3 | Drop to ring 3 |
+| 20 | syscall/sysret | STAR/LSTAR/SFMASK, `swapgs` | A ring-3 program prints through your kernel |
+| 19 | **Bug:** swapgs Confusion ◆◆◆◆ | nested interrupts from kernel vs user mode with the wrong GS base | Fix a kernel that crashes only when an IRQ lands during a syscall |
+| 18 | Virtual Memory Manager | per-process address spaces, `invlpg` | Isolated processes |
+| 17 | **Bug:** Stale TLB ◆◆◆ | remapping without invalidation | Fix a remap that reads old data |
+| 16 | Kernel Heap | slab allocator | kmalloc/kfree under stress |
+| 15 | printk | kernel formatting (reuses `itoa`) | Kernel log with hex dumps |
+| 14 | ELF Loader | ELF64 from an initrd | Run an Arc I program on your kernel |
+| 13 | Task Switching | saving and restoring state, kernel stacks per task | Cooperative ring-3 tasks |
+| 12 | Preemption | the APIC timer drives the switch; what an interrupted task must keep | Preemptive ring-3 tasks |
 | 11 | Scheduler | round-robin, priorities, blocking | Fair scheduling |
 | 10 | Long Kernel ★ | everything in the arc | Your kernel runs your Tiny Shell |
 
@@ -474,7 +474,7 @@ Runner: qemu -smp N. 10 levels, 4 of them bug levels.
 | 5 | Spinlocks & IPIs | SMP locks, TLB shootdown | Race-free multi-core scheduler |
 | 4 | **Bug:** TLB Shootdown Race ◆◆◆◆ | freeing a page before every CPU has flushed it | Fix use-after-unmap across cores |
 | 3 | **Bug:** Lifetime Across CPUs ◆◆◆◆ | freeing a task or page table another CPU still uses; RCU-style grace periods | Safe process teardown on 4 cores |
-| 2 | Drivers | interrupt-driven UART / virtio-blk, I/O APIC routing | Read a file into a user process |
+| 2 | Drivers | interrupt-driven UART / virtio-blk; routing PCI interrupts through the I/O APIC (level 32) or MSI | Read a file into a user process |
 | 1 | **Bug:** Heisenbug ◆◆◆◆ | the final hunt: a rare race in your own kernel; schedule exploration, record and replay | Find it, explain it, fix it |
 | 0 | Ring 0 ★ | everything | Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win. |
 <!-- END GENERATED CURRICULUM -->
@@ -564,11 +564,11 @@ Concurrency is taught in three passes, each with its own bugs:
 | 52 | X | Stale Code | ◆◆◆ hard | cross-modifying code: another thread runs old instructions; serialization |
 | 48 | XI | Wrong Segment | ◆◆ medium | assuming BIOS register state; `org` vs segment mismatch |
 | 35 | XII | Triple Fault Hunt | ◆◆ medium | reading the fault chain: #GP → #DF → reset |
-| 33 | XII | Interrupt Reentrancy | ◆◆◆ hard | an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC |
-| 32 | XII | The sti;hlt Race | ◆◆◆ hard | lost wakeup between the check and `hlt`; the `sti` interrupt shadow |
-| 20 | XIII | Kernel Stack Overflow | ◆◆◆ hard | deep kernel recursion silently corrupting memory; guard pages |
-| 17 | XIII | swapgs Confusion | ◆◆◆◆ very hard | nested interrupts from kernel vs user mode with the wrong GS base |
-| 15 | XIII | Stale TLB | ◆◆◆ hard | remapping without invalidation |
+| 31 | XII | Interrupt Reentrancy | ◆◆◆ hard | an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC |
+| 30 | XII | The sti;hlt Race | ◆◆◆ hard | lost wakeup between the check and `hlt`; the `sti` interrupt shadow |
+| 23 | XIII | Kernel Stack Overflow | ◆◆◆ hard | deep kernel recursion silently corrupting memory; guard pages |
+| 19 | XIII | swapgs Confusion | ◆◆◆◆ very hard | nested interrupts from kernel vs user mode with the wrong GS base |
+| 17 | XIII | Stale TLB | ◆◆◆ hard | remapping without invalidation |
 | 6 | XIV | IRQ-Unsafe Lock | ◆◆◆ hard | a lock taken in an interrupt handler while the same CPU holds it |
 | 4 | XIV | TLB Shootdown Race | ◆◆◆◆ very hard | freeing a page before every CPU has flushed it |
 | 3 | XIV | Lifetime Across CPUs | ◆◆◆◆ very hard | freeing a task or page table another CPU still uses; RCU-style grace periods |
@@ -882,7 +882,14 @@ the internet directly.
    leave data in memory; tests can append the game's own sectors (programs that call the
    player's interrupt handlers or measure their timer against the CMOS clock), type keys,
    and set the clock and memory size. `ring debug` runs QEMU under gdb from the reset
-   vector. Remaining: the fault explainer for protected mode; Arc XII.
+   vector.
+   Arc XII (levels 39–29) is protected mode as the bridge to long mode, and interrupts
+   as x86-64 kernels really handle them: the legacy PIC only remapped and masked, then the
+   Local APIC (timer) and the I/O APIC (device IRQs). Paging, rings, system calls and task
+   switching are taught once, in 64-bit, in Arc XIII. Multiboot kernels (`mode =
+   "multiboot"`: ELF32 at 1 MiB, QEMU's `-kernel`, a command line and modules per test);
+   QEMU's exception log feeds the fault explainer, which names the chain before a triple
+   fault and why delivery failed. Levels 39–35 done.
 8. **M8 – Kernel arcs:** XIII–XIV, with a reference OS used to validate every level;
    descriptor, page-table and per-core panels.
 9. **M9 – Polish:** lore pass, badges, optional Bochs backend, optional WebAssembly
