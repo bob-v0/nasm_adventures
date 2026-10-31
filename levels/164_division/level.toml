@@ -9,7 +9,21 @@ introduces = ["div", "idiv", "cqo", "cdq", "cwd"]
 hints = [
   "idiv divides rdx:rax (128 bits) by its operand: quotient in rax, remainder in rdx. Before it, `cqo` copies the sign of rax into every bit of rdx. Without it you divide some random 128-bit number.",
   "idiv rounds toward zero. Floor differs only when the remainder is non-zero and has the opposite sign to the divisor. Then: quotient - 1, remainder + divisor.",
-  "mov rax, rdi / cqo / idiv rsi / mov r8, rax / mov r9, rdx / test rdx, rdx / jz .done / (if rdx and rsi have different signs) dec rax ; add rdx, rsi / .done:",
+  """Divide once; the truncated results are what idiv gives, and the floored ones are a small fix-up:
+
+```
+    mov rax, rdi
+    cqo                     ; rdx:rax = a, sign-extended to 128 bits
+    idiv rsi                ; rax = quotient, rdx = remainder, both truncated
+    mov r8, rax
+    mov r9, rdx
+    test rdx, rdx
+    jz .done                ; exact: floor and truncation agree
+    ; ... jump to .done too unless rdx and rsi have different signs
+    dec rax                 ; round down instead of toward zero
+    add rdx, rsi            ; the remainder takes the divisor's sign
+.done:
+```""",
 ]
 
 [constraints]

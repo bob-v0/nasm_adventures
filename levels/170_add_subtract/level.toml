@@ -9,7 +9,22 @@ introduces = ["add", "sub", "inc", "dec", "neg"]
 hints = [
   "x86 arithmetic is two-operand: `add rax, rsi` means rax = rax + rsi. Copy an input into the output register first, then operate on the copy.",
   "Don't modify rdi, rsi or rdx; they must still hold the inputs at the end. `neg` turns x into -x (0 - x).",
-  "mov rax, rdi / add rax, rsi / sub rax, rdx — then mov rbx, rdi / neg rbx — mov rcx, rdx / inc rcx — mov r8, rsi / dec r8 — mov r9, rdx / sub r9, rdi / sub r9, rdi",
+  """For each result, copy an input into the output register, then work on the copy:
+
+```
+mov rax, rdi
+add rax, rsi
+sub rax, rdx            ; rax = a + b - c
+mov rbx, rdi
+neg rbx                 ; rbx = -a
+mov rcx, rdx
+inc rcx                 ; rcx = c + 1
+mov r8, rsi
+dec r8                  ; r8 = b - 1
+mov r9, rdx
+sub r9, rdi
+sub r9, rdi             ; r9 = c - a - a = c - 2a
+```""",
 ]
 
 [constraints]

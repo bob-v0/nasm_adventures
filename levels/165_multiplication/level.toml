@@ -9,7 +9,17 @@ introduces = ["mul", "imul r/m", "imul r, r/m", "imul r, r/m, imm"]
 hints = [
   "`mul rsi` multiplies rax by rsi and puts the 128-bit result in rdx:rax, so load a into rax first. It overwrites rdx, so do it last (or save what you need first).",
   "Two-operand `imul r10, rsi` keeps only the low 64 bits and sets OF (and CF) when the signed result didn't fit. Turn that into 0/1 with a jump or the `adc` trick.",
-  "imul r9, rdi, 37 / mov r10, rdi / imul r10, rsi / mov r8d, 0 / adc r8, 0 (CF = OF here) / mov rax, rdi / mul rsi",
+  """Do the `mul` last, because it overwrites rdx:
+
+```
+imul r9, rdi, 37        ; three operands: r9 = a * 37
+mov r10, rdi
+imul r10, rsi           ; low 64 bits; OF = CF = 1 if the signed product didn't fit
+mov r8d, 0              ; mov, not xor: it leaves CF alone
+adc r8, 0               ; r8 = 0 + 0 + CF
+mov rax, rdi
+mul rsi                 ; rdx:rax = the full unsigned product
+```""",
 ]
 
 [constraints]

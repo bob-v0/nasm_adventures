@@ -10,7 +10,21 @@ introduces = ["context switch", "coroutines", "generators"]
 hints = [
   "On entry to co_switch, [rsp] is the return address into the code that called it. Save rsp and the six callee-saved registers into *save, load all seven from *load, and `ret`: that pops the return address of the OTHER context.",
   "Why only callee-saved registers? co_switch is called like a function, so its caller already assumes the scratch registers are destroyed. The rest of the state is on each context's own stack.",
-  "mov [rdi], rsp / mov [rdi+8], rbx / mov [rdi+16], rbp / mov [rdi+24], r12 ... r15, then mov rsp, [rsi] / mov rbx, [rsi+8] ... / ret. Seven stores, seven loads, one ret.",
+  """Store this context's seven registers through rdi, then load the other context's seven through rsi:
+
+```
+mov [rdi], rsp          ; [rsp] = where this context continues
+mov [rdi + 8], rbx
+mov [rdi + 16], rbp
+mov [rdi + 24], r12
+; ... r13, r14 and r15 the same way, at +32, +40, +48
+mov rsp, [rsi]          ; now on the other stack
+mov rbx, [rsi + 8]
+; ... and the other five, in the same order
+ret                     ; pops the other context's return address
+```
+
+Seven stores, seven loads, one `ret`.""",
 ]
 
 [constraints]

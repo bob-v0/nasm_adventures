@@ -9,7 +9,20 @@ introduces = ["adc", "sbb", "clc", "stc"]
 hints = [
   "Add the low halves with `add` (which sets CF), then the high halves with `adc`, which also adds CF. Subtraction works the same way with `sub` then `sbb`.",
   "Be careful what runs between the low and high halves: any arithmetic in between overwrites CF. `mov` doesn't touch flags.",
-  "mov r8, rdi / add r8, rdx / mov r9, rsi / adc r9, rcx / mov r10, rdi / sub r10, rdx / mov r11, rsi / sbb r11, rcx",
+  """Each result: copy the low and high limbs of A, then add or subtract B's limbs into them.
+
+```
+mov r8, rdi
+add r8, rdx             ; low limbs: CF = the carry
+mov r9, rsi             ; mov leaves CF alone
+adc r9, rcx             ; high limbs + the carry
+mov r10, rdi
+sub r10, rdx            ; low limbs: CF = the borrow
+mov r11, rsi
+sbb r11, rcx            ; high limbs - the borrow; CF = the borrow out of all 128 bits
+```
+
+That's eight instructions: the stretch goal too.""",
 ]
 
 [constraints]

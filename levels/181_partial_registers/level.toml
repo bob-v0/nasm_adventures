@@ -9,7 +9,19 @@ introduces = ["al ah ax eax", "r8b r8w r8d", "movzx", "movsx", "movsxd"]
 hints = [
   "Look at {{docs registers}}. al is the low 8 bits of rax, ax the low 16, eax the low 32, ah bits 8–15.",
   "movzx fills the upper bits with zeros; movsx/movsxd copy the sign bit into them. Writing a 32-bit register (mov edi, eax) zeroes the upper 32 bits by itself.",
-  "movzx ebx, al / movsx rcx, ax / movsxd rdx, eax / movzx esi, ah / mov edi, eax / mov r8, rax then mov r8b, 0x7F",
+  """One instruction per register, and two for r8:
+
+```
+movzx ebx, al           ; 32-bit destination: the upper half of rbx is cleared too
+movsx rcx, ax
+movsxd rdx, eax
+movzx esi, ah           ; not rsi: ah can't be used with a REX prefix
+mov edi, eax            ; a 32-bit write zero-extends by itself
+mov r8, rax
+mov r8b, 0x7F           ; an 8-bit write leaves the other 56 bits alone
+```
+
+That's seven instructions: the stretch goal too.""",
 ]
 
 [constraints]

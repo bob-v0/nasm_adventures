@@ -11,7 +11,20 @@ introduces = ["witness inputs"]
 hints = [
   "The check compares the *wrapped* total with LIMIT. Find count and size whose true product is enormous but whose product mod 2^64 is tiny. Powers of two make this easy.",
   "2^61 × 8 = 2^64, which wraps to exactly 0. For the fix: `imul` only detects *signed* overflow (and keeps 64 bits). `mul` gives the full unsigned product and sets CF if the high half isn't zero. The `add` can wrap too.",
-  "Witness: ;! witness rdi = 0x2000000000000000, rsi = 8. Fix: mul rsi / jc .too_big / add rax, 16 / jc .too_big.",
+  """Witness: 2^61 records of 8 bytes are 2^64 bytes, which wraps to 0.
+
+```
+;! witness rdi = 0x2000000000000000, rsi = 8
+```
+
+Fix: replace the `imul` with `mul`, and check the carry after it and after the `add`:
+
+```
+mul rsi                 ; rdx:rax = count * size; CF = 1 if it needs more than 64 bits
+jc .too_big
+add rax, 16
+jc .too_big             ; the + 16 can wrap too
+```""",
 ]
 
 [constraints]

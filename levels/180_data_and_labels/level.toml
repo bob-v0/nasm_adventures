@@ -9,7 +9,26 @@ introduces = ["section .data / .bss / .text", "db dw dd dq", "resb resq", "byte 
 hints = [
   "`input` is an address. `[input]` is the 8 bytes stored at that address. To copy memory to memory, load into a register first, then store.",
   "`mov word [counter], 0xBEEF` needs the size word; NASM cannot guess the size from a number and a label alone. `movzx ebx, byte [greeting + 7]` reads one byte.",
-  "In .data: greeting: db \"Hello, Ring!\", 0 and counter: dw 0. In .bss: slot: resq 1. Code: mov rax, [input] / mov [slot], rax / mov rax, greeting / movzx ebx, byte [greeting + 7] / mov word [counter], 0xBEEF",
+  """The code:
+
+```
+mov rax, [input]                ; memory -> register...
+mov [slot], rax                 ; ...-> memory
+mov rax, greeting               ; the address itself: no brackets
+movzx ebx, byte [greeting + 7]  ; one byte, zero-extended
+mov word [counter], 0xBEEF      ; no register here to tell NASM the size
+```
+
+And after it, the data:
+
+```
+section .data
+greeting: db "Hello, Ring!", 0
+counter:  dw 0
+
+section .bss
+slot:     resq 1
+```""",
 ]
 
 [constraints]
