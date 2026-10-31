@@ -1,0 +1,22 @@
+level = 23
+slug = "bug_stack_overflow"
+title = "Kernel Stack Overflow"
+arc = "XIII"
+bug = 3
+mode = "multiboot"
+link = "elf64"
+witness = true
+concepts = ["a kernel stack is small and fixed", "an overflow writes over whatever is below", "a guard page: an unmapped page below the stack", "page fault on a broken stack → #DF → IST"]
+introduces = ["guard pages"]
+
+hints = [
+  "Where is the stack, and what's right below it in the .bss? Each level of sum_squares takes over 1 KiB of stack. The witness: any n from 16 on prints a wrong sum.",
+  "A guard page is a page right below the stack that isn't mapped: the first write past the stack's bottom is a page fault, instead of a write into `squares`. The stack and the guard both have to be page-aligned, and the guard page needs its own space: `alignb 4096`, `guard: resb 4096` just before `stack:`.",
+  "Unmap it where the tables are built: the kernel's first 2 MiB are mapped by the PT, entry n = address >> 12, so `mov eax, guard`, `shr eax, 12`, `mov dword [pt + eax * 8], 0`. The rest is already there: the page fault can't be delivered on the broken stack, so it becomes a #DF, which runs on the IST stack.",
+]
+
+[constraints]
+max_changed_lines = 8
+
+[random]
+count = 1

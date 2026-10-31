@@ -1,0 +1,17 @@
+level = 25
+slug = "long_mode"
+title = "Enter Long Mode"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["the order of the switch: PAE, CR3, EFER.LME, CR0.PG", "compatibility mode: long mode active, 32-bit code still running", "the 64-bit code segment: the L bit", "a far jump into 64-bit code", "running at the higher half through a second mapping", "rip-relative addressing"]
+introduces = ["CR4.PAE", "EFER.LME/LMA", "the L bit", "bits 64 kernel code", "lea rax, [rel label]"]
+
+hints = [
+  "The order matters: CR4 |= 1 << 5 (PAE); CR3 = pml4; EFER (MSR 0xC0000080) |= 1 << 8 (LME) | 1 << 11 (NXE: the direct map uses NX); then CR0 |= 1 << 31 (PG). Turning on paging with LME set is what activates long mode (EFER.LMA). Without LME the CPU takes your PML4 for 32-bit PAE tables and page-faults at once.",
+  "Long mode is now active, but CS is still the 32-bit segment: compatibility mode. Load a GDT with a 64-bit code segment: null, then 0x00209A0000000000 (present, ring 0, code, L = 64-bit), then data 0x0000920000000000; `lgdt` it (the pointer: dw limit, dq base) and `jmp 0x08:long_mode`. In long_mode, load ds, es, ss with 0x10.",
+  "The higher half is the same physical memory at another address: `mov rax, HIGH + label` then `jmp rax` continues at label, high. Set rsp to HIGH + stack_top too. `lea rax, [rel label]` gives the address the code is really running at (rip-relative), which is what to print.",
+]
+
+[random]
+count = 1

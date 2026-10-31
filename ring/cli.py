@@ -267,13 +267,14 @@ def _debug_boot(lv, prog: Progress, file: Path | None) -> int:
         disk.write_bytes(b.elf.read_bytes().ljust(64 * 512, b"\0"))
         boot = ["-drive", f"file={disk},format=raw,if=ide,index=0"]
     # (qemu-system-i386: the same PC, but gdb accepts its registers in 16-bit mode)
-    q = subprocess.Popen(["qemu-system-i386" if shutil.which("qemu-system-i386") else
-                          "qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
+    q = subprocess.Popen(["qemu-system-i386" if shutil.which("qemu-system-i386") and
+                          b.bits != 64 else "qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
                           *boot, "-serial", f"file:{d / 'serial.txt'}",
                           "-no-reboot", "-S", "-gdb", "tcp:127.0.0.1:1234"])
     script = d / "gdbinit"
     if kernel:                    # 32-bit, with the kernel's symbols and source lines
-        script.write_text(f"file {b.elf}\ntarget remote 127.0.0.1:1234\n"
+        arch = ("set architecture i386:x86-64\n" if b.bits == 64 else "")
+        script.write_text(f"file {b.elf64 or b.elf}\n{arch}target remote 127.0.0.1:1234\n"
                           "set disassembly-flavor intel\nbreak _start\ndisplay/i $pc\n"
                           "echo \\nStopped at the reset vector. `continue` runs the BIOS and "
                           "QEMU's multiboot loader up to _start;\\nthen `si`, `next`, "

@@ -143,6 +143,7 @@ def _stub(profile: str, workdir: Path, note: tuple | None = None) -> Path:
 class Registers:
     values: dict = field(default_factory=dict)      # eax, ..., eip, eflags, cs, ds, ..., cr0
     halted: bool = False
+    long_mode: bool = False                         # CS is a 64-bit code segment
     a20: bool = True
 
     def __getitem__(self, name: str) -> int:
@@ -172,6 +173,17 @@ def parse_registers(text: str) -> Registers:
     for name, base, limit in re.findall(r"^(GDT|IDT)=\s+([0-9a-f]+) ([0-9a-f]+)", text, re.M):
         r.values[name.lower() + "_base"] = int(base, 16)
         r.values[name.lower() + "_limit"] = int(limit, 16)
+    # 64-bit mode: RAX..R15, RIP, RFL; the 32-bit names are their low halves
+    for name, value in re.findall(r"\b(RAX|RBX|RCX|RDX|RSI|RDI|RBP|RSP|R8|R9|R1[0-5]|RIP|RFL|EFER)"
+                                  r"\s*=([0-9a-f]+)", text):
+        v = int(value, 16)
+        key = {"RFL": "rflags"}.get(name, name.lower())
+        r.values[key] = v
+        if name.startswith("R") and name[1:2].isalpha() and name not in ("RFL",):
+            r.values["e" + name[1:].lower()] = v & 0xFFFFFFFF
+        if name == "RFL":
+            r.values["eflags"] = v
+    r.long_mode = bool(re.search(r"^CS =.*\bCS64\b", text, re.M))
     r.halted = "HLT=1" in text
     r.a20 = "A20=1" in text
     return r
@@ -500,7 +512,9 @@ def fault_chain(log: str) -> list[dict]:
                     "cs": int(m.group(5), 16), "eip": int(m.group(6), 16),
                     "idt": (regs.values.get("idt_base"), regs.values.get("idt_limit")),
                     "gdt": (regs.values.get("gdt_base"), regs.values.get("gdt_limit")),
-                    "cr0": regs.values.get("cr0"), "cr2": regs.values.get("cr2")})
+                    "cr0": regs.values.get("cr0"), "cr2": regs.values.get("cr2"),
+                    "long": regs.long_mode,
+                    "sp": regs.values.get("rsp", regs.values.get("esp"))})
     # the exceptions that led to the reset: the last #DF and, before it, everything at the
     # same place (the original event, and the faults delivering it raised)
     df = max((k for k, f in enumerate(out) if f["vector"] == 8 and not f["software"]), default=None)
@@ -538,13 +552,26 @@ def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
     lines.append("  - then a fault while delivering #DF: the CPU gives up and resets")
     base, limit = first["idt"]
     pe = (first["cr0"] or 0) & 1
-    if pe and base is not None and limit is not None:
+    gate = 16 if first.get("long") else 8          # long mode: 16-byte gates
+    stack = next((f for f in chain if f["vector"] == 14 and f["cr2"] is not None
+                  and f["sp"] is not None and f["sp"] - 256 <= f["cr2"] <= f["sp"] + 8), None)
+    if stack is not None:
+        lines.append(f"Why delivering failed: the page fault was the stack itself (cr2 "
+                     f"{stack['cr2']:#x}, rsp {stack['sp']:#x}): the stack isn't mapped, so pushing "
+                     "the exception's frame faults as well, and so does the #DF's. A handler "
+                     "that must survive a broken stack needs a stack of its own: an IST stack "
+                     "in the TSS, named in its gate." if first.get("long") else
+                     f"Why delivering failed: the page fault was the stack itself (cr2 "
+                     f"{stack['cr2']:#x}, esp {stack['sp']:#x}): pushing the exception's frame "
+                     "faults as well, and so does the #DF's.")
+    elif pe and base is not None and limit is not None:
         if base == 0 and limit == 0x3FF:
             lines.append("Why delivering failed: the IDT register still holds the real-mode "
                          "table (base 0, limit 0x3ff): no protected-mode IDT is loaded (lidt).")
-        elif v * 8 + 7 > limit:
+        elif v * gate + gate - 1 > limit:
             lines.append(f"Why delivering failed: the IDT's limit is {limit:#x}, so it has "
-                         f"{(limit + 1) // 8} gates, and vector {v} isn't one of them.")
+                         f"{(limit + 1) // gate} gates of {gate} bytes, and vector {v} isn't one "
+                         "of them.")
         else:
             sel = next((f["error"] & 0xFFF8 for f in nested
                         if f["vector"] in (10, 11, 13) and f["error"] and not f["error"] & 2), None)
@@ -554,8 +581,9 @@ def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
                              f"{sel >> 3} a present code segment?")
             else:
                 lines.append(f"Why delivering failed: vector {v}'s gate (at IDT base {base:#x} + "
-                             f"{v * 8:#x}) is invalid: not present, the wrong type, or a bad "
-                             "code selector.")
+                             f"{v * gate:#x}) is invalid: not present, the wrong type, or a bad "
+                             "code selector" + (" (in long mode a gate is 16 bytes)." if gate == 16
+                                                else "."))
     return "\n".join(lines)
 
 
@@ -572,12 +600,18 @@ def assemble_flat(text: str) -> bytes:
         return (Path(d) / "m.bin").read_bytes()
 
 
-def link_kernel(source: Path, out_dir: Path) -> Path:
-    """A multiboot kernel from a NASM source file (for a level's own reference runs)."""
+def link_kernel(source: Path, out_dir: Path, elf64: bool = False) -> Path:
+    """A multiboot kernel from a NASM source file (for a level's own reference runs).
+    elf64: assembled and linked as ELF64, then converted to ELF32 for the loader."""
     out_dir.mkdir(parents=True, exist_ok=True)
     obj, elf = out_dir / "k.o", out_dir / "k.elf"
-    subprocess.run(["nasm", "-f", "elf32", "-o", str(obj), str(source)], check=True, capture_output=True)
-    subprocess.run(["ld", "-m", "elf_i386", "--no-warn-rwx-segments", "-T",
-                    str(Path(__file__).parent / "multiboot.ld"), "-o", str(elf), str(obj)],
+    linked = out_dir / "k64.elf" if elf64 else elf
+    subprocess.run(["nasm", "-f", "elf64" if elf64 else "elf32", "-o", str(obj), str(source)],
                    check=True, capture_output=True)
+    subprocess.run(["ld", "-m", "elf_x86_64" if elf64 else "elf_i386", "--no-warn-rwx-segments",
+                    "-z", "max-page-size=0x1000", "-T", str(Path(__file__).parent / "multiboot.ld"),
+                    "-o", str(linked), str(obj)], check=True, capture_output=True)
+    if elf64:
+        subprocess.run(["objcopy", "-O", "elf32-i386", str(linked), str(elf)], check=True,
+                       capture_output=True)
     return elf

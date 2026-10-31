@@ -1,0 +1,17 @@
+level = 28
+slug = "cpuid_msrs"
+title = "CPUID & MSRs"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["cpuid: leaves, the vendor string, feature bits", "the extended leaves, and checking they exist", "MSRs: rdmsr/wrmsr with ecx = the MSR's number, edx:eax = its value", "EFER: long mode enable, NX enable", "wrmsr of an unsupported bit faults"]
+introduces = ["cpuid", "wrmsr", "EFER"]
+
+hints = [
+  "cpuid takes the leaf in eax and answers in eax, ebx, ecx, edx. Leaf 0: eax = the highest basic leaf, and the vendor's 12 characters in ebx, edx, ecx, in that order (store them one after the other, with a 0 after). Leaf 0x80000000: eax = the highest extended leaf.",
+  "Leaf 1, edx: bit 6 PAE, bit 9 APIC. Leaf 0x80000001, edx: bit 20 NX, bit 26 1 GiB pages, bit 29 long mode, but only if the highest extended leaf is at least 0x80000001: otherwise all three are no. (Asking for a leaf that doesn't exist returns the highest basic leaf's data, not zeros; compare unsigned: `jb`.) cpuid overwrites ebx and ecx too: keep what you need.",
+  "EFER: `mov ecx, 0xC0000080`, `rdmsr` (edx:eax = its value), set bit 11 of eax, `wrmsr`. Only if NX exists: on a CPU without it that wrmsr is a #GP. Print eax (read it again, to show what the CPU kept).",
+]
+
+[random]
+count = 1

@@ -1,0 +1,17 @@
+level = 27
+slug = "physical_memory"
+title = "Physical Memory"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["the multiboot memory map: available and reserved regions", "frames: physical memory in 4 KiB pieces", "a bitmap allocator: one bit per frame", "what a kernel must never hand out: low memory, itself, its modules", "address 0 as 'no frame'"]
+introduces = ["the multiboot memory map", "bitmap frame allocation", "bt/bts/btr/bsf on a bitmap"]
+
+hints = [
+  "One bit per frame: frame n is at address n × 4096, and its bit is bit n of a bitmap in your .bss (`resd (1 << 20) / 32` covers 4 GiB). Start with every bit set (used), then clear the bits of the frames inside each available region, then set them again for 0 to 1 MiB and for 1 MiB up to the end of the kernel and modules.",
+  "The memory map: flags bit 6 says it's there; mmap_length at +44, mmap_addr at +48. Each entry starts with its size, which doesn't count itself: the next entry is at entry + size + 4. Then base (qword, +4), length (qword, +12) and type (+20; 1 = available). Use only whole frames: round a region's start up and its end down. The modules: mods_count at +20, mods_addr at +24, 16 bytes each, the end address at +4.",
+  "`bts [bitmap], eax` and `btr [bitmap], eax` take a bit number as large as you like. To find a free frame fast, look a dword at a time: a dword that isn't 0xFFFFFFFF has a 0 bit; `not` it and `bsf` finds which. Remember where you found the last one, so you don't rescan used memory every time (and move that back when a frame is freed below it).",
+]
+
+[random]
+count = 2

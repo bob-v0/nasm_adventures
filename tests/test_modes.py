@@ -63,3 +63,23 @@ def test_native_printf(tmp_path):
              .replace(" xor eax, eax\n call printf", " mov eax, 1\n call printf"))
     found = problems(tmp_path, crash, mode="native", expect={"stdout": "answer 42\n"})
     assert any("segmentation fault" in p for p in found), found
+
+
+def test_64bit_kernel_build(tmp_path):
+    """Arc XIII kernels: assembled as ELF64, converted to ELF32 for QEMU's loader; a call to
+    a fixed address (which NASM encodes wrong in ELF64) is a build error, not a crash."""
+    from elftools.elf.elffile import ELFFile
+    from ring.build import BuildError, build
+    src = tmp_path / "k.asm"
+    body = ("bits 32\nsection .multiboot\nalign 4\ndd 0x1BADB002, 3, -(0x1BADB002 + 3)\n"
+            "section .text\nglobal _start\n_start:\n    mov esi, 0x80000\n    call esi\n"
+            "bits 64\n    mov rax, msg\n    hlt\nsection .data\nmsg: dq msg\n")
+    src.write_text(body)
+    b = build(src, tmp_path / "out", "multiboot", link="elf64")
+    assert b.bits == 64 and b.elf64.exists()
+    with open(b.elf, "rb") as fh:
+        assert ELFFile(fh).elfclass == 32
+    assert b.symbols["_start"] >= 0x100000
+    src.write_text(body.replace("    mov esi, 0x80000\n    call esi\n", "    call 0x80000\n"))
+    with pytest.raises(BuildError, match="call 0x80000.*fixed address"):
+        build(src, tmp_path / "out2", "multiboot", link="elf64")

@@ -249,12 +249,12 @@ id = "XIII"
 name = "Long Mode"
 runner = "qemu"
 levels = [
-  { title = "CPUID & MSRs", concepts = "feature detection, `rdmsr`/`wrmsr`, EFER", gate = "Report CPU features" },
-  { title = "Physical Memory", concepts = "the multiboot memory map, a frame allocator", gate = "Bitmap frame allocator under stress" },
-  { title = "4-Level Paging", concepts = "PML4…PT, 2 MiB pages, NX", gate = "Identity + higher half" },
-  { title = "Enter Long Mode", concepts = "PAE, EFER.LME, 64-bit GDT", gate = "Reach 64-bit mode" },
-  { title = "64-bit IDT", concepts = "16-byte gates, IST", gate = "Survive #DF via IST" },
-  { title = "Kernel Stack Overflow", bug = 3, concepts = "deep kernel recursion silently corrupting memory; guard pages", gate = "Turn silent corruption into a clean #DF report" },
+  { title = "CPUID & MSRs", dir = "cpuid_msrs", concepts = "feature detection, `rdmsr`/`wrmsr`, EFER", gate = "Report CPU features" },
+  { title = "Physical Memory", dir = "physical_memory", concepts = "the multiboot memory map, a frame allocator", gate = "Bitmap frame allocator under stress" },
+  { title = "4-Level Paging", dir = "paging", concepts = "PML4…PT, 2 MiB pages, NX", gate = "Identity + higher half" },
+  { title = "Enter Long Mode", dir = "long_mode", concepts = "PAE, EFER.LME, 64-bit GDT", gate = "Reach 64-bit mode" },
+  { title = "64-bit IDT", dir = "idt64", concepts = "16-byte gates, IST", gate = "Survive #DF via IST" },
+  { title = "Kernel Stack Overflow", dir = "bug_stack_overflow", bug = 3, concepts = "deep kernel recursion silently corrupting memory; guard pages", gate = "Turn silent corruption into a clean #DF report" },
   { title = "Page Faults", concepts = "CR2, error codes, demand mapping", gate = "Lazy allocation" },
   { title = "Privilege Rings", concepts = "CPL/DPL/RPL, the 64-bit TSS and RSP0, `iretq` to ring 3", gate = "Drop to ring 3" },
   { title = "syscall/sysret", concepts = "STAR/LSTAR/SFMASK, `swapgs`", gate = "A ring-3 program prints through your kernel" },

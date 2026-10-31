@@ -43,6 +43,8 @@ class Build:
     listing: str = ""
     warnings: str = ""  # assembler warnings (with explanations), if the build succeeded
     player_object: Path | None = None
+    bits: int = 0      # 64: a multiboot kernel assembled as ELF64 (Arc XIII on); elf64 = it
+    elf64: Path | None = None
 
     @property
     def done_addr(self) -> int | None:
@@ -108,6 +110,33 @@ def _link_errors(stderr: str, gen_name: str, player_name: str, offset: int, text
     return msg
 
 
+def _unrelocated_branches(listing: str, obj: Path) -> list[tuple[int, str]]:
+    """Lines of `call`/`jmp`/`jcc` to a fixed address in an ELF64 object. NASM 2.16 encodes
+    them with no relocation (the target ends up relative to the section's start, so the
+    branch lands somewhere else, silently); ELF32 objects get it right."""
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.relocation import RelocationSection
+    relocated: dict[str, set[int]] = {}
+    with open(obj, "rb") as fh:
+        elf = ELFFile(fh)
+        for sec in elf.iter_sections():
+            if isinstance(sec, RelocationSection):
+                target = elf.get_section(sec["sh_info"]).name
+                relocated.setdefault(target, set()).update(r["r_offset"] for r in sec.iter_relocations())
+    out, section = [], ".text"
+    for line in listing.splitlines():
+        sm = re.match(r"^\s*\d+\s+(?:<\d+>\s+)?(?:section|segment)\s+([\w.$]+)", line, re.I)
+        if sm:
+            section = sm.group(1)
+            continue
+        bm = re.match(r"^\s*(\d+) ([0-9A-F]{8}) (E8|E9|0F8[0-9A-F])\(([0-9A-F]{8})\)\s+(.*)$", line)
+        if bm:
+            at = int(bm.group(2), 16) + len(bm.group(3)) // 2
+            if at not in relocated.get(section, set()):
+                out.append((int(bm.group(1)), bm.group(5).strip()))
+    return out
+
+
 def _boot_lines(listing: str) -> tuple[dict[int, int], dict[int, int]]:
     """Source lines of a boot image's code by address, assuming it runs at 0x7C00 (the
     listing gives offsets in the file)."""
@@ -147,7 +176,8 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         asm_input, line_offset = source, 0
 
     obj, elf, lst = out_dir / "solution.o", out_dir / "solution", out_dir / "solution.lst"
-    if mode == "multiboot":                # a 32-bit ELF kernel for QEMU's multiboot loader
+    kernel64 = mode == "multiboot" and link == "elf64"
+    if mode == "multiboot" and not kernel64:  # a 32-bit ELF kernel for QEMU's multiboot loader
         cmd = ["nasm", "-f", "elf32", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
     elif link == "bin" or mode == "boot":    # no linker: NASM's output is the file
         cmd = ["nasm", "-f", "bin", "-l", str(lst), "-o", str(elf)]
@@ -166,11 +196,30 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
 
     if mode == "multiboot":
         script = Path(__file__).parent / "multiboot.ld"
-        r = _run(["ld", "-m", "elf_i386", "--no-warn-rwx-segments", "-T", str(script), "-o", str(elf), str(obj)],
+        # A 64-bit kernel is linked as ELF64 (64-bit relocations, symbols) and then converted
+        # to ELF32, the only kind QEMU's multiboot loader takes: it starts in 32-bit protected
+        # mode either way, and enters long mode itself.
+        linked = out_dir / "solution64" if kernel64 else elf
+        r = _run(["ld", "-m", "elf_x86_64" if kernel64 else "elf_i386", "--no-warn-rwx-segments",
+                  "-z", "max-page-size=0x1000", "-T", str(script), "-o", str(linked), str(obj)],
                  source.parent)
         if r.returncode != 0:
             raise BuildError(r.stderr.replace(str(obj), "solution.o").strip())
-        b = _inspect(elf, source, "multiboot", player_object=obj)
+        if kernel64:
+            bad = _unrelocated_branches(lst.read_text(), obj)
+            if bad:
+                raise BuildError("\n".join(
+                    f"{source.name}:{n}: error: `{text}`: NASM can't encode a call or jump to a "
+                    "fixed address in a 64-bit object file: it would land somewhere else.\n"
+                    "    fix: through a register: `mov eax, ADDRESS` then `call eax` (or `jmp eax`)"
+                    for n, text in bad))
+        b = _inspect(linked, source, "multiboot", player_object=obj)
+        if kernel64:
+            r = _run(["objcopy", "-O", "elf32-i386", str(linked), str(elf)], source.parent)
+            if r.returncode != 0:
+                raise BuildError("the kernel must be loaded below 4 GiB (QEMU's multiboot "
+                                 "loader is 32-bit): " + r.stderr.strip())
+            b.elf, b.elf64, b.bits = elf, linked, 64
         b.warnings = msgs
         b.listing = lst.read_text()
         _map_lines(b, b.listing, 0, count_lines=text.count("\n") + 1)

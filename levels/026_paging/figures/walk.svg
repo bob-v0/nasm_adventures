@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" width="760" height="200" role="img">
+<title>A 64-bit virtual address: four 9-bit table indexes and a 12-bit offset</title>
+<rect x="0" y="0" width="760" height="200" fill="#ffffff"/>
+<text x="30" y="30" font-family="sans-serif" font-size="15" font-weight="bold" fill="#222222">virtual address 0xFFFFFFFF80100000</text>
+<rect x="30" y="60" width="112" height="46" fill="#eeeeee" stroke="#888888" stroke-width="1.5"/>
+<text x="86.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">sign extension</text>
+<text x="86.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">all 1s</text>
+<text x="86.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 63–48</text>
+<rect x="142" y="60" width="112" height="46" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="198.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PML4</text>
+<text x="198.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">511</text>
+<text x="198.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 47–39</text>
+<rect x="254" y="60" width="112" height="46" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="310.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PDPT</text>
+<text x="310.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">510</text>
+<text x="310.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 38–30</text>
+<rect x="366" y="60" width="112" height="46" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+<text x="422.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PD</text>
+<text x="422.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">0</text>
+<text x="422.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 29–21</text>
+<rect x="478" y="60" width="112" height="46" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.5"/>
+<text x="534.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PT</text>
+<text x="534.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">256</text>
+<text x="534.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 20–12</text>
+<rect x="590" y="60" width="130" height="46" fill="#eeeeee" stroke="#888888" stroke-width="1.5"/>
+<text x="655.0" y="80" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">offset</text>
+<text x="655.0" y="97" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">0x000</text>
+<text x="655.0" y="54" font-family="monospace" font-size="11" text-anchor="middle" fill="#555555">bits 11–0</text>
+<text x="30" y="182" font-family="sans-serif" font-size="12" fill="#555555">Each index picks one of 512 entries. A PD entry with PS set is a 2 MiB page: the PT and its 9 bits join the offset.</text>
+<text x="198" y="128" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#222222">entry 511</text>
+<text x="198" y="143" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">of the PML4</text>
+<text x="310" y="128" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#222222">entry 510</text>
+<text x="310" y="143" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">of that PDPT</text>
+<text x="422" y="128" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#222222">entry 0</text>
+<text x="422" y="143" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">of that PD</text>
+<text x="534" y="128" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#222222">entry 256</text>
+<text x="534" y="143" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">of that PT</text>
+<text x="655" y="128" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#222222">byte 0</text>
+<text x="655" y="143" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">of the page</text>
+</svg>

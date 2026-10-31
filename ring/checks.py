@@ -60,11 +60,11 @@ class Report:
 
 def disassemble(build: Build) -> list[tuple[int, str, str]]:
     """(address, mnemonic, operands) for the player's code."""
-    if build.mode == "multiboot":           # 32-bit code: the kernel's .text
-        with open(build.elf, "rb") as fh:
+    if build.mode == "multiboot":           # the kernel's .text: 32-bit, or 64-bit code
+        with open(build.elf64 or build.elf, "rb") as fh:
             sec = ELFFile(fh).get_section_by_name(".text")
             code, start = (sec.data(), sec["sh_addr"]) if sec else (b"", 0)
-        md = Cs(CS_ARCH_X86, CS_MODE_32)
+        md = Cs(CS_ARCH_X86, CS_MODE_64 if build.bits == 64 else CS_MODE_32)
         md.skipdata = True
         return [(i.address, i.mnemonic, i.op_str) for i in md.disasm(code, start)]
     if build.mode == "boot":                # 16-bit code: the listing's instruction lines
@@ -271,7 +271,8 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   modules=[bytes.fromhex(m) for m in inj.get("modules", [])],
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
-                  if note else None, com2="com2" in inj) as run:
+                  if note else None, com2="com2" in inj,
+                  extra_args=["-cpu", inj["cpu"]] if "cpu" in inj else None) as run:
         run.symbols = build.symbols
         run.samples = {}
         if "ready" in inj:                    # wait until the program says it's listening
