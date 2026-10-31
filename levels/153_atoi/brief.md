@@ -5,7 +5,9 @@ text is written by someone hoping your parser has a bug.*
 
 ## Lesson: parsing with a cursor
 
-Keep a pointer to the current character, look at it, decide, and advance:
+To **parse** text is to read it character by character and work out what it means.
+Keep a pointer to the current character (a **cursor**), look at it, decide, and
+advance:
 
 ```
     movzx edx, byte [rsi]   ; current character (zero-extended!)
@@ -15,8 +17,15 @@ Keep a pointer to the current character, look at it, decide, and advance:
     inc rsi                 ; next character
 ```
 
-A decimal digit `c` has the value `c - '0'`. Accumulate left to right:
-`value = value × base + digit`.
+A decimal digit character `c` has the value `c - '0'`. Accumulate from left to
+right with `value = value × base + digit`. For `"472"`:
+
+```
+start          value = 0
+'4'            value = 0 × 10 + 4   = 4
+'7'            value = 4 × 10 + 7   = 47
+'2'            value = 47 × 10 + 2  = 472
+```
 
 ## Lesson: untrusted input
 
@@ -25,9 +34,9 @@ notice when a number is **too big** instead of silently wrapping (you saw what
 wrapping does in level 158). Overflow can happen at the multiply *or* the add, and
 both set CF when done with unsigned arithmetic.
 
-Signed ranges are asymmetric: the magnitude limit is 2⁶³ − 1 for positive numbers and
-2⁶³ for negative ones. Accumulate the magnitude as unsigned, check the limit for the
-sign at the end, then negate.
+Signed ranges are lopsided: the largest positive value is 2⁶³ − 1, but the most
+negative is −2⁶³. So accumulate the magnitude (the number without its sign) as
+unsigned, check the limit for the sign at the end, then negate.
 
 ## Gate
 

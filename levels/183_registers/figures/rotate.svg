@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" width="640" height="250" role="img">
+<title>Rotating four registers: each value moves one register to the left</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222222"/></marker></defs>
+<rect x="0" y="0" width="640" height="250" fill="#ffffff"/>
+<text x="20" y="62" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="start" font-weight="bold" fill="#222222">before</text>
+<text x="20" y="202" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="start" font-weight="bold" fill="#222222">after</text>
+<text x="165" y="30" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rax</text>
+<rect x="120" y="40" width="90" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="165" y="64" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">A</text>
+<rect x="120" y="180" width="90" height="36" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="165" y="204" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">B</text>
+<text x="165" y="236" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rax</text>
+<text x="305" y="30" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rbx</text>
+<rect x="260" y="40" width="90" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="305" y="64" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">B</text>
+<rect x="260" y="180" width="90" height="36" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="305" y="204" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">C</text>
+<text x="305" y="236" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rbx</text>
+<text x="445" y="30" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rcx</text>
+<rect x="400" y="40" width="90" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="445" y="64" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">C</text>
+<rect x="400" y="180" width="90" height="36" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="445" y="204" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">D</text>
+<text x="445" y="236" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rcx</text>
+<text x="585" y="30" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rdx</text>
+<rect x="540" y="40" width="90" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="585" y="64" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">D</text>
+<rect x="540" y="180" width="90" height="36" rx="0" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+<text x="585" y="204" font-family="monospace" font-size="16" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">A</text>
+<text x="585" y="236" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rdx</text>
+<line x1="305" y1="78" x2="165" y2="176" stroke="#222222" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="445" y1="78" x2="305" y2="176" stroke="#222222" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="585" y1="78" x2="445" y2="176" stroke="#222222" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M 165 78 C 165 150, 585 110, 585 176" fill="none" stroke="#c2410c" stroke-width="2" marker-end="url(#arr)"/>
+<text x="460" y="128" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#c2410c">A wraps around</text>
+</svg>

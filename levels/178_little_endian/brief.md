@@ -4,9 +4,10 @@
 
 ## Lesson: little-endian
 
-Memory is a long row of bytes, but registers hold 2-, 4- and 8-byte values. When x86
-stores a multi-byte value it puts the **least significant byte at the lowest
-address**. This is called **little-endian**:
+Memory is a long row of single bytes, but registers hold 2-, 4- and 8-byte values.
+So when the CPU stores a multi-byte value, it has to choose an order for the bytes.
+x86 puts the **least significant byte** (the "small end" of the number) **at the
+lowest address**. This is called **little-endian**:
 
 ```
 mov dword [x], 0x11223344
@@ -15,10 +16,13 @@ address:  x+0  x+1  x+2  x+3
 byte:      44   33   22   11
 ```
 
-Loading does the reverse, so storing and loading round-trip and you rarely notice.
-You notice when bytes come from somewhere else. Network protocols and many file
-formats are **big-endian** (most significant byte first, also called "network byte
-order"). If you load those bytes with a plain `mov`, the value comes out backwards.
+![The register's least significant byte, 44, lands at the lowest address x+0](little-endian.svg)
+
+Loading does the reverse, so a value you store and load again comes back unchanged,
+and most of the time you never notice. You notice when the bytes come from somewhere
+else. Network protocols and many file formats are **big-endian**: most significant
+byte first, also called "network byte order". Load those bytes with a plain `mov` and
+the value comes out backwards.
 
 You already met this in level 182: `'NASM'` equals `0x4D53414E` because `'N'` (0x4E)
 is the low byte, and it lands at the lowest address.
@@ -31,7 +35,7 @@ is the low byte, and it lands at the lowest address.
 ## Gate
 
 The game provides a 16-byte big-endian `packet` (filled in by each test) and a
-4-byte `seq_out`:
+4-byte `seq_out`. The packet's fields sit at these offsets from `packet`:
 
 ```
 offset  size  field

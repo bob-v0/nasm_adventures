@@ -4,16 +4,20 @@
 
 ## Lesson: `mul` (unsigned)
 
-`mul` has **one** explicit operand. The other is always `rax`, and the full result goes
-into **rdx:rax** (high : low):
+Two 64-bit numbers can multiply to a 128-bit result, too big for one register. So
+`mul` splits the result across two: the high half goes in rdx and the low half in
+rax, written **rdx:rax** (high : low).
+
+`mul` has only **one** explicit operand. The other factor is always `rax`:
 
 ```
 mov rax, rdi
 mul rsi          ; rdx:rax = rax * rsi   (unsigned, 128-bit result)
 ```
 
-These **implicit operands** catch everyone: `mul` silently overwrites `rdx`. CF and OF
-are set if the high half (rdx) is non-zero.
+Registers that an instruction uses without you naming them are called **implicit
+operands**, and they catch everyone: `mul` silently overwrites `rdx`. It sets CF and
+OF if the high half (rdx) is non-zero.
 
 ## Lesson: `imul` (signed), three forms
 

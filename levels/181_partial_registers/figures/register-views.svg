@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img">
+<title>The register views of rax: eax, ax, ah and al</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222222"/></marker></defs>
+<rect x="0" y="0" width="720" height="300" fill="#ffffff"/>
+<text x="65" y="26" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">63</text>
+<text x="385" y="26" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">31</text>
+<text x="545" y="26" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">15</text>
+<text x="625" y="26" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">7</text>
+<text x="695" y="26" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0</text>
+<text x="52" y="30" font-family="sans-serif" font-size="12" xml:space="preserve" text-anchor="end" font-weight="normal" fill="#6b7280">bit</text>
+<rect x="60" y="40" width="640" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="380.0" y="63" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">rax</text>
+<text x="52" y="63" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">rax</text>
+<rect x="380" y="92" width="320" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="540.0" y="115" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">eax</text>
+<text x="52" y="115" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">eax</text>
+<rect x="540" y="144" width="160" height="36" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="620.0" y="167" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">ax</text>
+<text x="52" y="167" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">ax</text>
+<rect x="60" y="92" width="320" height="36" rx="0" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="220.0" y="115" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#c2410c">bits 63..32 become 0 when you write eax</text>
+<rect x="60" y="144" width="480" height="36" rx="0" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="300.0" y="167" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">bits 63..16 stay as they were when you write ax</text>
+<rect x="60" y="196" width="480" height="36" rx="0" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="300.0" y="219" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">unchanged when you write ah or al</text>
+<rect x="540" y="196" width="80" height="36" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="580" y="219" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">ah</text>
+<rect x="620" y="196" width="80" height="36" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="660" y="219" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">al</text>
+<text x="52" y="219" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">ah al</text>
+<text x="360" y="268" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">One register, four sizes: rax (64 bits) contains eax (32), ax (16), ah and al (8 each).</text>
+<text x="360" y="288" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">rbx, rcx and rdx work the same way; r8..r15 have no high-byte (ah-style) view.</text>
+</svg>

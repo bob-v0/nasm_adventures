@@ -12,11 +12,12 @@ unrelated code.
 ## What to look for
 
 Every `syscall` hands control to the kernel and back. You learned in level 176 that
-some registers do not survive the trip. This program assumes they do. Step over a
-`syscall` in {{debug}} and compare the registers before and after.
+some registers do not survive the trip: they are **clobbered** (overwritten). This
+program assumes they survive. Step over a `syscall` in {{debug}} and compare the
+registers before and after.
 
-Tip: one **step** goes over the whole `syscall`, because the kernel's work happens in
-one step. **back** takes you to just before it again.
+Tip: one **step** goes over the whole `syscall`, because all of the kernel's work
+happens in that one step. **back** takes you to just before it again.
 
 ## Gate
 

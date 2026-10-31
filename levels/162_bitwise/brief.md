@@ -5,7 +5,8 @@ you.*
 
 ## Lesson: bitwise operations
 
-These work on each bit position independently:
+These instructions work on each bit position on its own, with no carries between
+positions:
 
 ```
 and rax, rbx     ; 1 only where both are 1   -> clear bits (keep where mask is 1)
@@ -15,8 +16,18 @@ not rax          ; flip every bit
 test rax, rbx    ; like and, but only sets flags (ZF=1 if no common bits)
 ```
 
-A **mask** is a constant that selects bits. Since 4096 = 2¹², an address splits into a
-page number (high bits) and an offset in the page (the low 12 bits, mask `0xFFF`):
+For example, with 4-bit values:
+
+```
+        1100           1100           1100
+  and   1010     or    1010     xor   1010
+      = 1000         = 1110         = 0110
+```
+
+A **mask** is a constant whose 1 bits select the bits you care about. Here is a
+useful one. Memory is managed in **pages** of 4096 bytes, and 4096 = 2¹², so an
+address splits cleanly in two: the high bits are the page number, and the low 12 bits
+(mask `0xFFF`) are the offset inside the page:
 
 ```
 v & ~0xFFF           the start of v's page         (round down)
@@ -24,11 +35,14 @@ v & ~0xFFF           the start of v's page         (round down)
 v & 0xFFF            the offset within the page
 ```
 
+`~0xFFF` is the mask with every bit set *except* the low 12, so `and` with it clears
+the offset and keeps the page number.
+
 ## Lesson: two classics
 
-- `xor eax, eax` is the standard way to zero a register: it's shorter than
-  `mov eax, 0` and CPUs recognise it as a "zeroing idiom". Unlike `mov`, it **changes
-  the flags**.
+- `xor eax, eax` is the standard way to zero a register: anything xor itself is 0.
+  It's shorter than `mov eax, 0`, and CPUs recognise it as a "zeroing idiom". Unlike
+  `mov`, it **changes the flags**.
 - Immediates are at most 32 bits, **sign-extended**: `and rax, ~0xFFF` works because
   ~0xFFF is −4096, whose 64-bit sign extension is `0xFFFF_FFFF_FFFF_F000`. But
   `xor rax, 0x8000_0000_0000_0000` can't be encoded. NASM warns you, and you load the

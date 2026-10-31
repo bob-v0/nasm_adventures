@@ -5,7 +5,10 @@ two numbers of up to 512 bits each.*
 
 ## Lesson: schoolbook multiplication
 
-Multiply the way you learned on paper, with 64-bit limbs as the digits:
+A **bignum** is a number stored as an array of limbs (64-bit "digits", as in level
+168). Multiply two of them the way you learned on paper. In decimal, 23 × 45 is
+3×5, 2×5, 3×4 and 2×4, each written in the right column, then added up. With limbs
+it looks like this:
 
 ```
                          a1      a0

@@ -4,8 +4,9 @@
 
 ## Lesson: RFLAGS
 
-After most arithmetic, the CPU sets bits in the **RFLAGS** register that describe
-the result:
+After most arithmetic, the CPU sets single-bit **flags** in the **RFLAGS** register
+that describe the result. The instruction doesn't decide anything; it just leaves
+notes about what happened, and later instructions can read them:
 
 | Flag | Name | Set when… |
 |---|---|---|
@@ -15,6 +16,18 @@ the result:
 | **OF** | overflow | the result didn't fit as a **signed** number (e.g. two positives added up to a negative) |
 | PF | parity | the low byte of the result has an even number of 1 bits |
 | AF | adjust | a carry out of bit 3 (for old decimal arithmetic) |
+
+A worked example, in 8 bits:
+
+```
+mov al, 200        ; 1100_1000   (as signed: -56)
+add al, 100        ; 0110_0100   (as signed: +100)
+                   ; true sum 300 doesn't fit in 8 bits: al = 300 - 256 = 44
+CF = 1             ; unsigned: 200 + 100 = 300 > 255, a carry fell off the top
+ZF = 0             ; 44 is not zero
+SF = 0             ; top bit of 0010_1100 is 0
+OF = 0             ; signed: -56 + 100 = 44, which fits in -128..127
+```
 
 The flags come from the operand **size**: `add al, 1` sets flags from an 8-bit
 result, `add rax, 1` from a 64-bit one. `mov` never changes flags. `inc` and `dec`

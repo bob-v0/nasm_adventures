@@ -6,6 +6,8 @@ circles, on purpose.*
 ## Lesson: the shape of a loop
 
 You built loops from jumps in the Bignum level. Every loop has the same four parts:
+**init** sets up a counter, **test** decides whether to go round again, the **body**
+does the work, and **step** moves the counter on.
 
 ```
     xor ecx, ecx            ; init:  i = 0
@@ -18,9 +20,11 @@ You built loops from jumps in the Bignum level. Every loop has the same four par
 .done:
 ```
 
+![The loop's flow: init, then test; if the test passes, body and step, then back to the test; otherwise done](loop-shape.svg)
+
 Testing **before** the body matters: if n = 0 the body must not run even once. A
-"do-while" loop (test at the bottom) is shorter and often faster, but needs a guard
-for the empty case:
+"do-while" loop (test at the bottom) is shorter and often faster, but it needs a
+guard for the empty case:
 
 ```
     test rsi, rsi
@@ -41,7 +45,7 @@ zero. It looks perfect, but on most modern Intel CPUs `loop` is *slower* than
 ## Gate
 
 The game provides `arr`: up to 64 unsigned qwords. On entry `rsi` = n (0–64) and
-`rdx` = a threshold t. Considering only `arr[0 .. n)`:
+`rdx` = a threshold t. Considering only `arr[0 .. n)` (the first n elements):
 
 | Register | Must hold |
 |---|---|

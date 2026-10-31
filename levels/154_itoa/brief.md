@@ -5,8 +5,9 @@ does what you are about to write.*
 
 ## Lesson: digits by division
 
-The last decimal digit of x is `x % 10`, and the rest of the number is `x / 10`.
-Repeat until nothing is left:
+A register holds the *number* 1234, but to print it you need the four *characters*
+`1`, `2`, `3`, `4`. The last decimal digit of x is `x % 10`, and the rest of the
+number is `x / 10`. Repeat until nothing is left:
 
 ```
 1234 % 10 = 4   1234 / 10 = 123
@@ -15,9 +16,10 @@ Repeat until nothing is left:
    1 % 10 = 1      1 / 10 = 0   → stop
 ```
 
-The digits come out **backwards**. Either write them from the end of a scratch area
-towards the start, then copy, or count the digits first. A digit d becomes the
-character `'0' + d`. Use a do-while loop so that 0 still prints one digit.
+The digits come out **backwards**: 4, 3, 2, 1. Either write them from the end of a
+scratch area towards the start and then copy them, or count the digits first. A
+digit d becomes the character `'0' + d` (the digit characters are consecutive, from
+`'0'` = 48 to `'9'` = 57). Use a do-while loop so that 0 still prints one digit.
 
 `div` is fine here (level 159 showed the faster way). Remember that `div` divides
 **rdx:rax**, so zero rdx every time.
@@ -31,8 +33,9 @@ Many real `itoa` implementations got this wrong.
 
 ## Lesson: hex with a table
 
-Each hex digit is 4 bits: `x & 15` picks the lowest, `shr x, 4` drops it. Map 0–15 to
-characters with a lookup table rather than an if:
+Each hex digit is 4 bits: `x & 15` picks the lowest, `shr x, 4` drops it. To turn
+0–15 into a character, look it up in a **table** instead of writing an `if` for the
+letters:
 
 ```
 digits: db "0123456789abcdef"
@@ -54,5 +57,5 @@ Bytes after each string must stay `#`. `rdi` must be unchanged. Constraint: at m
 instructions. (No `call` yet, so repeating a loop with small changes is fine.)
 
 When you pass, your solution is saved to your **library** as `itoa`. Once Arc IV
-teaches functions, you'll turn it into a routine and reuse it, up to your kernel's
-`printk`.
+teaches functions, you'll turn it into a routine and reuse it, all the way down to your
+kernel's `printk`.

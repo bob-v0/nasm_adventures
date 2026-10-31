@@ -7,7 +7,7 @@ concepts = ["the 16 general-purpose registers", "register-to-register mov", "swa
 introduces = ["mov reg, reg", "xchg", "r8-r15"]
 
 hints = [
-  "If you copy rbx into rax first, the old value of rax is gone. Save it somewhere first. r8 is free.",
+  "If you copy rbx into rax straight away, A is lost for good. Save it in a spare register first: r8 is free.",
   "With mov: save rax in a spare register, shift the others down one by one, then put the saved value in rdx.",
   "xchg swaps two registers in one instruction. Three xchg instructions are enough: try xchg rax, rbx and work out what each register holds after it.",
 ]

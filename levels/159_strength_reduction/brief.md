@@ -5,8 +5,9 @@ now so will you.*
 
 ## Lesson: cheaper operations
 
-**Strength reduction** replaces an expensive operation with cheaper ones that compute
-the same thing:
+**Strength reduction** means replacing an expensive operation with cheaper ones that
+compute exactly the same thing. (A **cycle** is one tick of the CPU's clock; the
+fewer an instruction needs, the faster it is.)
 
 | Instead of | Use | Why |
 |---|---|---|
@@ -17,8 +18,9 @@ the same thing:
 
 ## Lesson: dividing by multiplying
 
-Dividing by 10 is multiplying by 1/10. In fixed point: pick m ≈ 2⁶⁷ / 10, multiply, and
-shift away the 67 fractional bits:
+Dividing by 10 is the same as multiplying by 1/10. The CPU has no fractions, but you
+can fake one with **fixed point**: scale 1/10 up by a big power of two, multiply,
+then shift the scale away. Pick m ≈ 2⁶⁷ / 10, multiply, and drop the low 67 bits:
 
 ```
 x / 10  =  (x × 0xCCCC_CCCC_CCCC_CCCD) >> 67      exactly, for every 64-bit x

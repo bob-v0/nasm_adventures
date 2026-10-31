@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 270" width="640" height="270" role="img">
+<title>Adding two 128-bit numbers: add the low limbs, then adc the high limbs plus the carry</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222222"/></marker></defs>
+<rect x="0" y="0" width="640" height="270" fill="#ffffff"/>
+<text x="290.0" y="28" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">high limb</text>
+<text x="490.0" y="28" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">low limb</text>
+<text x="184" y="64" font-family="sans-serif" font-size="16" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">A</text>
+<rect x="200" y="40" width="180" height="34" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="290.0" y="62" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">rsi</text>
+<rect x="400" y="40" width="180" height="34" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="490.0" y="62" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">rdi</text>
+<text x="184" y="108" font-family="sans-serif" font-size="16" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">B</text>
+<rect x="200" y="84" width="180" height="34" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="290.0" y="106" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">rcx</text>
+<rect x="400" y="84" width="180" height="34" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="490.0" y="106" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">rdx</text>
+<line x1="160" y1="130" x2="580" y2="130" stroke="#222222" stroke-width="1.5"/>
+<text x="156" y="108" font-family="sans-serif" font-size="20" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">+</text>
+<rect x="200" y="140" width="180" height="34" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="290.0" y="162" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">adc  (adds CF too)</text>
+<rect x="400" y="140" width="180" height="34" rx="0" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="490.0" y="162" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#222222">add  (sets CF)</text>
+<path d="M 440 176 C 420 220, 360 220, 340 178" fill="none" stroke="#c2410c" stroke-width="2" marker-end="url(#arr)"/>
+<text x="390.0" y="226" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#c2410c">CF: the carry out of the low limb</text>
+<path d="M 230 176 C 210 214, 160 214, 140 196" fill="none" stroke="#c2410c" stroke-width="2" marker-end="url(#arr)"/>
+<text x="130" y="190" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="end" font-weight="normal" fill="#c2410c">final CF:</text>
+<text x="130" y="206" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="end" font-weight="normal" fill="#c2410c">128-bit overflow</text>
+<text x="320" y="258" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">sub then sbb works the same way, with CF as the borrow</text>
+</svg>

@@ -4,12 +4,13 @@
 
 ## Lesson: hash functions
 
-A **hash function** maps data of any length to a fixed-size number. Hash tables use it
-to pick a slot, file systems and networks to detect corruption. A good one spreads
-similar inputs ("abc", "abd") far apart.
+A **hash function** maps data of any length to a fixed-size number, its **hash**.
+Hash tables use it to pick a slot for each key; file systems and networks use it to
+detect corruption. A good one spreads similar inputs ("abc", "abd") far apart, so
+that a one-letter difference changes the whole result.
 
-**FNV-1a** is a tiny, decent hash: mix in each byte, then multiply by a prime to spread
-it across all 64 bits:
+**FNV-1a** is a tiny, decent hash. For each byte it mixes the byte into the low bits
+with `xor`, then multiplies by a prime to spread the change across all 64 bits:
 
 ```
 h = 0xcbf29ce484222325                 ; "offset basis"

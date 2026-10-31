@@ -4,8 +4,10 @@
 
 ## The language
 
-Brainf*** is a complete programming language with eight commands. A program works
-on a **tape** of byte cells (all 0 at the start) and a **data pointer** to one of them:
+An **interpreter** runs a program written in another language, one command at a
+time. The language here is `Brainf***` (BF for short): a complete programming
+language with only eight commands. A BF program works on a **tape** of byte cells
+(all 0 at the start) and a **data pointer** that points at one of them:
 
 | Command | Meaning |
 |---|---|
@@ -18,6 +20,16 @@ on a **tape** of byte cells (all 0 at the start) and a **data pointer** to one o
 
 Any other character is a comment. `[` … `]` is a while loop, and brackets nest. The
 tests' programs always have matching brackets and never move left of cell 0.
+
+For example, `++[>+++<-]>.` sets cell 0 to 2, then loops twice, each time adding 3
+to cell 1 and taking 1 from cell 0. It outputs one byte: 6.
+
+```
+after ++          tape: [2] 0      (brackets mark the data pointer)
+first loop        tape: [1] 3
+second loop       tape: [0] 6      cell 0 is 0: the loop ends
+after >.          tape:  0 [6]     output: one byte, 6
+```
 
 ## How to approach it
 

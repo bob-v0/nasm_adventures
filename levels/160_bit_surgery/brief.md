@@ -4,8 +4,20 @@
 
 ## Lesson: bit strings
 
-A **bitset** stores "is item i present?" as bit i. 256 items fit in four qwords:
-bit i lives in qword i / 64, at position i % 64.
+A **bitset** stores a set of small numbers using one bit per possible member: bit i
+is 1 if i is in the set. 256 possible members fit in four qwords. Bit i lives in
+qword i / 64, at position i % 64:
+
+```
+            qword 0       qword 1       qword 2       qword 3
+offset      +0            +8            +16           +24
+holds bits  0 .. 63       64 .. 127     128 .. 191    192 .. 255
+
+bit 200:  200 / 64 = 3 (qword 3, at +24),  200 % 64 = 8 (bit 8 of it)
+```
+
+Four instructions test and change single bits. Each copies the bit's old value into
+CF first:
 
 ```
 bt  rax, 5        ; CF = bit 5 of rax           (test)
@@ -14,10 +26,10 @@ btr rax, 5        ; ... and reset (clear) it
 btc rax, 5        ; ... and complement (flip) it
 ```
 
-With a **memory** operand and a **register** offset, these treat memory as one long bit
-string: `bts [setA], rdi` with rdi = 200 sets bit 8 of the qword at setA + 24. The CPU
-does the division for you. (With an immediate offset it only reaches bits 0–63 of the
-operand.)
+With a **memory** operand and a **register** offset, these treat memory as one long
+bit string: `bts [setA], rdi` with rdi = 200 sets bit 8 of the qword at setA + 24.
+The CPU does the division for you. (With an immediate offset it only reaches bits
+0–63 of the operand.)
 
 ## Lesson: counting and scanning
 

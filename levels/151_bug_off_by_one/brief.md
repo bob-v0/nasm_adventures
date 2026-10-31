@@ -5,7 +5,7 @@ invalidation, and off-by-one errors.*
 
 ## Symptoms
 
-Three routines, three wrong answers, each by exactly one:
+Three routines, three wrong answers, each wrong by exactly one:
 
 - **A** copies a buffer and writes one byte past the end of the destination.
 - **B** sums an array, but the sum includes a value that isn't in the array and
@@ -15,14 +15,21 @@ Three routines, three wrong answers, each by exactly one:
 
 ## The classic shapes
 
-- **Fencepost:** a fence of 10 metres with a post every metre needs 11 posts.
-  Counting the intervals or the boundaries gives answers that differ by one.
+- **Fencepost:** a 10-metre fence with a post every metre needs 11 posts, not 10.
+  Counting the gaps and counting the boundaries give answers that differ by one.
 - **Inclusive vs exclusive:** `for i in [0, n)` stops *before* n. In assembly that's
   `jae` (or `jge`) at the top, not `ja`.
 - **Count vs index:** an array of m elements has indexes 0 … m−1. Counting down from m
   needs `[base + rcx*8 - 8]`, or a loop that stops at −1.
 - **Leaked state:** a flag (like DF) or register set for one routine is still in
   effect in the next. Each routine should leave the machine as it found it.
+
+```
+index:    0    1    2    3        m = 4 elements
+        [ a ][ b ][ c ][ d ]      valid indexes: 0 .. 3
+                             ^
+                             index 4 = m is one past the end
+```
 
 ## How to hunt
 
