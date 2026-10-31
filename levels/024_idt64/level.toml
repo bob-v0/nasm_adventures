@@ -10,7 +10,7 @@ introduces = ["64-bit IDT gates", "iretq", "the 64-bit TSS", "IST", "ltr"]
 hints = [
   "A 64-bit gate is 16 bytes: offset 0-15 (word), selector 0x08 (word), IST index (byte: 0 = none, 1-7 = that IST stack), type 0x8E (interrupt gate, present, ring 0), offset 16-31 (word), offset 32-63 (dword), 0 (dword). `lidt` with dw 32 * 16 - 1, dq idt. The CPU always pushes ss, rsp, rflags, cs, rip (40 bytes); vectors 8, 10-14, 17, 21, 29 and 30 push an error code on top.",
   "Give each vector a small stub that makes all frames look alike: `push 0` where the CPU pushes no error code, then `push vector`, then jmp to one common handler. There [rsp] is the vector, [rsp + 8] the error code, [rsp + 16] the rip. NASM's %rep and %macro make 32 stubs of equal size easy to address: stub n at stubs + n * size. For #BP, drop the two pushes (`add rsp, 16`) and iretq.",
-  "#DF: put a stack's top address at offset 36 of a 104-byte TSS (IST1; offset 102 = 104, no I/O map), and set the #DF gate's IST byte to 1. The TSS descriptor is 16 bytes in the GDT: limit 103, base split as base 0-15 (bytes 2-3), 16-23 (byte 4), 24-31 (byte 7), 32-63 (bytes 8-11), type byte 5 = 0x89. Reload the GDT, then `ltr` its selector (0x18).",
+  "#DF: put a stack's top address at offset 36 of a 104-byte TSS (IST1; offset 102 = 104, no I/O map), and set the #DF gate's IST byte to 1. The TSS descriptor is 16 bytes in the GDT: limit 103, base split as base 0-15 (bytes 2-3), 16-23 (byte 4), 24-31 (byte 7), 32-63 (bytes 8-11), type byte 5 = 0x89. The starter's GDT already has room for it (`gdt_tss`), so filling it in is enough; then `ltr` its selector (0x18). You need the IDT, the TSS and the #DF stack in your .bss too.",
 ]
 
 [random]

@@ -101,7 +101,7 @@ higher_half:
     mov rsp, HIGH + stack_top
     call init_idt
     call silence_pic             ; (the legacy PIC's IRQs would land on the exception vectors)
-    ; the game's test: the first module, copied to MODULE and called
+    ; the game's program: the first module, copied to USER
     mov ebx, [boot_info]
     mov esi, [rbx + 24]
     mov ecx, [rsi + 4]

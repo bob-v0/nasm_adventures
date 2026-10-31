@@ -21,11 +21,13 @@ rflags, rsp, registers) onto its kernel stack. All that's left of it is that sta
 kernel's position in it. So a context switch is little more than:
 
 ```
-switch_to:                  ; from, to
+switch_to:                  ; from (-1 at the very start: nothing to save), to
     push rbx, rbp, r12-r15  ; what a called function must keep
     tasks[from].ksp = rsp
+    current = to
     cr3 = tasks[to].space
-    TSS.RSP0 = tasks[to].stack's top    ; where ITS next entry from ring 3 lands
+    TSS.RSP0 = tasks[to].stack's top    ; where ITS next interrupt from ring 3 lands
+    percpu[0] = the same                ; and its next syscall (level 20's gs:0)
     rsp = tasks[to].ksp
     pop r15-r12, rbp, rbx
     ret                     ; ...into wherever `to` called switch_to
@@ -39,7 +41,12 @@ A brand-new task never called switch_to, so there's nothing for the `ret` to ret
 `prepare_stack` fakes it: at the top of the new kernel stack goes the iretq frame into
 the program (ss, rsp, rflags, cs, rip). Below that goes the address of `first_run`, and
 below that six zeros for the registers switch_to pops. The first switch to the task
-"returns" into first_run, which does the `iretq`.
+"returns" into first_run (given), which does the `iretq`. prepare_stack returns the
+address of the last zero: the task's first saved rsp.
+
+`schedule` picks who's next, round robin: the first ready task after the current one,
+wrapping around. If that's the current task itself, it just returns; if no task is ready,
+it prints `all tasks done` and halts.
 
 ## Gate
 

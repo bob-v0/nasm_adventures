@@ -10,7 +10,7 @@ introduces = ["4-level page tables", "2 MiB pages", "the NX bit", "canonical add
 hints = [
   "Split each virtual address: bits 39-47 index the PML4, 30-38 the PDPT, 21-29 the PD, 12-20 the PT, and 0-11 are the offset in the page. 0xFFFFFFFF80000000 is PML4 entry 511, PDPT entry 510; 0xFFFF800000000000 is PML4 entry 256, PDPT entry 0. Each region's first 1 GiB is a single PDPT entry, so a single PD.",
   "An entry is the next table's (or page's) physical address with flags in the low bits: P (1), W (2), and in a PD entry PS (0x80) for a 2 MiB page. In 32-bit code write the low dword (`mov dword [pml4 + 511 * 8], pdpt_high + P + W`), and the high dword only for bit 63, NX (`mov dword [... + 4], 1 << 31`). NX anywhere on the walk makes the page no-execute.",
-  "One PD can serve all three regions: point all three PDPT entries at it, and put NX on the direct map's PML4 entry. In the PD: entry 0 points to a page table (its entry 0 left empty: the null page, entries 1-511 = n × 4096 + P + W), entries 1-511 are 2 MiB pages: n × 2 MiB + P + W + PS.",
+  "One PD can serve all three regions. PML4 entries 0 and 256 can share one PDPT, whose entry 0 points at the PD; PML4 entry 511 needs a second PDPT, whose entry 510 points at the same PD. Put NX on the direct map's PML4 entry (256), the only part of its path that isn't shared. In the PD: entry 0 points to a page table (its entry 0 left empty: the null page, entries 1-511 = n × 4096 + P + W), entries 1-511 are 2 MiB pages: n × 2 MiB + P + W + PS.",
 ]
 
 [random]

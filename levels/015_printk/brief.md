@@ -23,8 +23,8 @@ hexdump(address, 40)
 | `%%` | a `%` |
 
 Before the letter there can be a `-` (left-align), a `0` (pad numbers with zeros) and a
-width: `%5d`, `%-8s`, `%08x`. printk returns how many characters it printed. hexdump
-prints like `hexdump -C`:
+width: `%5d`, `%-8s`, `%08x`. `%p` ignores them. printk returns how many characters it
+printed. hexdump prints like `hexdump -C`, 16 bytes a line, each line ending in `\r\n`:
 
 ```
 0000000000080118  48 65 6c 6c 6f 2c 20 77  6f 72 6c 64 21 0a 00 01  |Hello, world!...|
@@ -35,9 +35,9 @@ prints like `hexdump -C`:
 
 In the C calling convention (System V), the first six integer arguments travel in
 **rdi, rsi, rdx, rcx, r8, r9**, and the rest on the stack, the 7th at [rsp + 8] on entry.
-printk's format is the first, so its values are rsi onwards. The trick every C library
-uses is to spill the five registers next to the stack arguments, so that all arguments
-form one array you can walk:
+printk's format is the first, so its values start at rsi. The usual trick is to push the
+five value registers just below the stack arguments, so every argument is in memory, in
+order. Only the saved rbp and the return address sit between the two runs:
 
 ```
 printk:
@@ -51,6 +51,7 @@ printk:
                             ; arguments 5, 6, ...: [rbp + 16], [rbp + 24], ...
 ```
 
+So argument k is at [rbp - 40 + 8k] for k < 5, and at [rbp + 16 + 8(k - 5)] after that.
 Nothing tells printk how many arguments there are. The format string does. That's
 why a format that asks for more than was passed prints whatever is in those registers.
 

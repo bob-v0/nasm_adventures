@@ -9,8 +9,8 @@ introduces = ["demand paging", "invlpg"]
 
 hints = [
   "lazy_fault: the error code's bit 0 is 1 when the page was there (a protection fault): not yours. Otherwise, if LAZY <= cr2 < LAZY_END (compare as unsigned 64-bit, through a register: `mov rdi, LAZY`, `cmp rax, rdi`): alloc_frame, map_page(cr2 rounded down to 4096, the frame), stc, ret. alloc_frame's frames are already zeroed: fresh memory must read as 0, never as what was there before.",
-  "map_page walks down from CR3 (`mov rbx, cr3`, and ~0xFFF) through three tables: the index at each level is (va >> 39) & 511, then >> 30, then >> 21. If the entry's bit 0 is clear, alloc_frame a new (zeroed) table and store frame | 3 (present, writable) in the entry. The next table's address is the entry & 0x000FFFFFFFFFF000; RAM is below 1 GiB, so that physical address is also a usable pointer.",
-  "Three tables, then the page itself: after the PD comes the PT, and its entry (index (va >> 12) & 511) is the frame | 3, not another table. An off-by-one there maps the page onto a fresh table and still seems to work, until a test reads the slot holding the frame's address. Finish with `invlpg [rdi]`.",
+  "map_page walks down from CR3 (`mov rbx, cr3`, and ~0xFFF) through the PML4, the PDPT and the PD: the index in each is (va >> 39) & 511, then (va >> 30) & 511, then (va >> 21) & 511. If the entry's bit 0 is clear, alloc_frame a new (zeroed) table and store frame | 3 (present, writable) in the entry. The next table's address is the entry & 0x000FFFFFFFFFF000; RAM is below 1 GiB, so that physical address is also a usable pointer.",
+  "Loop exactly three times (shifts 39, 30, 21), each time ending up with the next table; the fourth entry, in the PT, at index (va >> 12) & 511, is the frame | 3, not another table. One loop too many maps the page onto a fresh table and still seems to work, until a test reads the slot holding the frame's address. Finish with `invlpg [rdi]`.",
 ]
 
 [random]

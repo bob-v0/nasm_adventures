@@ -1,4 +1,14 @@
 ; Level 17 — Bug: Stale TLB
+;
+; The kernel keeps records (the first module), a page each, in frames of their own, and
+; looks at one by pointing a single page, WINDOW, at its frame (map_window). The command
+; line says which to print, in order: "show=2,0,1".
+;
+; One record, or the same one twice: right. Two different ones: the second shows the
+; first one's text again, though WINDOW's page table entry points at the right frame.
+;
+; 1. Find an order that shows the wrong text:   ;! witness show = "..."
+; 2. Fix it (at most 3 changed lines).
 
 bits 32
 

@@ -53,8 +53,12 @@ page must start at a multiple of 2 MiB. 1 GiB of them is a single PD. The first 
 the exception here, because the null page needs a hole of 4 KiB. That one PD entry points
 to a real PT instead.
 
-And tables can be **shared**: an entry only says where the next table is. Three PDPT
-entries can point to one PD.
+And tables can be **shared**: an entry only says where the next table is, so several
+entries can point at the same table. All three regions can use one PD, and the identity
+map and the direct map can even share a PDPT (PML4 entries 0 and 256 pointing at the same
+one); the direct map's NX then goes on its PML4 entry. Sharing the PD also shares its
+4 KiB hole, so the other two regions lose their first 4 KiB as well. That's fine: the
+game doesn't look there.
 
 ## Gate
 

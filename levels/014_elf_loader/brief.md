@@ -6,13 +6,14 @@ bytes, unchanged.*
 ## The task
 
 The game gives the kernel an **ELF64 executable**, the file `ld` writes, and sometimes
-input for it (the program's stdin). Load it into a new address space and run it:
+input for it (the program's stdin). The starter makes the new address space and, once
+the program is loaded, jumps to its entry point in ring 3. Yours are the two steps in
+between:
 
-- check it really is an x86-64 executable (refuse anything else with
-  `exec failed: not an x86-64 executable this kernel can load`);
-- map and fill each **PT_LOAD** segment;
-- build the stack Linux gives a new program;
-- jump to its entry point in ring 3.
+- `load_elf`: check it really is an x86-64 executable, then map and fill each
+  **PT_LOAD** segment, and return the entry point. Return 0 for anything else, and the
+  starter prints `exec failed: not an x86-64 executable this kernel can load`;
+- `make_stack`: build the stack Linux gives a new program, and return its rsp.
 
 The tests run Arc I's own programs, built exactly as those levels built them: level 175's
 greeting (stdout and stderr), 171's echo (reading stdin), 172's and 173's bug fixes.
@@ -56,8 +57,12 @@ rsp →  1                   argc
        0, 0                (end of the auxiliary vector: AT_NULL)
 ```
 
+argv[0]'s text ("program") goes on the same page, above these six qwords, and rsp must be
+a multiple of 16.
+
 And an **exit status is 8 bits**: `exit(0x5EC2E7)` reports 0xE7. The parent only ever
-sees status & 0xFF (level 173's program depends on it).
+sees status & 0xFF (level 173's program depends on it). The starter's `exit` already
+does this.
 
 ## Gate
 

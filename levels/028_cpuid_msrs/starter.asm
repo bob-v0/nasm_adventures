@@ -18,7 +18,8 @@
 ;     this CPU can't run a 64-bit kernel
 ;
 ; Helpers below: puts (esi = string), putc (al), hex (eax, then a new line),
-; yes_no (esi = label, CF = the bit: `bt edx, 6` sets CF to bit 6).
+; yes_no (esi = label, CF = the bit: `bt edx, 6` sets CF to bit 6). The vendor has no
+; new line of its own: s_max starts with the one that ends the vendor line.
 
 bits 32
 

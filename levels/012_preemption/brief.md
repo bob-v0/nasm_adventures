@@ -7,19 +7,21 @@ kernel needs a way to take the CPU back.*
 
 Level 13's tasks took turns only when they called `sched_yield`. A task in a long loop
 held the CPU until it finished, and everyone else waited. Now the **APIC timer**
-interrupts every `period` counts, and its handler switches to the next task. That's
+interrupts every `period` counts (`period=N` on the command line), and its handler
+switches to the next task. That's
 **preemption**. The tests run tasks that never yield:
 
 - a long calculation as task 0, and shorter ones after it, which must all finish *before* it;
 - tasks that keep patterns in all 15 registers and the carry flag while they're preempted
-  hundreds of times, and check them all the time;
+  again and again, and check them all the time;
 - a mix, with tasks that also yield.
 
 Output order now depends on timing, so the game checks each task's own lines, in order,
 and that everyone exits.
 
-Everything from level 13 is in the starter, working, along with the timer, set up and wired to
-vector 0x40. Yours: the **timer handler**.
+Everything from level 13 is in the starter, working, along with the timer, set up and
+wired to vector 0x40. Yours: the **timer handler**. It also counts each preemption in
+`[preemptions]`: the game reads it to make sure the timer really took the CPU away.
 
 ## Lesson: an interrupt is not a call
 
@@ -32,7 +34,8 @@ handler's job:
 ```
 timer:
     push rax, rbx, rcx, rdx, rsi, rdi, rbp, r8 … r15    ; all of it
-    EOI
+    inc qword [preemptions]
+    EOI                 ; the APIC, at DIRECT + APIC in every address space
     call schedule       ; the same one sched_yield uses: switch_to someone else
     pop r15 … rax
     iretq               ; ...and when this task's turn comes, it continues
