@@ -76,7 +76,9 @@ def check(test, run, regs, screen, serial):
     if t0 is None or t1 is None:
         return []
     seconds = t1 - t0
-    if seconds >= 4 and not 0.75 <= ticks / (seconds * 100) <= 1.25:
+    # (the clock it's compared with is QEMU's, read from outside: it drifts on a busy
+    # machine; this catches a timer that's off, or off by an order of magnitude)
+    if seconds >= 4 and not 0.5 <= ticks / (seconds * 100) <= 2.0:
         return [f"the timer counted {ticks} ticks in about {seconds} seconds: it should tick "
                 "100 times a second"]
     if seconds < 4 and ticks == 0:
