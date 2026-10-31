@@ -5,8 +5,10 @@ is an indirect jump.*
 
 ## Lesson: jumping through a table
 
-A **jump table** is an array of code addresses. Index it, and jump to whatever address
-you find:
+A normal jump has its target written into the instruction. An **indirect jump** reads
+its target from a register or from memory, so the program can decide at run time
+where to go. A **jump table** is an array of code addresses: index it, and jump to
+whatever address you find there:
 
 ```
     cmp eax, 10
@@ -26,10 +28,23 @@ handlers ordinary names (`op_halt:`) or write the full name.
 
 ## Lesson: a stack machine
 
-The VM you'll build keeps values on a **stack** (here the array `vstack`, with a depth
-counter in a register). Bytecode `PUSH 2, PUSH 3, ADD, PUSH 7, MUL, HALT` computes
-(2 + 3) × 7: each operation pops its inputs and pushes its result. It's the same idea
-as the JVM, WebAssembly and Python's bytecode.
+The VM (virtual machine) you'll build keeps its values on a **stack**: a pile where
+you can only add (**push**) or remove (**pop**) at the top. Here the stack is the
+array `vstack`, with a depth counter in a register. Each operation pops its inputs
+and pushes its result. The bytecode `PUSH 2, PUSH 3, ADD, PUSH 7, MUL, HALT`
+computes (2 + 3) × 7:
+
+```
+instruction    stack afterwards (top on the right)
+PUSH 2         2
+PUSH 3         2 3
+ADD            5
+PUSH 7         5 7
+MUL            35
+HALT           35          -> result: 35, depth 1
+```
+
+It's the same idea as the JVM, WebAssembly and Python's bytecode.
 
 ## Gate
 

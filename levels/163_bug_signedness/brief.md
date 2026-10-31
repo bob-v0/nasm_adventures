@@ -12,24 +12,25 @@ numbers, not just wrong signs.
 
 ## What to look for
 
-Many x86 operations come in **signed** and **unsigned** versions, and the CPU happily
-runs whichever one you wrote:
+Many x86 operations come in a **signed** and an **unsigned** version, and the CPU
+happily runs whichever one you wrote. For small positive numbers both versions give
+the same answer, which is exactly why this kind of bug hides so well:
 
 | Operation | unsigned | signed |
 |---|---|---|
 | compare and jump | `ja`, `jb`, `jae`, `jbe` | `jg`, `jl`, `jge`, `jle` |
 | divide | `mov edx, 0` + `div` | `cqo` + `idiv` |
 | widen | `movzx` | `movsx`, `movsxd` |
-| shift right (next arc level) | `shr` | `sar` |
+| shift right (level 161) | `shr` | `sar` |
 
 `add`, `sub`, `imul` with two or three operands, and `cmp` itself are the same for
 both, so they are never the bug.
 
 ## How to hunt
 
-Test with **boundary values**: −1, 0, 1, the most negative and most positive
-numbers, and bytes 0x7F / 0x80. In the debugger, run the failing test and compare each
-intermediate value with what you'd compute by hand.
+Test with **boundary values**, the edges where behaviour changes: −1, 0, 1, the most
+negative and most positive numbers, and the bytes 0x7F / 0x80. In the debugger, run
+the failing test and compare each intermediate value with what you'd compute by hand.
 
 ## Gate
 

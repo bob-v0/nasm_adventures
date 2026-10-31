@@ -4,8 +4,9 @@
 
 ## Lesson: struc
 
-A record is a block of memory with fields at fixed offsets. NASM's `struc` names the
-offsets so you don't scatter magic numbers through your code:
+A **record** (a "struct" in C) is a block of memory with **fields** at fixed offsets
+from its start. Writing `[rsi + 8]` everywhere for "the age" is error-prone, so
+NASM's `struc` lets you name the offsets instead:
 
 ```
 struc Person
@@ -17,8 +18,10 @@ struc Person
 endstruc                ; defines Person_size = 32
 ```
 
-`struc` reserves no memory. It defines constants: `Person.age` is 8 and `Person_size`
-is 32. Use them as offsets: `mov eax, [rsi + Person.age]`.
+![The 32-byte Person record: next at 0, age at 8, flags at 12, padding, name at 16; below, records linked by their next pointers](person-layout.svg)
+
+`struc` reserves no memory. It only defines constants: `Person.age` is 8 and
+`Person_size` is 32. Use them as offsets: `mov eax, [rsi + Person.age]`.
 
 A NASM trap: the fields are `.local` labels of `Person`, and so is any `.label` you
 write after `endstruc` until the next ordinary label. A loop label `.next:` below the
@@ -26,9 +29,10 @@ struc becomes `Person.next` and clashes with the field. Put the `struc` before y
 first ordinary label, or give loop labels names like `.advance`. The error says
 "label `Person.next` inconsistently redefined".
 
-**Padding** keeps fields aligned to their size (a qword at a multiple of 8, a dword at
-a multiple of 4). Misaligned data works on x86 but is slower, and C compilers add the
-same padding, so matching their layout matters once you call C code (Arc IV).
+**Padding** is unused space that keeps each field aligned to its size (a qword at a
+multiple of 8, a dword at a multiple of 4). Misaligned data works on x86 but is
+slower, and C compilers add the same padding, so matching their layout matters once
+you call C code (Arc IV).
 
 ## Lesson: istruc
 
@@ -44,8 +48,10 @@ iend                 ; fields you don't mention are zero
 
 ## Lesson: linked lists
 
-Each record's `next` holds the address of the following record; 0 (null) ends the
-list. Walking it is a loop: `mov rsi, [rsi + Person.next]` until rsi is 0.
+In a **linked list**, each record's `next` field holds the address of the following
+record, and 0 (the **null pointer**) marks the end. The records can sit anywhere in
+memory, in any order. Walking the list is a loop: `mov rsi, [rsi + Person.next]`
+until rsi is 0.
 
 ## Gate
 

@@ -4,6 +4,9 @@
 
 ## Lesson: `read`
 
+`read` is the mirror of `write`: syscall 0 copies bytes *from* a file descriptor
+*into* memory you provide.
+
 ```
 mov eax, 0          ; syscall 0 = read
 mov edi, 0          ; fd 0 = stdin
@@ -12,19 +15,20 @@ mov edx, 8          ; at most this many
 syscall             ; rax = bytes actually read (0 = end of input, <0 = error)
 ```
 
-`read` may return **fewer** bytes than you asked for: input arrives in pieces from
-pipes, terminals and networks. Handling that properly needs loops (Arc III). Here the
-tests always provide at least 8 bytes at once.
+`read` may return **fewer** bytes than you asked for, because input from pipes,
+terminals and networks arrives in pieces. Handling that properly needs loops
+(Arc III). Here the tests always provide at least 8 bytes at once.
 
-Buffers you read into belong in `.bss`:
+A **buffer** is memory set aside to receive data. Buffers you read into belong in
+`.bss`, since their starting contents don't matter:
 
 ```
 section .bss
 buf: resb 8
 ```
 
-Remember that `syscall` destroys `rcx` and `r11`, and `rax` gets the result. To keep a
-value across syscalls, use a register the kernel preserves, such as `r12`.
+Remember that `syscall` destroys `rcx` and `r11`, and puts its result in `rax`. To
+keep a value across syscalls, use a register the kernel preserves, such as `r12`.
 
 ## Gate ★
 
@@ -36,9 +40,10 @@ This boss uses everything from Arc I.
 4. Write a newline.
 5. Exit with status = the number of bytes `read` returned.
 
-Input beyond the first 8 bytes is ignored. Exactly these syscalls, in order: read,
-write, write, write, exit.
+Input beyond the first 8 bytes is ignored. Make exactly these syscalls, in order:
+read, write, write, write, exit.
 
 Constraints: at most 40 instructions; must use `bswap`.
 
-Test it for real: `printf 'ABCDEFGH' | ./solution; echo " status=$?"`
+Test it for real in {{terminal}}: `printf 'ABCDEFGH' | ./solution; echo " status=$?"`
+should print `echo: HGFEDCBA` and ` status=8`.

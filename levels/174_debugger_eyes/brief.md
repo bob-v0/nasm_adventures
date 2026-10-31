@@ -5,10 +5,15 @@ it and tells you there is nothing to see. There is.*
 
 ## Lesson: watching a program run
 
-A **debugger** pauses a program and lets you inspect it: one instruction at a time,
-or stopping at a **breakpoint** you set. Three tools, from simplest to most capable:
+A **debugger** pauses a program so you can look inside it. You can run it one
+instruction at a time (**stepping**), or let it run until it reaches a
+**breakpoint**, an address you marked in advance. While it is paused you can read
+every register and any memory.
 
-**objdump** shows the code without running it. In {{terminal}}:
+Three tools, from simplest to most capable:
+
+**objdump** shows the code without running it. It **disassembles** the program:
+turns the bytes back into instructions. In {{terminal}}:
 
 ```
 objdump -d -M intel ./vault
@@ -22,7 +27,7 @@ breakpoint at an address such as `*0x401040`, continue to it, and read the regis
 **back** undoes a step. (From a plain terminal: `ring debug --binary vault`, then
 `dis 30`, `break *0x401040`, `c`, `regs`, `back`.)
 
-**gdb** is the standard debugger on Linux, worth learning now. In {{terminal}}:
+**gdb** is the standard debugger on Linux, and worth learning now. In {{terminal}}:
 
 ```
 gdb ./vault
@@ -41,9 +46,9 @@ Silicon it can't run the vault); the game's debugger works everywhere.
 
 ## Gate
 
-When you opened this level, the game built a file `vault` in your level174 folder. Its key is unique to you.
-The vault computes a 64-bit key in `r12`, then executes `xor r12, r12` to wipe it.
-The key never appears in memory.
+When you opened this level, the game built a file `vault` in your level174 folder.
+Its key is unique to you. The vault computes a 64-bit key in `r12`, then executes
+`xor r12, r12` to wipe it. The key never appears in memory.
 
 1. Find the key with a debugger. You won't find it by reading the source.
 2. Write a program that writes the key's **8 bytes** to stdout (in x86 memory

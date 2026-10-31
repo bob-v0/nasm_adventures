@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" width="640" height="250" role="img">
+<title>A label is the address of the first byte; brackets read the byte stored there</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222222"/></marker></defs>
+<rect x="0" y="0" width="640" height="250" fill="#ffffff"/>
+<text x="108" y="95" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="end" font-weight="bold" fill="#222222">memory</text>
+<text x="108" y="150" font-family="sans-serif" font-size="13" xml:space="preserve" text-anchor="end" font-weight="normal" fill="#6b7280">address</text>
+<rect x="120" y="70" width="90" height="44" rx="0" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text x="165.0" y="90" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">48</text>
+<text x="165.0" y="107" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">'H'</text>
+<text x="165.0" y="150" font-family="monospace" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0x402000</text>
+<rect x="210" y="70" width="90" height="44" rx="0" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="255.0" y="90" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">69</text>
+<text x="255.0" y="107" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">'i'</text>
+<text x="255.0" y="150" font-family="monospace" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0x402001</text>
+<rect x="300" y="70" width="90" height="44" rx="0" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text x="345.0" y="90" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">21</text>
+<text x="345.0" y="107" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">'!'</text>
+<text x="345.0" y="150" font-family="monospace" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0x402002</text>
+<rect x="390" y="70" width="90" height="44" rx="0" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text x="435.0" y="90" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">0A</text>
+<text x="435.0" y="107" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">10</text>
+<text x="435.0" y="150" font-family="monospace" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0x402003</text>
+<rect x="480" y="70" width="90" height="44" rx="0" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text x="525.0" y="90" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="middle" font-weight="bold" fill="#222222">00</text>
+<text x="525.0" y="107" font-family="monospace" font-size="12" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0</text>
+<text x="525.0" y="150" font-family="monospace" font-size="13" xml:space="preserve" text-anchor="middle" font-weight="normal" fill="#6b7280">0x402004</text>
+<text x="122" y="40" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="start" font-weight="bold" fill="#c2410c">greeting</text>
+<line x1="124" y1="46" x2="124" y2="68" stroke="#c2410c" stroke-width="2" marker-end="url(#arr)"/>
+<text x="235.0" y="22" font-family="monospace" font-size="15" xml:space="preserve" text-anchor="start" font-weight="bold" fill="#1d4ed8">greeting + 1</text>
+<line x1="255.0" y1="28" x2="255.0" y2="68" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arr)"/>
+<text x="40" y="200" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="start" font-weight="normal" fill="#222222">mov rax, greeting</text>
+<text x="300" y="200" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="start" font-weight="normal" fill="#c2410c">rax = 0x402000   (the address)</text>
+<text x="40" y="228" font-family="monospace" font-size="14" xml:space="preserve" text-anchor="start" font-weight="normal" fill="#222222">mov al, [greeting + 1]</text>
+<text x="300" y="228" font-family="sans-serif" font-size="14" xml:space="preserve" text-anchor="start" font-weight="normal" fill="#1d4ed8">al = 0x69 'i'   (the byte stored there)</text>
+</svg>

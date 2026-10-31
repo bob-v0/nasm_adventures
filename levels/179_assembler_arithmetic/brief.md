@@ -4,15 +4,15 @@
 
 ## Lesson: two different times
 
-Your program "runs" twice:
+Your program lives through two separate moments:
 
 1. **Assemble time.** NASM reads your text and produces bytes. Constants, label
-   addresses and expressions such as `7*24*60*60` are computed here, for free.
-2. **Run time.** The CPU executes the bytes. Every instruction costs time.
+   addresses and expressions such as `7*24*60*60` are worked out here, once, for free.
+2. **Run time.** The CPU executes those bytes. Every instruction costs time.
 
-Anything known before the program runs can be computed by NASM. Writing
-`mov rcx, 7*24*60*60` produces exactly the same bytes as `mov rcx, 604800`, and
-it explains itself.
+So anything known before the program runs can be left to NASM. `mov rcx, 7*24*60*60`
+produces exactly the same bytes as `mov rcx, 604800`, and it explains itself: anyone
+reading it sees "seconds in a week".
 
 ## Lesson: the tools
 
@@ -27,10 +27,15 @@ MSG_LEN equ $ - msg            ; $ = address of the current line,
 pad:    times 13 db 0xCC       ; repeat a line N times
 ```
 
-`$$` is the start of the current section. `$ - $$` is how far into the section you
+The `$ - msg` trick is worth remembering. `$` is "where I am now" and `msg` is "where
+the message started", so their difference is the number of bytes in between. Add or
+remove characters and the length updates by itself.
+
+`$$` is the start of the current section, so `$ - $$` is how far into the section you
 are.
 
-The **preprocessor** runs before the assembler and can generate code:
+The **preprocessor** is a text-processing pass that runs before the assembler proper.
+Lines starting with `%` talk to it, and it can generate code for you:
 
 ```
 %assign i 0
@@ -68,4 +73,4 @@ Constraints: at most 6 instructions. Run-time arithmetic (`add`, `sub`, `mul`, `
 ## Try this
 
 {{listing}} shows the bytes your `%rep` block produced. Look for `mov ebx, 0x41`:
-NASM computed the poem length and put the result straight into the instruction.
+NASM computed the poem length (65) and put the result straight into the instruction.

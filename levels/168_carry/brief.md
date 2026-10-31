@@ -4,9 +4,12 @@
 
 ## Lesson: carrying, like in school
 
-Adding big numbers on paper, you add the rightmost column, write down the digit and
-**carry** the overflow into the next column. The CPU does the same with 64-bit
-"digits" (called **limbs**):
+To add 58 + 67 on paper, you add the right column first: 8 + 7 = 15. You write
+down 5 and **carry** the 1 into the next column, so that column is 5 + 6 + 1 = 12.
+
+The CPU can do the same with numbers wider than a register. Each register-sized
+piece, a 64-bit "digit", is called a **limb**. A 128-bit number is two limbs, high
+and low:
 
 ```
         A = ahi : alo
@@ -16,13 +19,16 @@ Adding big numbers on paper, you add the rightmost column, write down the digit 
   adc  hi  = ahi + bhi + CF     add with carry
 ```
 
-`adc` (add with carry) adds its operands **plus CF**. `sbb` (subtract with borrow)
-subtracts its source **and CF**, so `sub` followed by `sbb` subtracts two-limb numbers.
-The final CF tells you whether the whole 128-bit result overflowed (or borrowed).
+![Add the low limbs with add, which sets CF; then adc adds the high limbs plus CF](carry-chain.svg)
 
-Anything between the two steps that changes CF breaks the chain. `mov` and `lea` never
-touch flags. `inc` and `dec` don't touch CF either, which is why they used to be handy
-in multi-limb loops. `clc`/`stc` clear and set CF directly.
+`adc` (add with carry) adds its operands **plus CF**. `sbb` (subtract with borrow)
+subtracts its source **and CF**, so `sub` followed by `sbb` subtracts two-limb
+numbers. The final CF tells you whether the whole 128-bit result overflowed (or
+borrowed).
+
+Anything between the two steps that changes CF breaks the chain. `mov` and `lea`
+never touch flags. `inc` and `dec` don't touch CF either, which is why they used to
+be handy in multi-limb loops. `clc` and `stc` clear and set CF directly.
 
 ## Gate
 

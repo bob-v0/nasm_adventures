@@ -4,7 +4,8 @@
 
 ## Lesson: effective addresses
 
-A memory operand can be more than a label. The general form is:
+The address inside square brackets can be more than a label. The CPU can compute it
+from up to four parts. The result is called the **effective address**:
 
 ```
 [ base + index * scale + displacement ]
@@ -15,7 +16,7 @@ A memory operand can be more than a label. The general form is:
 - **scale**: 1, 2, 4 or 8 (the sizes of byte/word/dword/qword elements)
 - **displacement**: a constant, which can be a label
 
-Any part can be left out. The CPU computes this address with dedicated hardware as
+Any part can be left out. The CPU computes the address with dedicated hardware as
 part of the instruction, so it costs nothing extra.
 
 ```
@@ -24,26 +25,37 @@ mov al,  [rsi + rdx]            ; byte rsi[rdx]
 mov rax, [rbx + rcx*8 + 16]     ; field at +16 of element rcx
 ```
 
+The first line is how you index an array: element number rcx of 8-byte elements
+starts rcx × 8 bytes after the start of `table`.
+
 ## Lesson: 2D arrays
 
-Memory is one-dimensional. A grid is stored **row by row**: element [row][col] of a
-grid with 8 columns of 8-byte values sits at:
+Memory is one-dimensional, so a grid has to be laid out as one long line. The usual
+way is **row by row** ("row-major"): all of row 0, then all of row 1, and so on.
+In a grid with 8 columns of 8-byte values, each row takes 64 bytes, and element
+[row][col] sits at:
 
 ```
 grid + (row * 8 + col) * 8
 ```
 
+![An 8-column grid of qwords stored row by row: row 1, column 3 is at byte offset 88, and the element below it at 152](grid-row-major.svg)
+
+For example, [1][3] is at `grid + (1*8 + 3)*8 = grid + 88`, and the element directly
+below it, [2][3], is one row (64 bytes) further on, at `grid + 152`.
+
 ## Lesson: `lea`
 
 `lea` (Load Effective Address) computes the address expression and keeps the
-**address**, without reading memory:
+**address itself**, without reading memory:
 
 ```
 lea rbx, [grid + rcx*8]      ; rbx = address of grid[rcx]
 lea rax, [rdi + rdi*2]       ; rax = rdi * 3. Plain arithmetic, no memory involved!
 ```
 
-Compilers use `lea` as a fast "add and multiply by 2, 3, 4, 5, 8 or 9" all the time.
+Because `lea` can add a register to a scaled copy of itself, compilers use it all
+the time as a fast "multiply by 2, 3, 4, 5, 8 or 9", often with an add thrown in.
 
 ## Gate
 

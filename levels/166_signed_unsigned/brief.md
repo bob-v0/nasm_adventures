@@ -4,8 +4,9 @@
 
 ## Lesson: two's complement
 
-Unsigned, 64 bits hold 0 … 2⁶⁴−1. **Signed** numbers use **two's complement**: the
-top bit counts as −2⁶³ instead of +2⁶³, giving −2⁶³ … 2⁶³−1.
+Read as **unsigned**, 64 bits hold 0 … 2⁶⁴−1. To store negative numbers too, x86
+uses **two's complement**: the top bit counts as −2⁶³ instead of +2⁶³, which gives
+the **signed** range −2⁶³ … 2⁶³−1. In 8 bits it looks like this:
 
 ```
 bits (8-bit for brevity)   unsigned   signed
@@ -15,13 +16,22 @@ bits (8-bit for brevity)   unsigned   signed
 1111_1111                     255       -1
 ```
 
-To negate: invert all bits and add 1 (`neg` does both). The great property: **`add` and
-`sub` give the right bits for both readings**, so the CPU needs only one adder. It
-records the two ways a result can be wrong:
+Picture the 256 byte values on a wheel. Adding 1 moves one step clockwise. The
+unsigned reading jumps between 255 and 0; the signed reading jumps between 127 and
+−128, on the opposite side.
 
-- **CF**: the result is wrong as an *unsigned* number (carry out, or borrow).
-- **OF**: the result is wrong as a *signed* number. This happens when adding two
-  numbers of the same sign gives the other sign.
+![A byte's 256 values on a wheel: unsigned wraps between 255 and 0 (CF), signed wraps between +127 and −128 (OF)](twos-complement-wheel.svg)
+
+To negate a number: invert all its bits and add 1 (`neg` does both). The great
+property of this scheme is that **`add` and `sub` give the right bits for both
+readings**, so the CPU needs only one adder. It records the two ways a result can be
+wrong:
+
+- **CF**: the result is wrong as an *unsigned* number (carry out, or borrow). On the
+  wheel, it crossed the seam between 255 and 0.
+- **OF**: the result is wrong as a *signed* number: it crossed the seam between 127
+  and −128. This happens when adding two numbers of the same sign gives the other
+  sign.
 
 `jc`/`jnc` and `jo`/`jno` jump on them; `js` jumps if the result is negative.
 

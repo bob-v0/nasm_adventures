@@ -6,52 +6,63 @@ lives. Each gate on the way down opens only for a program you write yourself.*
 
 ## Lesson: what an assembler is
 
-The CPU does not read text. It reads **machine code**, which is just bytes. For example:
+The CPU cannot read text. It reads **machine code**: plain bytes, where each
+instruction is a short pattern of bytes. For example:
 
 ```
 B8 2A 00 00 00      "put the number 42 into register eax"
 ```
 
-**Assembly language** gives each instruction a name that people can read.
-**NASM** (the Netwide Assembler) turns that text into bytes:
+Nobody wants to write programs as hex bytes. **Assembly language** gives every
+instruction a short, readable name instead. An **assembler** translates that text
+into the bytes. The one you will use is **NASM** (the Netwide Assembler):
 
 ```
 mov eax, 42    -->  nasm  -->  B8 2A 00 00 00
 ```
 
-Every NASM source line has up to four parts, and all of them are optional:
+Each line of assembly is usually one instruction, and each instruction does one
+small thing.
+
+## Lesson: the parts of a line
+
+A NASM line has up to four parts. Every part is optional:
 
 ```
 label:   mnemonic  operands      ; comment
 start:   mov       rax, 42       ; put 42 into rax
 ```
 
-- A **mnemonic** names the instruction. `mov` means "copy a value into a place".
-- **Operands** are written destination first: `mov rax, 42` means `rax = 42`.
-- A **label** names a location in the program. You will use labels from level 180 on.
-- **Comments** start with `;` and the assembler ignores them. Write lots of them;
-  assembly is hard to read without them.
-- NASM does not care about upper/lower case in mnemonics and register names
-  (`MOV RAX, 42` works). It does care about case in labels.
+- The **mnemonic** names the instruction. `mov` means "copy a value into a place".
+- The **operands** say what it works on. The destination comes first:
+  `mov rax, 42` means `rax = 42`.
+- A **label** gives a name to a place in the program. You will start using labels
+  in level 180.
+- A **comment** starts with `;` and runs to the end of the line. The assembler
+  ignores it. Write plenty: assembly is hard to read without them.
+
+NASM ignores upper and lower case in mnemonics and register names, so
+`MOV RAX, 42` works too. Labels are different: `Start` and `start` are two labels.
 
 ## Lesson: registers
 
-A **register** is a storage slot inside the CPU. x86-64 has sixteen general-purpose
-64-bit registers. You will meet them all in the next level. For now you need two:
-`rax` and `rbx`. Think of them as the CPU's only variables, and very fast ones.
+A **register** is a storage slot inside the CPU itself. Think of registers as the
+CPU's variables: there are only a few, and they are very fast. x86-64 has sixteen
+general-purpose registers of 64 bits each, and you will meet them all in the next
+level. For now you need two: `rax` and `rbx`.
 
 ## How fragment levels work
 
-In levels 184 to 177 you write only the interesting part. The game wraps your code
-in a small program, runs it on an emulated x86-64 CPU starting at your first line,
-and stops when execution reaches your last line. Then it checks the registers and
-memory.
+In levels 184 to 177 you write only the interesting part, a **fragment**. The game
+wraps your code in a small program and runs it on an emulated x86-64 CPU. It starts
+at your first line and stops when execution reaches your last line. Then it checks
+the registers and memory.
 
 - {{test}} builds your code and runs the tests you can see.
-- {{submit}} also runs hidden tests and opens the next level if everything passes.
+- {{submit}} also runs hidden tests, and opens the next level if everything passes.
 - {{listing}} shows the bytes NASM produced for each of your lines. Try it.
-- {{debug}} steps through your code one instruction at a time, forwards and
-  backwards. In the editor, click a line number to set a breakpoint.
+- {{debug}} runs your code one instruction at a time, forwards and backwards. In
+  the editor, click a line number to set a breakpoint (a place to pause).
 - To learn what an instruction does, see {{docs mov}}.
 
 ## Gate
@@ -67,5 +78,5 @@ Stretch goal: exactly 2 instructions.
 ## Try this
 
 Open {{listing}}. NASM encoded your `mov rax, 42` as `B8 2A 00 00 00`, which is
-`mov eax, 42`: 5 bytes instead of the 10 that a 64-bit constant needs. That is still
-correct, and level 181 explains why.
+the encoding of `mov eax, 42`. That takes 5 bytes instead of the 10 bytes a full
+64-bit constant needs, and it still gives the same result. Level 181 explains why.

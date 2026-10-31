@@ -4,7 +4,8 @@
 
 ## Lesson: file descriptors
 
-A Linux process talks to the outside world through numbered **file descriptors**.
+A Linux program talks to the outside world through **file descriptors**: small
+numbers that each stand for an open file, terminal, pipe or network connection.
 Three are open from the start:
 
 | fd | name | usually |
@@ -15,6 +16,9 @@ Three are open from the start:
 
 ## Lesson: `write`
 
+`write` is syscall 1. It takes a file descriptor, the address of some bytes and how
+many bytes to send:
+
 ```
 mov eax, 1          ; syscall 1 = write
 mov edi, 1          ; fd: stdout
@@ -23,8 +27,8 @@ mov edx, MSG_LEN    ; how many bytes
 syscall             ; rax = bytes written (or -errno)
 ```
 
-`write` doesn't care about text or terminators; it copies exactly `count` bytes. Strings
-in NASM:
+`write` knows nothing about text or terminators: it copies exactly `count` bytes,
+starting at the address. Strings in NASM:
 
 ```
 msg: db "Hi", 10        ; double quotes: no escapes, so add 10 (newline) by hand
@@ -34,9 +38,10 @@ MSG_LEN equ $ - msg
 
 ## Lesson: return values
 
-Every syscall leaves its result in `rax`, so the next syscall number you load
-**overwrites** it. If you need a result, copy it somewhere first. Remember that
-`rcx` and `r11` are destroyed by every `syscall`, so don't keep anything there.
+Every syscall leaves its result in `rax`. The moment you load the next syscall
+number, that result is **overwritten**, so if you need it, copy it somewhere first.
+And remember that every `syscall` destroys `rcx` and `r11`, so don't keep anything
+there.
 
 ## Gate
 
@@ -51,4 +56,5 @@ Constraint: at most 30 instructions.
 ## Try this
 
 Run your program outside the game, in {{terminal}}: `./solution 2>/dev/null` hides
-stderr, and `./solution >/dev/null` hides stdout. Separate streams are the reason fd 2 exists.
+stderr, and `./solution >/dev/null` hides stdout. Being able to separate the two is
+the reason fd 2 exists.

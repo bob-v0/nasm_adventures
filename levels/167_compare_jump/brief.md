@@ -4,9 +4,9 @@
 
 ## Lesson: cmp and conditional jumps
 
-`cmp a, b` computes `a - b`, sets the flags, and throws the result away. A
-**conditional jump** then reads the flags and either jumps to a label or falls
-through to the next line:
+Making a decision takes two instructions. First `cmp a, b` computes `a - b`, sets
+the flags, and throws the result away. Then a **conditional jump** reads the flags
+and either jumps to a label or **falls through** to the next line:
 
 ```
     cmp rax, rsi
@@ -15,8 +15,12 @@ through to the next line:
 .big_enough:
 ```
 
-`test a, b` is the same idea for `and` (level 162). `test rax, rax` is the usual way
-to ask "is rax zero?" (`jz`) or "is it negative?" (`js`).
+That is an `if` statement: "if rax < rsi, then rax = rsi". Notice that the jump
+tests the *opposite* condition, to skip over the body.
+
+`test a, b` is the same idea for `and` (level 162): it sets the flags and keeps
+nothing. `test rax, rax` is the usual way to ask "is rax zero?" (`jz`) or "is it
+negative?" (`js`).
 
 ## Lesson: two families of conditions
 
@@ -31,8 +35,12 @@ sets of comparisons:
 | a ≥ b | `jge` | `jae` |
 | a = b / a ≠ b | `je` / `jne` | `je` / `jne` |
 
-`0xFFFF_FFFF_FFFF_FFFB` is −5 to `jl` and about 1.8 × 10¹⁹ to `jb`. **The CPU doesn't
-know which you mean; your choice of jump says it.** `jmp` jumps unconditionally.
+A memory aid: **l**ess and **g**reater are for signed numbers, **b**elow and
+**a**bove for unsigned ones.
+
+`0xFFFF_FFFF_FFFF_FFFB` is −5 to `jl` and about 1.8 × 10¹⁹ to `jb`. **The CPU
+doesn't know which you mean; your choice of jump says it.** `jmp` jumps
+unconditionally.
 
 ## Lesson: local labels
 
@@ -43,8 +51,9 @@ clashes. In fragment levels your code has no label of its own, so use names like
 
 ## Gate
 
-On entry `rdi` = x, `rsi` = lo, `rdx` = hi (lo ≤ hi, both non-negative). Clamp x into
-[lo, hi] two ways:
+On entry `rdi` = x, `rsi` = lo, `rdx` = hi (lo ≤ hi, both non-negative). **Clamp** x
+into [lo, hi]: the result is x itself if it lies between lo and hi, lo if x is below
+that range, and hi if it is above. Do it two ways:
 
 | Register | Must hold |
 |---|---|

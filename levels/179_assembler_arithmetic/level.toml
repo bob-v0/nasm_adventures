@@ -8,7 +8,7 @@ introduces = ["equ", "$", "$$", "times", "%define", "%assign", "%rep / %endrep",
 
 hints = [
   "All four register values are known before the program runs, so NASM can compute them. Look up `equ`, `$` and `%define` in {{docs equ}}.",
-  "After the data: SQUARE_COUNT equ (poem - squares) / 8 ... or put the equ right after the table: SQUARE_COUNT equ ($ - squares) / 8. For the table: %assign i 0 / %rep 16 / dq i*i / %assign i i+1 / %endrep",
+  "Right after the table, `SQUARE_COUNT equ ($ - squares) / 8` gives the entry count (8 bytes per qword), and `POEM_LEN equ $ - poem` right after the poem gives its length. The table itself: %assign i 0 / %rep 16 / dq i*i / %assign i i+1 / %endrep",
   "mov rax, SQUARE_COUNT / mov rbx, POEM_LEN / mov rcx, 7*24*60*60 / mov rdx, ruler_end - squares. Data in order: squares (the %rep table), poem: db \"...\", then ruler: times 40 db '-' / db 10, then a label ruler_end:",
 ]
 

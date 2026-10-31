@@ -2,20 +2,22 @@
 
 *The gate shows six locks, each labelled in a different notation.*
 
-## Lesson: bases
+## Lesson: one value, many spellings
 
-A register is just 64 bits. How you write a number in your source code doesn't
-matter to the CPU; NASM turns it into bits either way. Pick the notation that
-makes the bits easiest to see:
+A register holds 64 bits, nothing more. Whether you write `200`, `0xC8` or
+`0b1100_1000` in your source makes no difference to the CPU: NASM turns all three
+into the same bits. So pick the notation that makes your *intent* easiest to see:
 
-| Base | Digits | One hex digit = | Used for |
-|---|---|---|---|
-| binary (2) | 0 1 | 4 bits | flags, masks, single bits |
-| octal (8) | 0–7 | – | Unix file permissions |
-| decimal (10) | 0–9 | – | counts, human-facing numbers |
-| hexadecimal (16) | 0–9 A–F | 4 bits exactly | addresses, bytes, anything bit-shaped |
+| Base | Digits | Good for |
+|---|---|---|
+| binary (2) | 0 1 | flags, masks, single bits |
+| octal (8) | 0–7 | Unix file permissions |
+| decimal (10) | 0–9 | counts, human-facing numbers |
+| hexadecimal (16) | 0–9 A–F | addresses, bytes, anything bit-shaped |
 
-Two hex digits make exactly one byte, so programmers use hex all the time.
+Hex is the programmer's favourite because each hex digit stands for exactly 4 bits,
+so two hex digits make exactly one byte. You can read the bits straight off it:
+`0xC8` is `1100` `1000`.
 
 ## Lesson: how NASM writes numbers
 
@@ -28,11 +30,13 @@ Two hex digits make exactly one byte, so programmers use hex all the time.
 'A'                 character constant = 0x41
 'AB'                = 0x4241. Characters fill the LOW bytes first, so
                     when stored to memory they appear in order "A","B".
--1                  two's complement: all 64 bits set (level 167 explains this)
+-1                  two's complement: all 64 bits set (level 166 explains this)
 ```
 
-`mov` with a 64-bit register takes a full 64-bit constant. NASM uses the shortest
-encoding that gives the same result, which {{listing}} shows.
+The decimal, hex, octal and binary examples all spell the same number, 200.
+
+`mov` into a 64-bit register accepts a full 64-bit constant. NASM picks the shortest
+encoding that gives the same result, and {{listing}} shows you which one it chose.
 
 ## Gate
 

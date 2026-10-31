@@ -7,7 +7,7 @@ concepts = ["what an assembler does", "NASM line format", "comments", "registers
 introduces = ["mov reg, imm", "; comments", "labels"]
 
 hints = [
-  "Each line is `mov <register>, <number>`. Destination first, then the value.",
+  "Each instruction is `mov <register>, <number>`: the destination comes first, then the value.",
   "You need two instructions: one for rax, one for rbx.",
   "mov rax, 42\nmov rbx, 184",
 ]
