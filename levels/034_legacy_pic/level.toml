@@ -1,0 +1,16 @@
+level = 34
+slug = "legacy_pic"
+title = "Silencing the PIC"
+arc = "XII"
+mode = "multiboot"
+concepts = ["the 8259 PIC: the PC's original interrupt controller, still there on x86-64", "remapping it off the CPU's exception vectors", "masking every line before the APIC takes over", "spurious interrupts: IRQ 7 nobody raised", "reading the in-service register (OCW3)", "when not to send an EOI"]
+introduces = ["ICW1-ICW4", "the IMR (ports 0x21 / 0xA1)", "OCW3 / the ISR", "spurious IRQ 7 and 15"]
+
+hints = [
+  "Remapping is four initialization words per PIC: 0x11 to ports 0x20 and 0xA0 (start), then the first vector to 0x21 / 0xA1 (0x20 and 0x28), then how they're wired (4 to the master: a slave on IRQ 2; 2 to the slave: its cascade line), then 0x01 (8086 mode). Then 0xFF to 0x21 and 0xA1 masks everything.",
+  "Even fully masked, the master can still deliver IRQ 7 when an interrupt request vanishes before it's acknowledged: a spurious interrupt. Give vector 0x27 a gate. In the handler, write 0x0B to port 0x20 (OCW3: 'next read is the in-service register') and read port 0x20: bit 7 set means IRQ 7 is really in service.",
+  "Spurious (bit 7 clear): inc dword [spurious] and iret, with NO EOI. An EOI there would end some other interrupt that IS in service (the module checks exactly that). A real IRQ 7: EOI as usual. (On the slave, a spurious IRQ 15 still needs an EOI to the master, for the cascade.)",
+]
+
+[constraints]
+max_instructions = 200

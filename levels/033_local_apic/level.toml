@@ -1,0 +1,19 @@
+level = 33
+slug = "local_apic"
+title = "Local APIC"
+arc = "XII"
+mode = "multiboot"
+concepts = ["the Local APIC: one per core, memory-mapped at 0xFEE00000", "the IA32_APIC_BASE MSR", "enabling it: the spurious-interrupt vector register", "the APIC timer: divide, initial count, LVT entry, periodic mode", "calibrating a clock of unknown speed against a known one (the PIT)", "EOI by writing a register"]
+introduces = ["rdmsr / IA32_APIC_BASE", "APIC registers (SVR, EOI, LVT timer, initial/current count, divide)", "PIT channel 2 and port 0x61", "memory-mapped I/O"]
+
+hints = [
+  "The Local APIC's registers are memory: base = IA32_APIC_BASE (rdmsr with ecx = 0x1B, eax & 0xFFFFF000, normally 0xFEE00000) plus an offset, each a dword. Paging is off, so the address is used as is. Enable it by writing 0x1FF to SVR (offset 0xF0): bit 8 = enabled, low byte = the spurious vector (0xFF).",
+  "The APIC timer counts at a speed you don't know (the bus clock, divided). Measure it: divide config (0x3E0) = 3 (÷16), initial count (0x380) = 0xFFFFFFFF, then wait exactly 10 ms with the PIT's channel 2: port 0x61 bit 0 on (its gate), command 0xB0 to 0x43 (channel 2, one-shot), 11932 to port 0x42 (low byte, high byte), and poll port 0x61 until bit 5 is set. 0xFFFFFFFF minus the current count (0x390) is the count for 10 ms.",
+  "Start it: LVT timer (0x320) = 0x20040 (bit 17 periodic, vector 0x40), then initial count = the calibrated value. The handler: inc dword [ticks], write 0 to the EOI register (0xB0), iret. The spurious vector's handler just irets (no EOI).",
+]
+
+[constraints]
+max_instructions = 250
+
+[random]
+count = 1

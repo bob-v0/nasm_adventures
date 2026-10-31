@@ -493,9 +493,13 @@ def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
         err = f", {describe_error(v, first['error'], first['cr2'])}" if v in (8, 10, 11, 12, 13, 14, 17) else ""
         lines.append(f"  - {describe_vector(v)} at {first['cs']:04x}:{first['eip']:08x}"
                      f"{where(first['cs'], first['eip'])}{err}")
+    shown = []
     for f in nested:
-        lines.append(f"  - while delivering it: {describe_vector(f['vector'])}, "
-                     f"{describe_error(f['vector'], f['error'], f['cr2'])}")
+        line = (f"  - while delivering it: {describe_vector(f['vector'])}, "
+                f"{describe_error(f['vector'], f['error'], f['cr2'])}")
+        if line not in shown:               # (the same fault, over and over: once is enough)
+            shown.append(line)
+    lines += shown
     lines.append("  - then #DF (double fault, vector 8): delivering that failed too")
     lines.append("  - then a fault while delivering #DF: the CPU gives up and resets")
     base, limit = first["idt"]
