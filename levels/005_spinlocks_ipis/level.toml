@@ -1,0 +1,17 @@
+level = 5
+slug = "spinlocks_ipis"
+title = "Spinlocks & IPIs"
+arc = "XIV"
+mode = "multiboot"
+link = "elf64"
+concepts = ["a spinlock: xchg, pause, and a plain store to release", "a critical section: read-modify-write that nobody else may interleave", "the TLB is per CPU", "TLB shootdown: an IPI to every other CPU, invlpg there, then wait for every acknowledgement", "fixed IPIs to \"all but me\" through the ICR"]
+introduces = ["TLB shootdown", "IPIs with vectors"]
+
+hints = [
+  "A spinlock: `mov edx, 1` / `xchg edx, [job_lock]` (xchg with memory is atomic and locks the bus by itself): if edx came back 0 the lock is yours; otherwise loop on `pause` / `cmp dword [job_lock], 0` until it looks free, then try the xchg again. Releasing: `mov dword [job_lock], 0` (on x86 a store isn't reordered before earlier stores or loads, so that's enough).",
+  "work: take the lock, read [next_job]; if it's JOBS or more, release and return; otherwise increment it, release, compute the job's value, take the lock again to add it to [total] and increment [jobs_done], release, repeat. The lock covers each read-modify-write of shared memory, not the computing between.",
+  "shoot_down: [acks] = 0; send vector SHOOTDOWN to everyone but me: ICR_HIGH = 0, ICR_LOW = 0x000C0000 | SHOOTDOWN, wait_sent; then wait until [acks] + 1 = [cpus]. The handler, on every other CPU: invlpg [WINDOW], `lock inc dword [acks]`, EOI (APIC + APIC_EOI), iret. Keep the registers you use.",
+]
+
+[random]
+count = 1

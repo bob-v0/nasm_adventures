@@ -196,7 +196,7 @@ class Run:
                  memory: str = MEMORY, extra_args: list[str] | None = None,
                  note: tuple | None = None, rtc: str = "2025-01-01T00:00:00",
                  kernel: Path | None = None, cmdline: str = "", modules: list[bytes] = (),
-                 com2: bool = False, fill: list[tuple[int, bytes]] = ()):
+                 com2: bool = False, fill: list[tuple[int, bytes]] = (), parallel: bool = False):
         if not available():
             raise BuildError("this level runs on a whole emulated PC: qemu-system-x86_64 must be "
                              "installed (it is in the game's Docker image).")
@@ -214,7 +214,8 @@ class Run:
                 "-drive", f"file={disk},format=raw,if=ide,index=0,media=disk",
                 "-serial", f"file:{self.serial_path}",
                 "-qmp", f"unix:{self.sock},server=on,wait=off",
-                "-icount", "shift=3,sleep=off", "-rtc", f"base={rtc},clock=vm",
+                *(["-accel", "tcg,thread=multi"] if parallel else ["-icount", "shift=3,sleep=off"]),
+                "-rtc", f"base={rtc},clock=vm",
                 "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
                 "-d", "int,cpu_reset,guest_errors", "-D", str(self.dir / "qemu.log")]
         if kernel is not None:                    # a multiboot kernel, loaded by QEMU itself

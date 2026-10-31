@@ -1,0 +1,21 @@
+level = 3
+slug = "bug_lifetime"
+title = "Lifetime Across CPUs"
+arc = "XIV"
+bug = 4
+mode = "multiboot"
+link = "elf64"
+concepts = ["unlinked isn't unused: a reader may already stand on the node", "readers without locks", "quiescent states: a moment a reader holds nothing", "grace periods: wait until every reader has passed one, then free", "RCU in miniature"]
+introduces = ["grace periods", "read-copy-update"]
+
+hints = [
+  "After `mov [esi + N_NEXT], eax`, no new walk can reach the node. But a walk that started a moment earlier may be standing on it right now, about to read its magic, its value, its next. Free it then, and that reader reads a freed node (or, once it's reused, a node from elsewhere in the list).",
+  "When can no reader be on it any more? Every reader, between two walks, holds no node at all: a quiescent state, which it marks by incrementing its own [quiet + number * 4]. A walk that was going on when the node was unlinked is over once that reader's count has moved on.",
+  "A grace period before free_node: copy every reader's count (CPUs 1 to [cpus] - 1) into [snapshot], then for each, wait (pause) until its count differs from the copy. Only then free. That's what Linux's synchronize_rcu does, in essence.",
+]
+
+[constraints]
+max_changed_lines = 30
+
+[random]
+count = 1

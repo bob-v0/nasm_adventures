@@ -471,9 +471,9 @@ Runner: qemu -smp N. 10 levels, 4 of them bug levels.
 | 8 | PCI | config space, ECAM, BARs | List devices |
 | 7 | SMP | INIT-SIPI-SIPI, AP trampoline, per-CPU data | All cores say hello |
 | 6 | **Bug:** IRQ-Unsafe Lock ◆◆◆ | a lock taken in an interrupt handler while the same CPU holds it | Fix a kernel that freezes under keyboard load |
-| 5 | Spinlocks & IPIs | SMP locks, TLB shootdown | Race-free multi-core scheduler |
+| 5 | Spinlocks & IPIs | SMP locks, TLB shootdown | Shared work under a lock; every CPU sees a remapped page |
 | 4 | **Bug:** TLB Shootdown Race ◆◆◆◆ | freeing a page before every CPU has flushed it | Fix use-after-unmap across cores |
-| 3 | **Bug:** Lifetime Across CPUs ◆◆◆◆ | freeing a task or page table another CPU still uses; RCU-style grace periods | Safe process teardown on 4 cores |
+| 3 | **Bug:** Lifetime Across CPUs ◆◆◆◆ | freeing what another CPU still uses; RCU-style grace periods | Readers never see a freed node, on 3-4 cores |
 | 2 | Drivers | interrupt-driven UART / virtio-blk; routing PCI interrupts through the I/O APIC (level 32) or MSI | Read a file into a user process |
 | 1 | **Bug:** Heisenbug ◆◆◆◆ | the final hunt: a rare race in your own kernel; schedule exploration, record and replay | Find it, explain it, fix it |
 | 0 | Ring 0 ★ | everything | Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win. |
@@ -571,7 +571,7 @@ Concurrency is taught in three passes, each with its own bugs:
 | 17 | XIII | Stale TLB | ◆◆◆ hard | remapping without invalidation |
 | 6 | XIV | IRQ-Unsafe Lock | ◆◆◆ hard | a lock taken in an interrupt handler while the same CPU holds it |
 | 4 | XIV | TLB Shootdown Race | ◆◆◆◆ very hard | freeing a page before every CPU has flushed it |
-| 3 | XIV | Lifetime Across CPUs | ◆◆◆◆ very hard | freeing a task or page table another CPU still uses; RCU-style grace periods |
+| 3 | XIV | Lifetime Across CPUs | ◆◆◆◆ very hard | freeing what another CPU still uses; RCU-style grace periods |
 | 1 | XIV | Heisenbug | ◆◆◆◆ very hard | the final hunt: a rare race in your own kernel; schedule exploration, record and replay |
 <!-- END GENERATED BUG TRACK -->
 

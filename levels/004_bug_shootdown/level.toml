@@ -1,0 +1,21 @@
+level = 4
+slug = "bug_shootdown"
+title = "TLB Shootdown Race"
+arc = "XIV"
+bug = 4
+mode = "multiboot"
+link = "elf64"
+concepts = ["a sent IPI isn't a handled IPI", "a stale translation outlives the page table entry", "reuse a frame only when every CPU has stopped using it", "the acknowledgement is the point of a shootdown"]
+introduces = []
+
+hints = [
+  "A torn snapshot means a reader saw the page change while it read: its words from two rounds. Which frame was that reader reading? Which round was the first CPU filling at that moment, and which frame?",
+  "After shoot_down returns, the first CPU treats the old frame as free and, next round, fills it. But shoot_down only *sent* the IPI. A reader with interrupts off (in the middle of a snapshot) hasn't taken it yet: its TLB still maps WINDOW to the old frame, the one now being overwritten.",
+  "Freeing must wait until every CPU has really dropped the old translation: the handlers count themselves in [acks]; wait in shoot_down until [acks] + 1 = [cpus] (pause in the loop). A reader then finishes its snapshot, takes the IPI, flushes, acknowledges, and only then is the frame reused.",
+]
+
+[constraints]
+max_changed_lines = 6
+
+[random]
+count = 1
