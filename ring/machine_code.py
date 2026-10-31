@@ -71,3 +71,62 @@ def compare(want: list[str], got: list[str]) -> list[str]:
     if len(got) > len(want):
         return [f"{len(got) - len(want)} instruction(s) too many: `{got[len(want)]}`..."]
     return []
+
+
+def semantics(code: bytes) -> tuple[list[tuple], list[str]]:
+    """What each instruction does, independent of the encoding chosen: operands as
+    values (immediates masked to their size, mov reg, imm as its effect on the 64-bit
+    register), branch and rip-relative targets as instruction indexes. Also the
+    instructions' text, for messages."""
+    from capstone import CS_OP_MEM, CS_OP_REG
+    from capstone.x86_const import X86_REG_RIP
+    md = _md()
+    ins = list(md.disasm(code, 0))
+    index = {i.address: k for k, i in enumerate(ins)}
+    end = sum(i.size for i in ins)
+    index[end] = len(ins)                         # (a label after the last instruction)
+    if end != len(code):
+        ins.append(None)
+    out, texts = [], []
+    for i in ins:
+        if i is None:
+            out.append(("(not an instruction)", code[end:end + 8].hex(" ")))
+            texts.append(f"(bytes that aren't an instruction: {code[end:end + 8].hex(' ')})")
+            break
+        mn = "mov" if i.mnemonic == "movabs" else i.mnemonic
+        branch = i.group(CS_GRP_JUMP) or i.group(CS_GRP_CALL)
+        ops = []
+        for op in i.operands:
+            if op.type == CS_OP_REG:
+                ops.append(i.reg_name(op.reg))
+            elif op.type == CS_OP_IMM:
+                if branch:
+                    t = op.imm
+                    ops.append(("target", index.get(t, f"@{t:#x}")))
+                else:
+                    ops.append(("imm", op.imm & ((1 << (8 * op.size)) - 1)))
+            elif op.type == CS_OP_MEM:
+                m = op.mem
+                if m.base == X86_REG_RIP:
+                    t = i.address + i.size + m.disp
+                    ops.append(("mem", op.size, "rel", index.get(t, f"@{t:#x}")))
+                else:
+                    ops.append(("mem", op.size, i.reg_name(m.base) if m.base else None,
+                                i.reg_name(m.index) if m.index else None,
+                                m.scale if m.index else 1, m.disp))
+        if mn == "mov" and len(ops) == 2 and isinstance(ops[0], str) and ops[1][0] == "imm":
+            reg = ops[0]
+            if reg.startswith("e") or reg.endswith("d"):          # 32-bit: zero-extends
+                value = ops[1][1] & 0xFFFFFFFF
+                reg = {"eax": "rax", "ecx": "rcx", "edx": "rdx", "ebx": "rbx", "esp": "rsp",
+                       "ebp": "rbp", "esi": "rsi", "edi": "rdi"}.get(reg, reg[:-1])
+            else:
+                imm_size = 8 if i.mnemonic == "movabs" or len(i.bytes) >= 10 else 4
+                value = ops[1][1]
+                if imm_size == 4 and value >> 31 & 1:              # sign-extended
+                    value |= 0xFFFFFFFF00000000
+                value &= (1 << 64) - 1
+            ops = [reg, ("value", value)]
+        out.append((mn, *ops))
+        texts.append(f"{i.mnemonic} {i.op_str}".strip())
+    return out, texts

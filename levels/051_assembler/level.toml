@@ -1,0 +1,20 @@
+level = 51
+slug = "assembler"
+title = "Assembler"
+arc = "X"
+boss = true
+mode = "program"
+concepts = ["everything in the arc"]
+introduces = []
+
+hints = [
+  "Two passes over the same code: pass 1 only needs every label's address, which needs every instruction's size. Make sizes independent of labels (always rel32 for jumps: 5 bytes, 6 for jcc; disp32 for [rel ...]) and the same encoder can run twice, the first time with unknown labels as 0, the second time for real. Everything else (short immediates, disp8) may depend on the values, which are known in both passes.",
+  "Parse each operand into a small record: kind (register, memory, immediate/label), register number and width, size keyword, and for memory: base, index, scale, displacement, or a rip-relative target. Then the encoder is level 56 run backwards: REX (W, R from the reg field, X from the index, B from the base or r/m register), opcode, ModRM, SIB when there's an index or the base is rsp/r12, disp8/disp32 (rbp/r13 as a base need one even when it's 0).",
+  "A rip-relative displacement is relative to the end of the instruction, and an immediate can follow it (mov dword [rel x], 5): emit a placeholder, remember where it is, and patch it after the immediate. Tables of names (8 bytes, NUL-padded, compared as one qword) make the mnemonic and register lookups short.",
+]
+
+[constraints]
+max_steps = 3000000
+
+[random]
+count = 5

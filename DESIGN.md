@@ -130,8 +130,8 @@ nasm_adventures/
 
 | Runner | Used by | How it works | What it can verify |
 |---|---|---|---|
-| `emu` | Arcs I–IX (except a few native levels; Arc VII on the game's CPU model; Arc IX's AVX on its vector unit); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
-| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V; Arc X | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
+| `emu` | Arcs I–X (except a few native levels; Arc VII on the game's CPU model; Arc IX's AVX on its vector unit); concurrency levels in Arc VIII | Unicorn executes a static ELF built from the player's code. Fragment levels wrap the player's text in a generated program; whole-program levels get a Linux-like initial stack and the game's emulated Linux kernel: a virtual filesystem, descriptors, memory, signals, fault injection, and processes (`fork`/`execve`/`wait4`, pipes, `dup2`) run by a deterministic round-robin scheduler, with tiny `/bin` utilities written in NASM to `execve`; sockets whose clients are scripted, epoll, timerfd and a virtual clock that jumps ahead when everyone waits. | Exact registers, flags and memory; executed-instruction counts; syscall traces; reverse execution. With the scheduler and TSO model of §7: interleavings and memory-ordering behaviour. |
+| `native` | libc levels of Arc IV; PIE, dynamic linking and ELF levels of Arc V | `nasm -f elf64` + `ld`/`gcc`, run as a child process under seccomp + rlimits, optional `ptrace` single-step. | stdout/stderr/exit code, syscall trace, ABI conformance via a harness that calls the player's function, performance via `rdtsc`/`perf_event_open`, native stress tests. |
 | `qemu` | Arcs XI–XIV | `nasm -f bin` → disk image or multiboot2 ELF; `qemu-system-x86_64 -nographic -no-reboot` with `isa-debug-exit` and serial on stdio; `-smp N` for SMP; gdb stub for `ring debug`. | Serial output, exit code via debug port, triple-fault detection, QEMU monitor dumps, interrupt injection. |
 
 Running through emulators also makes the game work on ARM Macs (QEMU TCG / Unicorn);
@@ -867,7 +867,11 @@ the internet directly.
    CPU; `cpuid`/`xgetbv` report a CPU profile per test (no AVX, AVX, AVX2, AVX-512) and
    a missing feature is #UD, so runtime dispatch is testable on any host; legacy SSE
    faults on misaligned operands; the debugger shows vector and mask registers.
-   Remaining: the encoding panel; Arc X.
+   Arc X done (levels 57–51): encodings are checked by decoding the player's bytes and
+   comparing instructions (any valid encoding counts, `ring/machine_code.py`); code
+   written at run time (JITs, patches under running threads) runs on the same emulator,
+   and writes to already-decoded code invalidate the game's caches.
+   Remaining: the encoding panel.
 7. **M7 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch
    handling, fault explainer, interrupt injection; Arcs XI–XII.
 8. **M8 – Kernel arcs:** XIII–XIV, with a reference OS used to validate every level;
