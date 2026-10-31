@@ -8,18 +8,20 @@ bootloader, your kernel, every core, your programs. This is the bottom.*
 One disk image, all yours:
 
 1. **Your bootloader** (Arc XI). The BIOS loads sector 0. From there you load the
-   rest: the kernel, and the game's data from sector 2048 (a header, the filesystem
-   image, the shell's script). You collect the memory map and build the boot information
-   block your kernel already knows how to read, the one QEMU's multiboot loader used to
-   make. Then protected mode, the kernel at 1 MiB, and the jump.
-2. **Your kernel, on four CPUs.** Level 10's kernel is in the starter, as it was: one CPU.
-   Wake the others (level 7, with a trampoline that reaches long mode), give each its own
-   per-CPU data, TSS and system-call setup, and run **one scheduler** for all of them:
-   any process on any CPU.
-3. **Your programs, at the same time.** Besides Tiny Shell (running its script, as in level
-   10), every program in `/init` starts at boot, on whichever CPU is free: the game's
-   `hello`, and level 175's and level 172's programs from Arc I. Each program's lines come
-   out whole, with its name in front:
+   rest: the kernel (right after your second stage), and the game's data from sector
+   2048 (a header, the filesystem image, the shell's script). You collect the memory map
+   and build the boot information block your kernel already knows how to read, the one
+   QEMU's multiboot loader used to make. Then protected mode, the kernel at 1 MiB, and
+   the jump.
+2. **Your kernel, on every CPU.** Level 10's kernel is in the starter, as it was: one
+   CPU. Wake the others (level 7, with a trampoline that goes on to long mode), give
+   each its own per-CPU data, TSS and system-call setup, and run **one scheduler** for
+   all of them: any process on any CPU.
+3. **Your programs, at the same time.** Besides Tiny Shell (running its script, as in
+   level 10), every program in `/init` starts at boot, on whichever CPU is free: the
+   game's `hello`, and two programs from Arc I, `speak` (level 175) and `boot` (level
+   172). Each program's lines come out whole, with its name in front; the shell's have
+   no prefix:
 
 ```
 [speak] Hello, operator!
@@ -36,27 +38,34 @@ shell exited with status 0
 all done: user code ran on 4 cpus
 ```
 
+When the shell and every program have ended, the kernel says on how many CPUs user code
+ran, and every CPU stops.
+
 The order between programs depends on timing. Each program's own lines, and the
-shell's, must be exactly right and in order. The game runs your OS on 1 to 4 CPUs, most
-tests with the CPUs truly in parallel.
+shell's, must be exactly right and in order. The game runs your OS on 1, 2 and 4 CPUs,
+most tests with the CPUs truly in parallel.
 
 ## Lesson: one kernel, many CPUs
 
 ![Every CPU runs the same scheduler; one lock guards the kernel's state](ring0.svg)
 
-The simplest correct design is the one Linux started with: a **big kernel lock**. A
-CPU takes it on every entry from ring 3 (a system call, a fault) and releases it on every
-return. Kernel code then never runs on two CPUs at once, and level 10's kernel needs no
-other change to be safe. A task that blocks keeps the lock through the switch. The
-next task on that CPU, or that CPU's **idle task**, is the one that releases it.
+The simplest correct design is the one Linux started with: a **big kernel lock**, one
+spinlock around the whole kernel. A CPU takes it on every entry from ring 3 (a system
+call, a fault) and releases it on every return to ring 3. Kernel code then never runs on
+two CPUs at once, and level 10's kernel needs no other change to be safe. Programs still
+run on every CPU at once: only the kernel takes turns.
+
+A task that blocks keeps the lock through the switch. Whatever runs next on that CPU
+releases it: another task, on its way back to ring 3, or that CPU's **idle task**, a
+loop of its own for when nothing is ready.
 
 In the kernel, gs is always *this CPU's* data: the running task, its kernel stack, its
-TSS. Swap only at the ring-3 boundary (level 19's lesson). And don't let anything new
-start before the other CPUs are ready to compete for it, with the tasks created under
-the lock, since idle CPUs take ready tasks the moment they appear.
+TSS. Swap only at the ring-3 boundary (level 19's lesson). And start nothing until the
+other CPUs are ready to compete for it, then create the tasks under the lock: idle CPUs
+take ready tasks the moment they appear.
 
 ## Gate
 
 Every test: your image boots, the shell's script and all three programs run, at the
-same time, on as many CPUs as the machine has, and everything ends: `all done`.
-You win.
+same time, and everything ends with `all done`. With more than one CPU in parallel,
+programs must have run on at least two of them. You win.

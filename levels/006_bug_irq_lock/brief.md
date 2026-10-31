@@ -4,11 +4,12 @@
 
 ## Symptoms
 
-The kernel spends nearly all its time working through its log while holding the log's
-**lock**. The keyboard's interrupt handler logs each key, so it takes the same lock.
+One CPU this time. The kernel spends nearly all its time summing up its log while
+holding the log's **lock** (a spinlock, like level 7's serial lock). The keyboard's
+interrupt handler logs each key, so it takes the same lock.
 
 Type a few keys and the kernel freezes, often on the first one. The game shows you where
-the CPU is when it gives up: spinning in `lock_log`.
+the CPU is when the test gives up: spinning in `lock_log`.
 
 ## Background: who holds it?
 
@@ -21,9 +22,11 @@ until the handler returns:
 
 This is one of the classic kernel bugs. The fix is just as classic: while you hold a
 lock that an interrupt handler also takes, **keep interrupts off**. Linux calls it
-`spin_lock_irqsave`: save the flags, `cli`, take the lock; later release it and restore
-the flags. Restoring, not `sti`: the handler takes the lock too, with interrupts already
-off, and must leave them that way.
+`spin_lock_irqsave`: save the flags, `cli`, take the lock; later release the lock and
+restore the flags.
+
+Restore, don't `sti`: the handler takes the lock too, with interrupts already off (an
+interrupt gate turned them off), and must leave them that way until its `iret`.
 
 ## Gate
 
