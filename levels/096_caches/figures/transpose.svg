@@ -600,7 +600,7 @@
 <rect x="420" y="64" width="112" height="112" rx="0" fill="none" stroke="#2a5f9e" stroke-width="2.4"/>
 <line x1="42" y1="66" x2="42" y2="286" stroke="#666" stroke-width="1.2" marker-end="url(#arrow)"/>
 <text transform="rotate(-90 34 176.0)" x="34" y="176.0" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">1024 B per step</text>
-<text x="60" y="310" font-size="12" text-anchor="start" font-weight="normal" fill="#666">The top-left corner of dst (n = 128). A box with a dark outline is one</text>
+<text x="60" y="310" font-size="12" text-anchor="start" font-weight="normal" fill="#666">The top-left corner of dst (n = 128). A box with a heavy outline is one</text>
 <text x="60" y="326" font-size="12" text-anchor="start" font-weight="normal" fill="#666">64-byte cache line: 8 qwords of a row. Lines 1024 bytes apart fall into only</text>
 <text x="60" y="342" font-size="12" text-anchor="start" font-weight="normal" fill="#666">4 of L1's 64 sets, so a column's lines evict each other before the next column.</text>
 </svg>

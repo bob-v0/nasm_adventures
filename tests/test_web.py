@@ -145,3 +145,19 @@ def test_brief_figures_are_served(ui):
     lv = all_levels()[183]
     assert "](/figures/183/rotate.svg)" in briefs.render(lv.brief, "web", 183)
     assert "[figure: " in briefs.render(lv.brief, "cli")
+
+
+def test_figures_are_served_dark():
+    """Figures are drawn on white for GitHub; the web UI gets them on its dark panel."""
+    from pathlib import Path
+    from ring.figures import INK, PAPER, dark, dark_colour
+    assert dark_colour("#fff") == PAPER and dark_colour("white") == PAPER
+    assert dark_colour("#000000") == INK
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#ffffff" stroke="#222"/>' \
+          '<use href="#abc"/><text>x</text></svg>'
+    out = dark(svg)
+    assert f'fill="{PAPER}"' in out and 'href="#abc"' in out and f'<svg fill="{INK}"' in out
+    root = Path(__file__).resolve().parent.parent / "levels"
+    for f in root.glob("*/figures/*.svg"):
+        d = dark(f.read_text())
+        assert 'fill="#ffffff"' not in d.lower() and 'fill="#fff"' not in d.lower(), f

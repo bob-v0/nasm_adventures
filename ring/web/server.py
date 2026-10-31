@@ -384,8 +384,10 @@ def make_handler(server: Server):
                 f = (lv.path / "figures" / fig.group(2)).resolve() if lv else None
                 if f is None or (lv.path / "figures").resolve() not in f.parents or not f.is_file():
                     return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
-                return self._send(200, f.read_bytes(),
-                                  "image/svg+xml" if fig.group(3) == "svg" else "image/png")
+                if fig.group(3) == "png":
+                    return self._send(200, f.read_bytes(), "image/png")
+                from ..figures import dark      # drawn for light paper; the UI is dark
+                return self._send(200, dark(f.read_text()).encode(), "image/svg+xml")
             name = "index.html" if path in ("/", "") else path.lstrip("/")
             f = (STATIC / name).resolve()
             if STATIC.resolve() not in f.parents or not f.is_file():
