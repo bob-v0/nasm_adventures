@@ -8,7 +8,15 @@ introduces = ["equ", "$", "$$", "times", "%define", "%assign", "%rep / %endrep",
 
 hints = [
   "All four register values are known before the program runs, so NASM can compute them. Look up `equ`, `$` and `%define` in {{docs equ}}.",
-  "Right after the table, `SQUARE_COUNT equ ($ - squares) / 8` gives the entry count (8 bytes per qword), and `POEM_LEN equ $ - poem` right after the poem gives its length. The table itself: %assign i 0 / %rep 16 / dq i*i / %assign i i+1 / %endrep",
+  """Right after the table, `SQUARE_COUNT equ ($ - squares) / 8` gives the entry count (8 bytes per qword), and `POEM_LEN equ $ - poem` right after the poem gives its length. The table itself can be written by NASM's preprocessor, which repeats a line with a counter:
+
+```
+%assign i 0
+%rep 16
+    dq i*i              ; 0, 1, 4, 9, ... 225
+%assign i i+1
+%endrep
+```""",
   """The code is four `mov`s, and NASM works out every number:
 
 ```
