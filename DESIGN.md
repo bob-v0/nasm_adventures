@@ -458,7 +458,7 @@ Runner: qemu. 19 levels, 3 of them bug levels.
 | 14 | ELF Loader | ELF64 from an initrd | Run an Arc I program on your kernel |
 | 13 | Task Switching | saving and restoring state, kernel stacks per task | Cooperative ring-3 tasks |
 | 12 | Preemption | the APIC timer drives the switch; what an interrupted task must keep | Preemptive ring-3 tasks |
-| 11 | Scheduler | round-robin, priorities, blocking | Fair scheduling |
+| 11 | Scheduler | blocking, the idle loop, priorities | Sleepers wake in order; priorities kept |
 | 10 | Long Kernel ★ | everything in the arc | Your kernel runs your Tiny Shell |
 
 ### Arc XIV — Ring 0 (Levels 9–0)

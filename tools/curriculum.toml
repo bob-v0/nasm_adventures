@@ -266,8 +266,8 @@ levels = [
   { title = "ELF Loader", dir = "elf_loader", concepts = "ELF64 from an initrd", gate = "Run an Arc I program on your kernel" },
   { title = "Task Switching", dir = "task_switching", concepts = "saving and restoring state, kernel stacks per task", gate = "Cooperative ring-3 tasks" },
   { title = "Preemption", dir = "preemption", concepts = "the APIC timer drives the switch; what an interrupted task must keep", gate = "Preemptive ring-3 tasks" },
-  { title = "Scheduler", dir = "scheduler", concepts = "round-robin, priorities, blocking", gate = "Fair scheduling" },
-  { title = "Long Kernel", boss = true, concepts = "everything in the arc", gate = "Your kernel runs your Tiny Shell" },
+  { title = "Scheduler", dir = "scheduler", concepts = "blocking, the idle loop, priorities", gate = "Sleepers wake in order; priorities kept" },
+  { title = "Long Kernel", dir = "long_kernel", boss = true, concepts = "everything in the arc", gate = "Your kernel runs your Tiny Shell" },
 ]
 
 [[arc]]

@@ -1,0 +1,18 @@
+level = 10
+slug = "long_kernel"
+title = "Long Kernel"
+arc = "XIII"
+boss = true
+mode = "multiboot"
+link = "elf64"
+concepts = ["everything in the arc", "fork: a copy of a process, returning twice", "execve: a new program in the same process", "wait4 and zombies", "file descriptors and open files, shared and counted", "pipes that block, and end", "paths, the current directory, . and .."]
+introduces = ["fork", "execve", "wait4", "pipes in a kernel", "file descriptor tables"]
+
+hints = [
+  "Start with what the shell needs first: write to the console and exit (with do_exit making it a zombie and, for pid 1, printing the last line), then read, so `true` at the end of the input works. Then fork + execve + wait4 for `echo hello world`: fork copies the frame (start_frame) and the memory (new_space + copy_space: four nested loops over the low half, skipping PML4 0 / PDPT 0 / PD 0-1, alloc_frame, copy 4096 bytes, map_in); the child's F_RAX is 0.",
+  "execve: resolve + lookup the path (a file, not a directory), copy argv's strings into argbuf and their addresses into argv_at (the old memory goes away), new_space, CR3 = it, load_elf (r12 = the file's I_DATA, r13 = I_SIZE), make_stack, free the old space; then rewrite the frame: zeros, F_RCX = the entry, F_R11 = 0x202, F_RSP = the new rsp. On any failure put CR3 back and return the error: the old program continues (the shell then says `cannot execute`).",
+  "Pipes: P_HEAD and P_TAIL count bytes in and out forever (the buffer index is the count & 4095). read waits (block) while head == tail and there are writers; write waits while head - tail == 4096 and there are readers; no readers: -EPIPE (that's how `yes` stops). Every change: wake_all. Readers and writers are counted by put_ofile as the last reference of each end goes: that's what makes `cat` see the end.",
+]
+
+[random]
+count = 1
