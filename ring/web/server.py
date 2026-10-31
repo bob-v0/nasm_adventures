@@ -96,10 +96,10 @@ class Server:
         return {"number": lv.number, "title": lv.title, "arc": lv.arc,
                 "arc_title": arc_title(lv.arc), "mode": lv.mode,
                 "bug": lv.data.get("bug"), "boss": lv.data.get("boss", False),
-                "brief": briefs.render(lv.brief, "web"), "introduces": lv.introduces, "text": sol.read_text(),
+                "brief": briefs.render(lv.brief, "web", lv.number), "introduces": lv.introduces, "text": sol.read_text(),
                 "path": str(sol), "tests": [t.name for t in tests],
                 "hints": {"count": len(lv.hints),
-                          "revealed": {str(i): briefs.render(lv.hints[i - 1], "web") for i in used}},
+                          "revealed": {str(i): briefs.render(lv.hints[i - 1], "web", lv.number) for i in used}},
                 "binaries": extra, "completed": prog.completed(lv.number)}
 
     def save(self, prog: Progress, body: dict) -> dict:
@@ -139,7 +139,7 @@ class Server:
         if not 1 <= n <= len(lv.hints):
             raise ApiError(400, "no such hint")
         heat = prog.use_hint(lv.number, n)
-        return {"n": n, "text": briefs.render(lv.hints[n - 1], "web"), "heat_added": heat, "heat": prog.heat}
+        return {"n": n, "text": briefs.render(lv.hints[n - 1], "web", lv.number), "heat_added": heat, "heat": prog.heat}
 
     def docs(self, prog: Progress, body: dict) -> dict:
         term = body.get("q", "").strip()
@@ -377,6 +377,15 @@ def make_handler(server: Server):
                 # history, screenshots or Referer headers.
                 return self._send(HTTPStatus.SEE_OTHER, b"", "text/plain",
                                   {"Location": path or "/", "Set-Cookie": cookie})
+            fig = re.fullmatch(r"/figures/(\d+)/([\w.-]+\.(svg|png))", path)
+            if fig:                          # a figure from a level's brief
+                from ..level import all_levels
+                lv = all_levels().get(int(fig.group(1)))
+                f = (lv.path / "figures" / fig.group(2)).resolve() if lv else None
+                if f is None or (lv.path / "figures").resolve() not in f.parents or not f.is_file():
+                    return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
+                return self._send(200, f.read_bytes(),
+                                  "image/svg+xml" if fig.group(3) == "svg" else "image/png")
             name = "index.html" if path in ("/", "") else path.lstrip("/")
             f = (STATIC / name).resolve()
             if STATIC.resolve() not in f.parents or not f.is_file():

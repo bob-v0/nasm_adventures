@@ -61,6 +61,12 @@ function markdown(md) {
       out.push(`<pre><code>${esc(buf.join("\n"))}</code></pre>`);
       continue;
     }
+    const fig = line.match(/^!\[([^\]]*)\]\((\/figures\/\d+\/[\w.-]+)\)\s*$/);
+    if (fig) {
+      out.push(`<figure><img src="${esc(fig[2])}" alt="${esc(fig[1])}"><figcaption>${inline(fig[1])}</figcaption></figure>`);
+      i++;
+      continue;
+    }
     const h = line.match(/^(#{1,3})\s+(.*)/);
     if (h) { out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
     if (line.startsWith("|")) {

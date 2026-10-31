@@ -19,8 +19,17 @@ _ACTIONS = {
 }
 
 
-def render(text: str, ui: str) -> str:
-    """ui: "web" or "cli". `{{docs mov}}` becomes a pointer to the reference."""
+FIGURE = re.compile(r"^!\[([^\]]*)\]\(([\w.-]+\.(?:svg|png))\)\s*$", re.M)
+
+
+def render(text: str, ui: str, level: int | None = None) -> str:
+    """ui: "web" or "cli". `{{docs mov}}` becomes a pointer to the reference.
+    A line `![caption](name.svg)` is a figure from the level's figures/ folder: an image
+    in the browser, its caption in a terminal."""
+    if ui == "web" and level is not None:
+        text = FIGURE.sub(lambda m: f"![{m.group(1)}](/figures/{level}/{m.group(2)})", text)
+    elif ui != "web":
+        text = FIGURE.sub(lambda m: f"[figure: {m.group(1)} (the browser shows it: `ring ui`)]", text)
     def sub(m: re.Match) -> str:
         name, arg = m.group(1), (m.group(2) or "").strip()
         if name == "docs":
