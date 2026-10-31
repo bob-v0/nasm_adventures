@@ -11,8 +11,8 @@
 <rect x="580" y="40" width="120" height="44" rx="5" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
 <text x="640" y="67" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">node 3</text>
 <path d="M160,62 L216,62" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
-<path d="M340,52 C 420,10 500,10 576,52" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#arr)"/>
-<text x="460" y="22" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#1d4ed8">unlinked: new walks skip node 2</text>
+<path d="M340,52 C 420,24 500,24 576,52" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="460" y="20" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#1d4ed8">unlinked: new walks skip node 2</text>
 <path d="M340,72 L396,72" stroke="#888888" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr)"/>
 <text x="460" y="118" font-family="monospace" font-size="12" text-anchor="middle" fill="#b8322a">↑ a reader, already here</text>
 <text x="460" y="136" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">free it now: the reader reads poison</text>

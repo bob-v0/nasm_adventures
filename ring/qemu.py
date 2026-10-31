@@ -196,7 +196,8 @@ class Run:
                  memory: str = MEMORY, extra_args: list[str] | None = None,
                  note: tuple | None = None, rtc: str = "2025-01-01T00:00:00",
                  kernel: Path | None = None, cmdline: str = "", modules: list[bytes] = (),
-                 com2: bool = False, fill: list[tuple[int, bytes]] = (), parallel: bool = False):
+                 com2: bool = False, fill: list[tuple[int, bytes]] = (), parallel: bool = False,
+                 virtio_disk: bytes | None = None):
         if not available():
             raise BuildError("this level runs on a whole emulated PC: qemu-system-x86_64 must be "
                              "installed (it is in the game's Docker image).")
@@ -244,6 +245,11 @@ class Run:
             f = self.dir / f"fill{n}.bin"
             f.write_bytes(data)
             args += ["-device", f"loader,file={f},addr={addr:#x},force-raw=on"]
+        if virtio_disk is not None:               # a disk on a (legacy) virtio-blk PCI device
+            vd = self.dir / "virtio.img"
+            vd.write_bytes(virtio_disk + bytes(-len(virtio_disk) % SECTOR))
+            args += ["-drive", f"file={vd.name},if=none,id=vd0,format=raw",
+                     "-device", "virtio-blk-pci,drive=vd0,disable-modern=on"]
         if com2:                                  # a second serial line, for input: send_serial
             args += ["-chardev", f"socket,id=com2,path={self.com2_sock},server=on,wait=off",
                      "-serial", "chardev:com2"]

@@ -274,7 +274,8 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   if note else None, com2="com2" in inj,
                   extra_args=(["-cpu", inj["cpu"]] if "cpu" in inj else []) + list(inj.get("qemu_args", [])),
                   fill=[(f["addr"], _junk(f["size"], f.get("seed", 0))) for f in inj.get("fill", [])],
-                  parallel=inj.get("parallel", False)
+                  parallel=inj.get("parallel", False),
+                  virtio_disk=bytes.fromhex(inj["virtio_disk"]) if "virtio_disk" in inj else None
                   ) as run:
         run.symbols = build.symbols
         run.samples = {}

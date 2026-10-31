@@ -475,7 +475,7 @@ Runner: qemu -smp N. 10 levels, 4 of them bug levels.
 | 4 | **Bug:** TLB Shootdown Race ◆◆◆◆ | freeing a page before every CPU has flushed it | Fix use-after-unmap across cores |
 | 3 | **Bug:** Lifetime Across CPUs ◆◆◆◆ | freeing what another CPU still uses; RCU-style grace periods | Readers never see a freed node, on 3-4 cores |
 | 2 | Drivers | interrupt-driven UART / virtio-blk; routing PCI interrupts through the I/O APIC (level 32) or MSI | Read a file into a user process |
-| 1 | **Bug:** Heisenbug ◆◆◆◆ | the final hunt: a rare race in your own kernel; schedule exploration, record and replay | Find it, explain it, fix it |
+| 1 | **Bug:** Heisenbug ◆◆◆◆ | a race that hides: right one CPU at a time, wrong in parallel; read-modify-write and the lock prefix | Find it, fix it: right on every schedule |
 | 0 | Ring 0 ★ | everything | Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win. |
 <!-- END GENERATED CURRICULUM -->
 
@@ -572,7 +572,7 @@ Concurrency is taught in three passes, each with its own bugs:
 | 6 | XIV | IRQ-Unsafe Lock | ◆◆◆ hard | a lock taken in an interrupt handler while the same CPU holds it |
 | 4 | XIV | TLB Shootdown Race | ◆◆◆◆ very hard | freeing a page before every CPU has flushed it |
 | 3 | XIV | Lifetime Across CPUs | ◆◆◆◆ very hard | freeing what another CPU still uses; RCU-style grace periods |
-| 1 | XIV | Heisenbug | ◆◆◆◆ very hard | the final hunt: a rare race in your own kernel; schedule exploration, record and replay |
+| 1 | XIV | Heisenbug | ◆◆◆◆ very hard | a race that hides: right one CPU at a time, wrong in parallel; read-modify-write and the lock prefix |
 <!-- END GENERATED BUG TRACK -->
 
 ## 7. Testing concurrency deterministically

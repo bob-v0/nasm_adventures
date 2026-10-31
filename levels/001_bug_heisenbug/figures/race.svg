@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 190" width="720" height="190" role="img">
+<title>Two CPUs increment the same count; both read 5, both write 6</title>
+<rect x="0" y="0" width="720" height="190" fill="#ffffff"/>
+<text x="20" y="44" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">CPU 0</text>
+<text x="20" y="104" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">CPU 1</text>
+<rect x="90" y="26" width="120" height="28" rx="4" fill="#dbeafe" stroke="#1d4ed8"/>
+<text x="150" y="45" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">read 5</text>
+<rect x="230" y="26" width="120" height="28" rx="4" fill="#dbeafe" stroke="#1d4ed8"/>
+<text x="290" y="45" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">add: 6</text>
+<rect x="370" y="26" width="120" height="28" rx="4" fill="#dbeafe" stroke="#1d4ed8"/>
+<text x="430" y="45" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">write 6</text>
+<rect x="160" y="86" width="120" height="28" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+<text x="220" y="105" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">read 5</text>
+<rect x="300" y="86" width="120" height="28" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+<text x="360" y="105" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">add: 6</text>
+<rect x="440" y="86" width="120" height="28" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+<text x="500" y="105" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">write 6</text>
+<rect x="580" y="56" width="120" height="30" rx="4" fill="#f6d0cc" stroke="#b8322a"/>
+<text x="640" y="76" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">count = 6</text>
+<text x="20" y="158" font-family="sans-serif" font-size="12" fill="#555555">Two increments, one counted: inc [mem] is read, add, write, and another CPU can come in between.</text>
+<text x="20" y="176" font-family="sans-serif" font-size="12" fill="#555555">One CPU at a time, they never overlap: the bug is invisible.</text>
+</svg>
