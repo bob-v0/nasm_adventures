@@ -10,7 +10,27 @@ introduces = ["extern", "calling convention", "prologue / epilogue"]
 hints = [
   "ring_square destroys rdi, rsi, rdx, rcx and r8–r11, so x, a, b and c can't stay there across the call. Keep them in callee-saved registers (rbx, r12–r15), which ring_square must not touch.",
   "But your caller also expects rbx and r12–r15 unchanged, so save the ones you use: push them at the start, pop them in reverse order before ret.",
-  "push rbx / push r12 / push r13 / push r14 → move x,a,b,c into them → mov rdi, rbx / call ring_square → rax = x² → imul rax, r12 / mov rdx, r13 / imul rdx, rbx / add rax, rdx / add rax, r14 → pop r14 / pop r13 / pop r12 / pop rbx / ret",
+  """Save four callee-saved registers, move x, a, b and c into them, and only then call:
+
+```
+push rbx                ; your caller expects these back unchanged
+push r12
+push r13
+push r14
+; move x, a, b, c into rbx, r12, r13, r14
+mov rdi, rbx            ; ring_square's argument: x
+call ring_square        ; rax = x*x, and the scratch registers are garbage
+imul rax, r12           ; a*x*x
+mov rdx, r13
+imul rdx, rbx           ; b*x
+add rax, rdx
+add rax, r14            ; + c
+pop r14                 ; restore in reverse order
+pop r13
+pop r12
+pop rbx
+ret
+```""",
 ]
 
 [constraints]

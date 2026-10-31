@@ -10,7 +10,22 @@ introduces = ["movdqu / movdqa", "paddb / paddusb / psubusb", "punpcklbw / pshuf
 
 hints = [
   "One movdqu loads 16 pixels, one paddusb adds the amount to all 16 with saturation (255 stays 255 instead of wrapping to small numbers), one movdqu stores them. The loop runs n / 16 times.",
-  "The amount must be in every byte of an xmm register first: movd xmm1, edx puts it in byte 0. Then pxor xmm2, xmm2 / pshufb xmm1, xmm2 (a shuffle whose control is all zeros copies byte 0 everywhere). Without pshufb: punpcklbw xmm1, xmm1 / pshuflw xmm1, xmm1, 0 / pshufd xmm1, xmm1, 0.",
+  """The amount must be in every byte of an xmm register first. `movd` puts it in byte 0, and a shuffle copies it everywhere:
+
+```
+movd xmm1, edx          ; the amount in byte 0
+pxor xmm2, xmm2         ; a shuffle control of all zeros...
+pshufb xmm1, xmm2       ; ...takes byte 0 for all 16 bytes
+```
+
+Without `pshufb`, widen it step by step instead:
+
+```
+movd xmm1, edx
+punpcklbw xmm1, xmm1    ; byte 0 twice: word 0
+pshuflw xmm1, xmm1, 0   ; word 0 into the low 4 words
+pshufd xmm1, xmm1, 0    ; dword 0 into all 4 dwords
+```""",
   "After the vector loop, the last n % 16 pixels: do them one at a time (add, and if it carried: 255), so the code never writes past pixel n − 1.",
 ]
 

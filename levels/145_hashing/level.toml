@@ -9,7 +9,20 @@ introduces = ["crc32"]
 hints = [
   "FNV-1a: h = 0xcbf29ce484222325; for each byte b: h = (h xor b) * 0x100000001b3 (mod 2^64). Both constants are 64-bit, so load them into registers with mov first.",
   "CRC-32C with the `crc32` instruction: start with ecx = 0xFFFFFFFF, do `crc32 ecx, byte [rsi]` for each byte, and finish with `not ecx`. Writing ecx zero-extends into rcx (and rbx if you move it there).",
-  "One loop can do both: movzx edx, byte [rsi] / test dl, dl / jz .done / xor rax, rdx / imul rax, r8 / crc32 ebx, dl / inc rsi.",
+  """One loop can do both hashes, one byte at a time. With rax = the FNV offset basis, r8 = the FNV prime, ebx = 0xFFFFFFFF and rsi = `text`:
+
+```
+.next:
+    movzx edx, byte [rsi]   ; the byte, zero-extended into all of rdx
+    test dl, dl
+    jz .done                ; the NUL isn't hashed
+    xor rax, rdx            ; FNV-1a: xor first...
+    imul rax, r8            ; ...then multiply
+    crc32 ebx, dl           ; the CRC of the same byte
+    inc rsi
+    jmp .next
+.done:
+```""",
 ]
 
 [constraints]

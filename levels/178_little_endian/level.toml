@@ -9,7 +9,20 @@ introduces = ["bswap", "xchg al, ah"]
 hints = [
   "Load each field with the right size from packet + offset, then reverse its bytes. Use `x packet 16` in the debugger to see the raw bytes.",
   "32- and 64-bit: bswap. 16-bit: there is no 16-bit bswap, but swapping the two bytes of ax is `xchg al, ah`. Load 16-bit fields with movzx so the upper bits are clean.",
-  "movzx eax, word [packet] / xchg al, ah / movzx ebx, word [packet+2] / xchg bl, bh / mov ecx, [packet+4] / bswap ecx / mov rdx, [packet+8] / bswap rdx / mov [seq_out], ecx / mov r8, [packet]",
+  """Load each field at its size, then turn it around:
+
+```
+movzx eax, word [packet]        ; magic, still backwards...
+xchg al, ah                     ; ...so swap its two bytes
+movzx ebx, word [packet + 2]    ; length
+xchg bl, bh
+mov ecx, [packet + 4]           ; sequence
+bswap ecx                       ; (a 32-bit write: the upper half of rcx is 0)
+mov rdx, [packet + 8]           ; timestamp
+bswap rdx
+mov [seq_out], ecx              ; stored in x86 byte order again
+mov r8, [packet]                ; the "wrong" view: one plain mov
+```""",
 ]
 
 [constraints]

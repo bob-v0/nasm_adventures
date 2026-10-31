@@ -7,7 +7,19 @@ concepts = ["real-mode addresses: segment × 16 + offset", "many segment:offset 
 introduces = ["segment:offset", "lds / les", "es: overrides", "int 10h, ah = 0Eh", "lodsb"]
 
 hints = [
-  "Printing: int 10h with ah = 0x0E prints the character in al at the cursor (and moves it on); bh = 0 is the page. A loop of lodsb (al = [ds:si], si + 1) / test al, al / jz done / int 10h prints a NUL-terminated string. A new line is 13 then 10.",
+  """Printing: `int 10h` with `ah = 0x0E` prints the character in al at the cursor (and moves the cursor on); `bh = 0` is the page. With `lodsb`, a short loop prints a NUL-terminated string:
+
+```
+.next:
+    lodsb               ; al = [ds:si], and si + 1
+    test al, al
+    jz .done            ; the NUL: stop
+    int 10h             ; print al (ah = 0x0E, bh = 0)
+    jmp .next
+.done:
+```
+
+A new line is 13 then 10.""",
   "The far pointer at 0000:0500 is two words: the offset first, then the segment. lds si, [0x500] loads both (si = offset, ds = segment), with ds = 0 while it reads. After that ds points elsewhere: set it back before using your own labels.",
   "The BIOS date is 8 characters at F000:FFF5 with no NUL after them: print exactly 8 (es:si with an es: override, or ds = 0xF000 and cx = 8).",
 ]

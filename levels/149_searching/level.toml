@@ -9,7 +9,27 @@ introduces = []
 hints = [
   "Keep an interval [lo, hi) that always contains the answer. Start with lo = 0, hi = n. While lo < hi: mid = lo + (hi - lo) / 2; if arr[mid] < key the answer is above mid (lo = mid + 1), else it is mid or below (hi = mid).",
   "When the loop ends, lo == hi is the answer. Compare unsigned (jb/jae). The budget allows about 400 executed instructions, so a linear scan of 1024 elements won't fit.",
-  "xor eax, eax / mov rcx, rsi / .loop: cmp rax, rcx / jae .done / lea rdx, [rax + rcx] / shr rdx, 1 / cmp [arr + rdx*8], rdi / jae .left / lea rax, [rdx + 1] / jmp .loop / .left: mov rcx, rdx / jmp .loop",
+  """lo in rax, hi in rcx, mid in rdx:
+
+```
+    xor eax, eax                ; lo = 0
+    mov rcx, rsi                ; hi = n
+.loop:
+    cmp rax, rcx
+    jae .done                   ; lo == hi: that's the answer
+    lea rdx, [rax + rcx]
+    shr rdx, 1                  ; mid = (lo + hi) / 2
+    cmp [arr + rdx*8], rdi
+    jae .left                   ; arr[mid] >= key: mid or below
+    lea rax, [rdx + 1]          ; lo = mid + 1
+    jmp .loop
+.left:
+    mov rcx, rdx                ; hi = mid
+    jmp .loop
+.done:
+```
+
+With n ≤ 1024, lo + hi can't overflow, so (lo + hi) / 2 is as good as lo + (hi − lo) / 2 here.""",
 ]
 
 [constraints]

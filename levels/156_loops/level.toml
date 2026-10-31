@@ -9,7 +9,30 @@ introduces = ["loop", "jrcxz", "dec + jnz idiom"]
 hints = [
   "Test the condition BEFORE the first iteration: with count = 0 the body must not run at all. Keep an index register (e.g. rcx) and address elements as [arr + rcx*8].",
   "One loop can compute all three results: add to rax, compare with rbx (keep the larger, unsigned), and compare with rdx (count when above).",
-  "xor eax,eax / xor ebx,ebx / xor ecx,ecx / xor r8d,r8d / .top: cmp r8, rsi / jae .done / mov r9, [arr + r8*8] / add rax, r9 / cmp r9, rbx / jbe .nomax / mov rbx, r9 / .nomax: cmp r9, rdx / jbe .next / inc rcx / .next: inc r8 / jmp .top / .done:",
+  """One loop, with i in r8 and the element in r9:
+
+```
+    xor eax, eax            ; sum
+    xor ebx, ebx            ; max
+    xor ecx, ecx            ; count above t
+    xor r8d, r8d            ; i
+.top:
+    cmp r8, rsi
+    jae .done               ; tested first: with n = 0 the body never runs
+    mov r9, [arr + r8*8]
+    add rax, r9
+    cmp r9, rbx
+    jbe .nomax              ; unsigned: not larger than the max so far
+    mov rbx, r9
+.nomax:
+    cmp r9, rdx
+    jbe .next               ; not above t
+    inc rcx
+.next:
+    inc r8
+    jmp .top
+.done:
+```""",
 ]
 
 [constraints]

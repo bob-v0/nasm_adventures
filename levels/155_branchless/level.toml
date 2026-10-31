@@ -9,7 +9,24 @@ introduces = ["cmovcc", "setcc"]
 hints = [
   "cmov copies only when its condition holds; it never jumps. Compute both candidates, compare, then cmov the right one into place. setcc writes 0 or 1 into an 8-bit register (zero the full register first).",
   "abs: copy a, neg the copy, and if the negation is negative (signed less than zero) take a instead: `neg` sets the flags for you. sign(a) = (a > 0) - (a < 0) with two setcc.",
-  "rdx: xor edx,edx / xor r10d,r10d / test rdi,rdi / setg dl / setl r10b / sub rdx, r10. For r8: xor r8d,r8d / cmp rdi,rsi / sete r8b.",
+  """sign(a) into rdx, with two setcc:
+
+```
+xor edx, edx            ; zero both before the test: setcc writes only the low byte,
+xor r10d, r10d          ; and an xor after the test would destroy its flags
+test rdi, rdi
+setg dl                 ; 1 if a > 0
+setl r10b               ; 1 if a < 0
+sub rdx, r10            ; (a > 0) - (a < 0)
+```
+
+And r8:
+
+```
+xor r8d, r8d
+cmp rdi, rsi
+sete r8b                ; 1 if a = b
+```""",
 ]
 
 [constraints]

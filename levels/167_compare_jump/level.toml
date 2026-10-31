@@ -9,7 +9,21 @@ introduces = ["cmp", "test", "jmp", "jl jle jg jge", "jb jbe ja jae", "je jne", 
 hints = [
   "Start with rax = x. If x < lo, rax = lo. Then if rax > hi, rax = hi. Each `if` is a `cmp` plus a jump that skips the assignment.",
   "Signed comparisons use jl/jg (less/greater); unsigned ones use jb/ja (below/above). The cmp is the same; only the jump differs.",
-  "mov rax, rdi / cmp rax, rsi / jge .s1 / mov rax, rsi / .s1: cmp rax, rdx / jle .s2 / mov rax, rdx / .s2: — then the same for rbx with jae and jbe.",
+  """The signed clamp into rax:
+
+```
+    mov rax, rdi
+    cmp rax, rsi
+    jge .s1                 ; x >= lo: keep it
+    mov rax, rsi
+.s1:
+    cmp rax, rdx
+    jle .s2                 ; <= hi: keep it
+    mov rax, rdx
+.s2:
+```
+
+Then the same for rbx, with the unsigned `jae` and `jbe` (and new labels).""",
 ]
 
 [constraints]
