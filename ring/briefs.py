@@ -14,6 +14,8 @@ _ACTIONS = {
     "hints":    ("the **Hints** tab",             "`ring hint`"),
     "terminal": ("the **Terminal** tab",          "your terminal, in this level's folder"),
     "start":    ("opening the level",             "`ring start`"),
+    # boot levels: QEMU under gdb, from the reset vector (the browser's debugger can't)
+    "boot_debug": ("`ring debug` in the **Terminal** tab", "`ring debug`"),
 }
 
 

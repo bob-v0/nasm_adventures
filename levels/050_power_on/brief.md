@@ -42,12 +42,13 @@ it's enough that es = 0xF000 reaches the reset vector at F000:FFF0 = FFFF0.
 ## Lesson: running and debugging
 
 The game boots your sector in QEMU, a whole emulated PC, and reads the registers when
-the CPU halts. In the Terminal tab:
+the CPU halts. To look inside:
 
-- `ring debug` starts QEMU stopped at the reset vector, with gdb attached:
+- {{boot_debug}} starts QEMU stopped at the reset vector, with gdb attached:
   `x/5xb 0xffff0`, `si`, `info registers`, `break *0x7c00`, `continue`;
-- `qemu-system-x86_64 -drive format=raw,file=solution.img -display curses` boots the
-  image so you can watch.
+- `qemu-system-x86_64 -drive format=raw,file=solution.img -display curses` in
+  {{terminal}} boots the image so you can watch (after {{test}}, which writes
+  `solution.img`).
 
 ## Gate
 

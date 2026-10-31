@@ -1,0 +1,17 @@
+level = 40
+slug = "boot_game"
+title = "Boot Sector Game"
+arc = "XI"
+boss = true
+mode = "boot"
+concepts = ["everything in the arc"]
+introduces = []
+
+hints = [
+  "Keep the map in your sector as 70 bytes of characters and change it in place: the sector is in RAM at 0x7C00. The player's position is then an address in the map, and a move is adding −10, 10, −1 or 1 to it (the map is 10 wide).",
+  "One loop: draw the map into video memory (level 47) and the status line, check whether any '$' is left (if not: the winning line, cli, hlt), read a key (int 0x16 with ah = 0 returns the scancode in ah: 0x48 up, 0x50 down, 0x4B left, 0x4D right), move.",
+  "A move: look at the square ahead. A wall: nothing. A box ('$' or '*'): look one further; if that's free (' ' or '.') the box goes there ('*' on a target), and the square ahead loses it ('.' if it was a target). Then the player steps forward: the square left becomes ' ' or '.', the one entered '@' or '+'. Count the move. Every byte counts: share code between the two status lines.",
+]
+
+[random]
+count = 2

@@ -7,7 +7,7 @@
 ;   si:di = where the CPU's very first instruction jumps (segment:offset): the far jump
 ;           at the reset vector, F000:FFF0
 ;
-; Run `ring debug` in the Terminal tab to start from the reset vector under gdb.
+; The brief says how to start from the reset vector under gdb.
 
 bits 16
 

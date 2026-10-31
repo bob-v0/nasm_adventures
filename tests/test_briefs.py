@@ -16,7 +16,8 @@ def test_briefs_and_hints_render_for_both_interfaces(number):
         assert "{{" not in web and "{{" not in cli, "unknown placeholder"
         # In the browser there is no `ring` command to type (except the explicit
         # plain-terminal aside in level 174).
-        assert not re.search(r"`ring (?!debug --binary)[a-z]", web), "CLI command shown in the browser"
+        assert not re.search(r"`ring (?!debug --binary|debug` in the \*\*Terminal)[a-z]", web), \
+            "CLI command shown in the browser"
 
 
 @pytest.mark.parametrize("number", sorted(LEVELS, reverse=True))

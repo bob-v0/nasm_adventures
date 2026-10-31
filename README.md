@@ -5,7 +5,7 @@ Every level teaches a concept (the assembler, the CPU, Linux, concurrency, the
 hardware) or a class of bug, then seals the gate behind a program you write. See
 [DESIGN.md](DESIGN.md) for the full curriculum (185 levels, 45 of them bug levels).
 
-**Status:** Arcs I–X (levels 184–51, including thirty-four bug levels) are playable.
+**Status:** Arcs I–XI (levels 184–40, including thirty-five bug levels) are playable.
 
 ## Play in your browser (Docker)
 
@@ -55,6 +55,9 @@ Your code runs on an emulated x86-64 CPU (Unicorn, built on QEMU) with a small
 emulated Linux, which is what makes reverse stepping and exact checks possible.
 AVX, AVX2, FMA and AVX-512 run on the game's own vector unit, so every SIMD level
 works on any machine (including ones without those instructions, and ARM).
+From Arc XI on, there's no operating system under you: boot sectors run on a whole
+emulated PC (QEMU, deterministic with `-icount`), and `ring debug` puts gdb on it from the
+reset vector.
 Whole programs are also real Linux executables you can run and debug with gdb.
 
 ## Authoring levels

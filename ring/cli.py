@@ -252,16 +252,18 @@ def _debug_boot(lv, prog: Progress, file: Path | None) -> int:
     d = Path(tempfile.mkdtemp(prefix="ring-gdb-"))
     disk = d / "disk.img"
     disk.write_bytes(b.elf.read_bytes().ljust(64 * 512, b"\0"))
-    q = subprocess.Popen(["qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
+    # (qemu-system-i386: the same PC, but gdb accepts its registers in 16-bit mode)
+    q = subprocess.Popen(["qemu-system-i386" if shutil.which("qemu-system-i386") else
+                          "qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
                           "-drive", f"file={disk},format=raw,if=ide,index=0", "-serial", f"file:{d / 'serial.txt'}",
                           "-no-reboot", "-S", "-gdb", "tcp:127.0.0.1:1234"])
     script = d / "gdbinit"
-    script.write_text("set architecture i8086\ntarget remote 127.0.0.1:1234\n"
-                      "set disassembly-flavor intel\nbreak *0x7c00\n"
-                      "display/i $cs*16 + $pc\n"
-                      "echo \\nStopped at the reset vector, F000:FFF0. `continue` runs the BIOS up to your boot sector;\\n"
-                      "echo `si` steps one instruction, `info registers`, `x/16xb 0x7c00`. The serial port goes to "
-                      f"{d / 'serial.txt'}.\\n\\n\n")
+    script.write_text("target remote 127.0.0.1:1234\nset architecture i8086\n"
+                      "set disassembly-flavor intel\nbreak *0x7c00\ndisplay/i $cs*16 + $pc\n"
+                      "echo \\nStopped at the reset vector, F000:FFF0. `continue` runs the BIOS up "
+                      "to your boot sector,\\n`si` steps one instruction; also `info registers`, "
+                      "`x/16xb 0x7c00`.\\n\n"
+                      f"echo The serial port goes to {d / 'serial.txt'}.\\n\\n\n")
     print(c("2", "QEMU is waiting at the reset vector; gdb is attached (quit with `quit`)."))
     try:
         subprocess.call(["gdb", "-q", "-x", str(script)])

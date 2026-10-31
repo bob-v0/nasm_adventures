@@ -874,6 +874,15 @@ the internet directly.
    Remaining: the encoding panel.
 7. **M7 – QEMU runner:** boot images, serial grading, gdb/QEMU backend with mode-switch
    handling, fault explainer, interrupt injection; Arcs XI–XII.
+   Arc XI done (levels 50–40), on `ring/qemu.py`: the player's `nasm -f bin` image boots
+   in qemu-system-x86_64 with `-icount` (deterministic; idle time is skipped), inspected
+   over QMP (registers, physical memory, the VGA text screen, the serial port); runs end
+   at `cli`/`hlt`, the 0xF4 exit port, a triple fault, or a time limit. A chain loader of
+   the game's boots the disk like other BIOSes (07C0:0000, junk segments, A20 off) and can
+   leave data in memory; tests can append the game's own sectors (programs that call the
+   player's interrupt handlers or measure their timer against the CMOS clock), type keys,
+   and set the clock and memory size. `ring debug` runs QEMU under gdb from the reset
+   vector. Remaining: the fault explainer for protected mode; Arc XII.
 8. **M8 – Kernel arcs:** XIII–XIV, with a reference OS used to validate every level;
    descriptor, page-table and per-core panels.
 9. **M9 – Polish:** lore pass, badges, optional Bochs backend, optional WebAssembly
