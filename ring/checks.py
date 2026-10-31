@@ -265,6 +265,13 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                 f"your image is {len(image)} bytes: this level's disk has the game's code from "
                 "sector 2 on, so yours must be exactly one sector (512 bytes)"], 0)
         image = image + bytes.fromhex(inj["append"])
+    if "disk_data" in inj:                    # the game's data at a fixed sector, after yours
+        lba = inj.get("disk_data_lba", 2048)
+        if len(image) > lba * 512:
+            return TestResult(test.name, test.hidden, False, [
+                f"your image is {len(image)} bytes: the game's data starts at sector {lba} "
+                f"({lba * 512} bytes), so yours must end before it"], 0)
+        image = image.ljust(lba * 512, b"\0") + bytes.fromhex(inj["disk_data"])
     with qemu.Run(b"" if kernel else image, profile=inj.get("bios", "seabios"),
                   disk_size=inj.get("disk_size", 0),
                   kernel=build.elf if kernel else None, cmdline=inj.get("cmdline", ""),

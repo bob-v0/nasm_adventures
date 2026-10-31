@@ -1,0 +1,17 @@
+level = 0
+slug = "ring0"
+title = "Ring 0"
+arc = "XIV"
+boss = true
+mode = "boot"
+concepts = ["everything", "a two-stage bootloader that hands over to a long-mode kernel", "the boot information block, built by hand", "one scheduler for every CPU", "a kernel lock passed along with the CPU at each switch", "per-CPU data in gs, per-CPU TSSs", "an AP trampoline from real mode to long mode", "programs running at the same time on different CPUs"]
+introduces = []
+
+hints = [
+  "The bootloader: sector 0 loads the next sectors (int 0x13, ah = 0x42: a 16-byte packet with the count, a segment:offset buffer, the LBA; save your registers around it, the BIOS may not) and jumps there. The second stage loads the kernel to low memory (the BIOS can't reach 1 MiB), the game's data from sector 2048, runs e820 (each entry stored with 20 in front: multiboot's layout), fills the block (flags 1 << 3 | 1 << 6, mods_count and mods_addr at +20 and +24, mmap_length and mmap_addr at +44 and +48), enables A20, enters protected mode, copies the kernel to 1 MiB, zeroes the rest up to kernel_end, and jumps there with ebx = the block. In NASM's bin format, `section .text follows=stage2 align=512 vstart=0x100000` links the kernel at 1 MiB right after the loader; give .data `valign=16` as well as align, or its addresses and its place in the file disagree.",
+  "SMP the simple, safe way: one kernel lock, taken on every way into the kernel from ring 3 (syscall_entry; an exception from ring 3) and released on every way out (before sysret, before iretq). A task that blocks or exits keeps it through switch_to, and the task (or idle loop) that resumes on that CPU owns it. In the kernel, keep gs = this CPU's data (swapgs only at the ring-3 boundary): current task, kernel stack top, TSS. Each CPU gets an idle task: when schedule finds nothing ready it switches there; the idle loop looks for ready tasks without the lock, takes the lock to pick one, and releases it when it gets the CPU back.",
+  "The AP trampoline goes real mode, protected mode (its own GDT with a 32-bit code segment), then long mode (PAE, CR3 = the kernel's PML4, EFER with LME, NXE, SCE, paging; a far jump to a 64-bit code segment), then to the kernel's higher half; there: the kernel's GDT, a stack from a lock xadd counter, the CPU's own TSS (ltr), IDT, MSRs, APIC. Wake the CPUs before making tasks, and make tasks under the lock: idle CPUs grab ready tasks at once. A whole-line buffer per task keeps lines whole; at the end, make every CPU halt (a flag the idle loop and the lock's spin both check), releasing the lock first.",
+]
+
+[random]
+count = 1

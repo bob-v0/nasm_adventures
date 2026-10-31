@@ -284,5 +284,5 @@ levels = [
   { title = "Lifetime Across CPUs", dir = "bug_lifetime", bug = 4, concepts = "freeing what another CPU still uses; RCU-style grace periods", gate = "Readers never see a freed node, on 3-4 cores" },
   { title = "Drivers", dir = "drivers", concepts = "interrupt-driven UART / virtio-blk; routing PCI interrupts through the I/O APIC (level 32) or MSI", gate = "Read a file into a user process" },
   { title = "Heisenbug", dir = "bug_heisenbug", bug = 4, concepts = "a race that hides: right one CPU at a time, wrong in parallel; read-modify-write and the lock prefix", gate = "Find it, fix it: right on every schedule" },
-  { title = "Ring 0", boss = true, concepts = "everything", gate = "Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win." },
+  { title = "Ring 0", dir = "ring0", boss = true, concepts = "everything", gate = "Boot your OS from your bootloader on `-smp 4`, run your shell and three earlier programs concurrently. You win." },
 ]
