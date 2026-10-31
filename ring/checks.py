@@ -272,7 +272,7 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
                   if note else None, com2="com2" in inj,
-                  extra_args=["-cpu", inj["cpu"]] if "cpu" in inj else None,
+                  extra_args=(["-cpu", inj["cpu"]] if "cpu" in inj else []) + list(inj.get("qemu_args", [])),
                   fill=[(f["addr"], _junk(f["size"], f.get("seed", 0))) for f in inj.get("fill", [])]
                   ) as run:
         run.symbols = build.symbols

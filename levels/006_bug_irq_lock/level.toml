@@ -1,0 +1,21 @@
+level = 6
+slug = "bug_irq_lock"
+title = "IRQ-Unsafe Lock"
+arc = "XIV"
+bug = 3
+mode = "multiboot"
+link = "elf64"
+concepts = ["a lock held by the code an interrupt interrupted", "on one CPU, the holder can't run until the handler returns", "interrupts off while holding a lock a handler takes: spin_lock_irqsave", "restoring the flags, not just sti"]
+introduces = ["spin_lock_irqsave"]
+
+hints = [
+  "Where is the CPU when it freezes? (The game says: a line in lock_log.) Who is spinning there, and who holds the lock? The main loop holds it nearly all the time; what happens when a key's interrupt arrives right then?",
+  "The handler waits for the lock to be released. The holder is the code the handler interrupted, on the same CPU: it can't run until the handler returns, and the handler won't return until it runs. On several CPUs the holder would be elsewhere and finish; on one, never.",
+  "Make sure the interrupt can't arrive while the lock is held: interrupts off while holding it. Not just cli in lock_log and sti in unlock_log (the handler calls them with interrupts already off: sti there would be wrong), but save the flags (pushfd, cli) and restore them (popfd). Mind that call/ret use the stack too: move the return address around the flags, or keep the flags somewhere else.",
+]
+
+[constraints]
+max_changed_lines = 8
+
+[random]
+count = 2

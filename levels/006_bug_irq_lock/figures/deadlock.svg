@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200" role="img">
+<title>The main loop holds the lock when the keyboard interrupt arrives; the handler waits for it forever</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555555"/></marker></defs>
+<rect x="0" y="0" width="720" height="200" fill="#ffffff"/>
+<text x="20" y="48" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">main</text>
+<text x="20" y="128" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">handler</text>
+<rect x="110" y="30" width="200" height="28" rx="4" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="210" y="49" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">lock_log … summing</text>
+<rect x="310" y="30" width="390" height="28" rx="4" fill="#eeeeee" stroke="#888888" stroke-width="1.2" stroke-dasharray="5,4"/>
+<text x="505" y="49" font-family="sans-serif" font-size="12" text-anchor="middle" fill="#555555">interrupted: can't run, can't unlock</text>
+<path d="M310,62 L330,104" stroke="#c2410c" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="250" y="88" font-family="monospace" font-size="11" fill="#c2410c">key!</text>
+<rect x="330" y="110" width="370" height="28" rx="4" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.4"/>
+<text x="515" y="129" font-family="monospace" font-size="12" text-anchor="middle" fill="#222222">lock_log: spin, spin, spin …</text>
+<text x="20" y="170" font-family="sans-serif" font-size="12" fill="#555555">One CPU: the holder only runs again when the handler returns; the handler only returns when it has the lock.</text>
+<text x="20" y="188" font-family="sans-serif" font-size="12" fill="#555555">With interrupts off while main holds the lock, the key waits until unlock_log, then the handler gets it at once.</text>
+</svg>

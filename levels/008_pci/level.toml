@@ -1,0 +1,17 @@
+level = 8
+slug = "pci"
+title = "PCI"
+arc = "XIV"
+mode = "multiboot"
+link = "elf64"
+concepts = ["PCI configuration space: 256 bytes (4 KiB on PCIe) per function", "ECAM: configuration space as memory", "bus, device, function; multifunction devices", "vendor, device, class", "BARs: probing a size by writing all ones", "64-bit BARs, I/O BARs"]
+introduces = ["PCI enumeration", "ECAM", "BAR sizing"]
+
+hints = [
+  "With ECAM, function f of device d on bus 0 has its configuration space at ecam + (d << 15) + (f << 12). Vendor id: the word at +0 (0xFFFF: nothing there), device id at +2, then class at +11, subclass at +10, prog-if at +9. Header type at +14: bit 7 set on function 0 means the device has functions 1-7 too; without it, look only at function 0.",
+  "BARs are dwords from +0x10: six for header type 0, two for type 1 (bridges). Bit 0 set: I/O (address: bits 2 and up, in the low 16). Clear: memory, with bits 1-2 its type (2 = 64-bit: the next BAR holds the address's high half, and is skipped) and the address from bit 4 up.",
+  "A BAR's size: write 0xFFFFFFFF to it, read it back, put the original back. The bits that stayed 0 (after masking the flag bits) are the size: size = -(value & ~0xF) for memory, -(value & ~3) & 0xFFFF for I/O; 0 means the BAR isn't implemented. Turn decoding off (command register at +4, bits 0-1) while probing, and restore it after.",
+]
+
+[random]
+count = 1

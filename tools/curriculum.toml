@@ -275,10 +275,10 @@ id = "XIV"
 name = "Ring 0"
 runner = "qemu -smp N"
 levels = [
-  { title = "ACPI", concepts = "RSDP/XSDT, MADT", gate = "Enumerate CPUs and IO APICs" },
-  { title = "PCI", concepts = "config space, ECAM, BARs", gate = "List devices" },
-  { title = "SMP", concepts = "INIT-SIPI-SIPI, AP trampoline, per-CPU data", gate = "All cores say hello" },
-  { title = "IRQ-Unsafe Lock", bug = 3, concepts = "a lock taken in an interrupt handler while the same CPU holds it", gate = "Fix a kernel that freezes under keyboard load" },
+  { title = "ACPI", dir = "acpi", concepts = "RSDP/XSDT, MADT", gate = "Enumerate CPUs and IO APICs" },
+  { title = "PCI", dir = "pci", concepts = "config space, ECAM, BARs", gate = "List devices" },
+  { title = "SMP", dir = "smp", concepts = "INIT-SIPI-SIPI, AP trampoline, per-CPU data", gate = "All cores say hello" },
+  { title = "IRQ-Unsafe Lock", dir = "bug_irq_lock", bug = 3, concepts = "a lock taken in an interrupt handler while the same CPU holds it", gate = "Fix a kernel that freezes under keyboard load" },
   { title = "Spinlocks & IPIs", concepts = "SMP locks, TLB shootdown", gate = "Race-free multi-core scheduler" },
   { title = "TLB Shootdown Race", bug = 4, concepts = "freeing a page before every CPU has flushed it", gate = "Fix use-after-unmap across cores" },
   { title = "Lifetime Across CPUs", bug = 4, concepts = "freeing a task or page table another CPU still uses; RCU-style grace periods", gate = "Safe process teardown on 4 cores" },

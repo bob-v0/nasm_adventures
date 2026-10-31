@@ -1,0 +1,17 @@
+level = 7
+slug = "smp"
+title = "SMP"
+arc = "XIV"
+mode = "multiboot"
+link = "elf64"
+concepts = ["the BSP and the APs: one CPU boots, the others wait", "INIT, then STARTUP twice: inter-processor interrupts", "the trampoline: a CPU starts in real mode, at a page the SIPI names", "per-CPU data: a number and a stack each, from an atomic counter", "a spinlock around shared output", "APIC ids from the APIC itself"]
+introduces = ["inter-processor interrupts", "the AP trampoline", "lock xadd", "spinlocks"]
+
+hints = [
+  "Waking: copy the trampoline (from `trampoline` to `trampoline_end`) to TRAMPOLINE (0x8000). Then through the APIC's ICR (0x300; the high dword 0x310 = 0): 0x000C4500 is INIT to everyone but me; wait_sent, delay_us 10000; then twice 0x000C4600 | 8 (STARTUP, vector 8 = start at 0x8000), with wait_sent and delay_us 200 between. Then wait (a while, with delay_us) until `up` + 1 = [cpus].",
+  "The trampoline runs at 0x8000, not where it was linked: its own addresses are TRAMPOLINE + (label - trampoline). In real mode: cli, ds = 0, `o32 lgdt [TRAMPOLINE + (t_gdt_pointer - trampoline)]` (a pointer to the kernel's GDT, kept inside the trampoline), CR0.PE on, then `jmp dword 0x08:ap_entry`.",
+  "ap_entry: segments, then `mov eax, 1` / `lock xadd [next_cpu], eax` gives each CPU a different number, so a different stack (ap_stacks + (number + 1) * STACK_SIZE). hello: lock_serial, the line with the APIC id (the dword at APIC + 0x20, >> 24), unlock_serial. Then `lock inc dword [up]`, and halt.",
+]
+
+[random]
+count = 1
