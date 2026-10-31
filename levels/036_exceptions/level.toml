@@ -1,0 +1,19 @@
+level = 36
+slug = "exceptions"
+title = "Exceptions"
+arc = "XII"
+mode = "multiboot"
+concepts = ["exceptions: the CPU's own interrupts, vectors 0-31", "the IDT: gates instead of far pointers", "interrupt gates: selector, offset, type, DPL, present", "faults, traps and aborts: which eip is pushed", "error codes: which exceptions push one", "one stub per vector, one common handler"]
+introduces = ["IDT", "lidt", "interrupt gates (0x8E)", "#DE #BP #OF #UD #GP", "error codes", "%rep / %assign stubs"]
+
+hints = [
+  "A gate is 8 bytes: dw offset 0-15 / dw selector (0x08) / db 0 / db 0x8E (present, DPL 0, 32-bit interrupt gate) / dw offset 16-31. The offsets aren't known until link time, so fill the table in a loop from a list of handler addresses (dd stub0, stub1, ...). lidt takes the same 6-byte pointer as lgdt: limit 32 × 8 − 1, base.",
+  "The CPU pushes eflags, cs, eip and, for vectors 8, 10-14, 17, 21, 29 and 30 only, an error code. Give each vector a tiny stub that pushes a dummy 0 where there's no error code and then its vector number, and jump to one common handler: then [esp] is the vector, [esp + 4] the error code and [esp + 8] the eip, always.",
+  "NASM can write the 32 stubs: %assign n 0 / %rep 32 / (a stub using n) / %assign n n + 1 / %endrep, with a %macro for one stub and %if for the error-code vectors. Faults push the eip of the faulting instruction; traps (int3, into) the eip after it.",
+]
+
+[constraints]
+max_instructions = 300
+
+[random]
+count = 3

@@ -1,0 +1,20 @@
+level = 35
+slug = "bug_triple_fault"
+title = "Triple Fault Hunt"
+arc = "XII"
+bug = 2
+mode = "multiboot"
+concepts = ["the triple fault: the CPU's last resort is a reset", "exceptions while delivering an exception: #DF", "reading the fault chain backwards", "IDT limits count bytes", "a gate's selector must be a code segment"]
+introduces = ["#DF", "triple faults", "the fault explainer", "-d int"]
+
+hints = [
+  "Read the explainer from the top: which exception did the module cause, and what went wrong delivering it? If it says the IDT's limit leaves out the vector, look at idt_pointer: a limit is in bytes, the size minus one.",
+  "Once the gate is inside the IDT and delivery still fails, the gate itself is wrong: present? the right type (0x8E)? Its selector is what goes into cs when the handler starts: is 0x10 a code segment in this GDT?",
+  "Two changes, one in idt_pointer and one in the gate loop.",
+]
+
+[constraints]
+max_changed_lines = 4
+
+[random]
+count = 3

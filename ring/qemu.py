@@ -253,6 +253,14 @@ class Run:
             time.sleep(0.01)
         raise BuildError("QEMU didn't open its control socket")
 
+    def _drop_qmp(self) -> None:
+        q, self._qmp = self._qmp, None
+        if q is not None:
+            try:
+                q.close()
+            except OSError:
+                pass
+
     def command(self, name: str, **args):
         if self._qmp is None:
             return None
@@ -263,7 +271,7 @@ class Run:
             while True:
                 line = self._qmp.readline()
                 if not line:
-                    self._qmp = None
+                    self._drop_qmp()
                     return None
                 r = json.loads(line)
                 if "return" in r:
@@ -271,7 +279,7 @@ class Run:
                 if "error" in r:
                     raise RuntimeError(r["error"].get("desc", str(r["error"])))
         except (OSError, ValueError):
-            self._qmp = None
+            self._drop_qmp()
             return None
 
     def hmp(self, line: str) -> str:
@@ -310,6 +318,30 @@ class Run:
         raw = self.read(0xB8000, 80 * 25 * 2)
         return [raw[y * 160 + 1:(y + 1) * 160:2] for y in range(25)]
 
+    def virtual_seconds(self) -> int | None:
+        """The emulated CMOS clock, as seconds since 2000: it runs on the virtual clock, so
+        it measures how much time the guest has lived through (with -icount, idle time
+        passes instantly)."""
+        import calendar
+        path = getattr(self, "_rtc_path", None)
+        if path is None:
+            def find(p, depth=0):
+                for item in (self.command("qom-list", path=p) or []) if depth < 4 else []:
+                    if item["type"].startswith("child<"):
+                        q = p.rstrip("/") + "/" + item["name"]
+                        if "mc146818" in item["type"]:
+                            return q
+                        found = find(q, depth + 1)
+                        if found:
+                            return found
+                return None
+            path = self._rtc_path = find("/machine")
+        tm = self.command("qom-get", path=path, property="date") if path else None
+        if not tm:
+            return None
+        return calendar.timegm((tm["tm_year"] + 1900, tm["tm_mon"] + 1, tm["tm_mday"],
+                                tm["tm_hour"], tm["tm_min"], tm["tm_sec"]))
+
     def serial(self) -> bytes:
         try:
             return self.serial_path.read_bytes()
@@ -345,7 +377,7 @@ class Run:
             time.sleep(0.02)
 
     def _ended(self) -> str:
-        self._qmp = None
+        self._drop_qmp()
         code = self.proc.returncode
         log = (self.dir / "qemu.log").read_text(errors="replace") if (self.dir / "qemu.log").exists() else ""
         if code and code & 1:                     # isa-debug-exit: (value << 1) | 1
@@ -435,11 +467,15 @@ def fault_chain(log: str) -> list[dict]:
                     "idt": (regs.values.get("idt_base"), regs.values.get("idt_limit")),
                     "gdt": (regs.values.get("gdt_base"), regs.values.get("gdt_limit")),
                     "cr0": regs.values.get("cr0"), "cr2": regs.values.get("cr2")})
-    # the exceptions that led to the reset: the last #DF and the one it interrupted
+    # the exceptions that led to the reset: the last #DF and, before it, everything at the
+    # same place (the original event, and the faults delivering it raised)
     df = max((k for k, f in enumerate(out) if f["vector"] == 8 and not f["software"]), default=None)
     if df is None:
         return out[-1:]
-    return out[max(df - 1, 0):df + 1]
+    k = df
+    while k > 0 and (out[k - 1]["cs"], out[k - 1]["eip"]) == (out[df]["cs"], out[df]["eip"]):
+        k -= 1
+    return out[k:df + 1]
 
 
 def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
@@ -449,33 +485,35 @@ def explain_triple_fault(log: str, where=lambda cs, eip: "") -> str:
         return ("the machine reset (a triple fault, or a jump to the reset vector); the log has "
                 "no exceptions before it")
     lines = ["the machine reset: a triple fault. The exceptions before it:"]
-    first = None
-    for f in chain:
-        v = f["vector"]
-        if v == 8:
-            lines.append(f"  - then {describe_vector(8)}: delivering that exception faulted too")
-            continue
-        if first is None:
-            first = f
-        if f["software"]:
-            lines.append(f"  - int {v} at {f['cs']:04x}:{f['eip']:08x}{where(f['cs'], f['eip'])}")
+    first, nested = chain[0], [f for f in chain[1:] if f["vector"] != 8]
+    v = first["vector"]
+    if first["software"]:
+        lines.append(f"  - int {v} at {first['cs']:04x}:{first['eip']:08x}{where(first['cs'], first['eip'])}")
+    else:
+        err = f", {describe_error(v, first['error'], first['cr2'])}" if v in (8, 10, 11, 12, 13, 14, 17) else ""
+        lines.append(f"  - {describe_vector(v)} at {first['cs']:04x}:{first['eip']:08x}"
+                     f"{where(first['cs'], first['eip'])}{err}")
+    for f in nested:
+        lines.append(f"  - while delivering it: {describe_vector(f['vector'])}, "
+                     f"{describe_error(f['vector'], f['error'], f['cr2'])}")
+    lines.append("  - then #DF (double fault, vector 8): delivering that failed too")
+    lines.append("  - then a fault while delivering #DF: the CPU gives up and resets")
+    base, limit = first["idt"]
+    pe = (first["cr0"] or 0) & 1
+    if pe and base is not None and limit is not None:
+        if base == 0 and limit == 0x3FF:
+            lines.append("Why delivering failed: the IDT register still holds the real-mode "
+                         "table (base 0, limit 0x3ff): no protected-mode IDT is loaded (lidt).")
+        elif v * 8 + 7 > limit:
+            lines.append(f"Why delivering failed: the IDT's limit is {limit:#x}, so it has "
+                         f"{(limit + 1) // 8} gates, and vector {v} isn't one of them.")
         else:
-            lines.append(f"  - {describe_vector(v)} at {f['cs']:04x}:{f['eip']:08x}"
-                         f"{where(f['cs'], f['eip'])}, {describe_error(v, f['error'], f['cr2'])}")
-    lines.append("  - then a fault while delivering #DF: the CPU gives up and resets" if any(
-        f["vector"] == 8 for f in chain) else
-        "  - delivering it faulted twice in a row: the CPU gave up and reset")
-    if first is not None:
-        base, limit = first["idt"]
-        v = first["vector"]
-        pe = (first["cr0"] or 0) & 1
-        if pe and base is not None and limit is not None:
-            if base == 0 and limit == 0x3FF:
-                lines.append("Why delivering failed: the IDT register still holds the real-mode "
-                             "table (base 0, limit 0x3ff): no protected-mode IDT is loaded (lidt).")
-            elif v * 8 + 7 > limit:
-                lines.append(f"Why delivering failed: the IDT's limit is {limit:#x}, so it has "
-                             f"{(limit + 1) // 8} gates, and vector {v} isn't one of them.")
+            sel = next((f["error"] & 0xFFF8 for f in nested
+                        if f["vector"] in (10, 11, 13) and f["error"] and not f["error"] & 2), None)
+            if sel is not None:
+                lines.append(f"Why delivering failed: vector {v}'s gate names selector {sel:#x} "
+                             f"for the handler's cs, and the CPU refused it: is GDT entry "
+                             f"{sel >> 3} a present code segment?")
             else:
                 lines.append(f"Why delivering failed: vector {v}'s gate (at IDT base {base:#x} + "
                              f"{v * 8:#x}) is invalid: not present, the wrong type, or a bad "

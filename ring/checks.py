@@ -272,10 +272,16 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
                   if note else None) as run:
+        run.symbols = build.symbols
+        run.samples = {}
+        if "ready" in inj:                    # wait until the program says it's listening
+            run.wait("serial", timeout=qemu.TIMEOUT_S, serial=inj["ready"].encode())
+            for name in inj.get("sample", []):   # dwords at these labels, and the time, now
+                if name in build.symbols:
+                    run.samples[name] = int.from_bytes(run.read(build.symbols[name], 4), "little")
+            run.samples["time"] = run.virtual_seconds()
         if "keys" in inj:
-            if "ready" in inj:                # wait until the program says it's listening
-                run.wait("serial", timeout=qemu.TIMEOUT_S, serial=inj["ready"].encode())
-            else:
+            if "ready" not in inj:
                 run.wait("time", timeout=inj.get("key_delay", 0.5))
             run.send_keys(inj["keys"])
         until = exp.get("until", "halt")
