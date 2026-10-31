@@ -28,13 +28,15 @@ handlers:
 The CPU's privilege level, **CPL**, is the low two bits of cs: 0 for the kernel, 3 for
 programs. Everything privileged checks it:
 
-- **descriptors** have a **DPL**: ring 3 can only use segments, and call gates, whose DPL is 3;
+- **descriptors** have a **DPL** (descriptor privilege level): ring 3 can only load
+  segments, and `int n` only through gates, whose DPL is 3;
 - **selectors** carry an **RPL** (their low two bits): the ring they're meant for;
 - **instructions** like `cli`, `hlt`, `lgdt` and `mov cr3` need ring 0: elsewhere they're #GP;
 - **pages**: an access from ring 3 needs the **U** bit in *every* entry of its walk.
 
-So ring 3 needs its own code and data descriptors, the kernel's with DPL 3:
-0x0020FA0000000000 and 0x0000F20000000000.
+So ring 3 needs its own code and data descriptors, the kernel's with DPL 3: data
+0x0000F20000000000 at selector 0x18, code 0x0020FA0000000000 at 0x20. (Data comes
+first for a reason level 20 will need.) The TSS moves up to 0x28.
 
 ## Lesson: going down, coming back
 

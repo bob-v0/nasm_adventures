@@ -11,14 +11,14 @@ The kernel adds up squares, recursively, up to `n` from the command line:
 sum of squares 1..10 = 385
 ```
 
-Small n: right. A little larger: a 19-digit number, and no crash, no warning, nothing.
+Small n: right. A little larger: a huge, wrong number, and no crash, no warning, nothing.
 
 ## Background: a fixed, small stack
 
 A user program's stack grows on demand: the kernel maps more pages as it goes down.
 A kernel stack is a fixed few KiB, and in this kernel nothing is below it except more
 of the kernel's own .bss. Each call of `sum_squares` keeps a 1 KiB buffer on the stack.
-Recurse deep enough and the frames land on the `squares` table below. The sum is
+Recurse deep enough and the frames land on the `squares` table below it. The sum is
 then built from whatever the buffers wrote there.
 
 ![The stack runs over squares; a guard page turns that into a fault](guard.svg)

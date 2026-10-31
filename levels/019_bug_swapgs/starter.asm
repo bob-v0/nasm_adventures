@@ -121,7 +121,7 @@ long_mode:
 higher_half:
     mov rsp, HIGH + stack_top
     call init_idt
-    ; the game's test: the first module, copied to MODULE and called
+    ; the game's program: the first module, copied to USER
     mov ebx, [boot_info]
     mov esi, [rbx + 24]
     mov ecx, [rsi + 4]

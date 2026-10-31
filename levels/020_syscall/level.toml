@@ -9,7 +9,7 @@ introduces = ["syscall", "sysret", "swapgs", "STAR/LSTAR/SFMASK", "KERNEL_GS_BAS
 
 hints = [
   "init_syscall: EFER.SCE (bit 0) first, or syscall is #UD; it's in the 32-bit switch code, with LME. Then MSRs (wrmsr: ecx = number, edx:eax = value): STAR (0xC0000081) high dword = 0x10 << 16 | 0x08 (syscall uses 0x08/0x10; sysret uses 0x10 + 16 = 0x20 for cs and 0x10 + 8 = 0x18 for ss); LSTAR (0xC0000082) = the entry's 64-bit address; SFMASK (0xC0000084) = 0x700: clears TF, IF and DF on entry.",
-  "syscall leaves rsp pointing at the program's stack, which the kernel can't trust. Keep per-CPU data (the kernel stack's top, a slot for the program's rsp) and put its address in KERNEL_GS_BASE (0xC0000102), with GS_BASE (0xC0000101) = 0 for the program. On entry: swapgs (now gs = per-CPU), mov [gs:8], rsp, mov rsp, [gs:0]. On the way out: mov rsp, [gs:8], swapgs, o64 sysret (rcx and r11 hold rip and rflags for it: keep them).",
+  "syscall leaves rsp pointing at the program's stack, which the kernel can't trust. The starter's `percpu` is the per-CPU data: [0] = the kernel stack's top (HIGH + stack_top: set it), [8] = a slot for the program's rsp. Put its address (HIGH + percpu) in KERNEL_GS_BASE (0xC0000102), with GS_BASE (0xC0000101) = 0 for the program. On entry: swapgs (now gs = per-CPU), mov [gs:8], rsp, mov rsp, [gs:0]. On the way out: mov rsp, [gs:8], swapgs, o64 sysret (rcx and r11 hold rip and rflags for it: keep them).",
   "write: the buffer [rsi, rsi + rdx) must lie within [USER, USER_TOP), without wrapping around (jc after the add), or return -14. arch_prctl: inside the kernel, after swapgs, the program's gs base is the one in KERNEL_GS_BASE: wrmsr that. Save and restore every register you use.",
 ]
 

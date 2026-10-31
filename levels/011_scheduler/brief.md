@@ -15,14 +15,17 @@ for each other. Add three things to level 12's kernel:
 | **idling** | when every task is asleep, wait for the timer with `hlt` |
 
 The timer now ticks at **HZ = 100**, calibrated against the PIT as in level 33, and counts
-in `[ticks]`. The tests: sleepers must wake in the order of their sleep times. A
+in `[ticks]`. Its handler is written for you: it calls `wake_sleepers`, then `schedule`.
+Yours: `wake_sleepers`, `schedule`, and the system calls `nanosleep` and `setpriority`.
+
+The tests: sleepers must wake in the order of their sleep times. A
 high-priority task runs before a low one whenever both are ready. And a busy task that
 never yields can't keep a sleeper asleep.
 
 ## Lesson: blocking
 
-A sleeping task isn't *ready*. It gets a state of its own (3) and a wake-up tick, and
-`schedule` skips it. On every tick the timer handler wakes the sleepers whose time has
+A sleeping task isn't *ready*. It gets a state of its own (T_STATE 3) and a wake-up tick
+(T_WAKE), and `schedule` skips it. On every tick the timer handler wakes the sleepers whose time has
 come. A sleep is rounded *up* to whole ticks, plus one, because the current tick is
 already partly over, and a sleep may be longer than asked, never shorter.
 
@@ -40,7 +43,9 @@ When nobody is ready, there's still a CPU executing instructions. It mustn't spi
 ```
 
 The timer interrupts the `hlt` in ring 0, wakes whoever is due, and returns into the
-loop. (The handler notices it came from ring 0 and doesn't schedule from there.)
+loop. (The handler sees from the saved cs that it came from ring 0, and doesn't schedule
+from there.) If nobody is ready and nobody is asleep either, every task is done:
+`all tasks done`, then halt.
 
 ## Lesson: priorities
 

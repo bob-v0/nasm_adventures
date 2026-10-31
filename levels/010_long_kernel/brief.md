@@ -1,6 +1,6 @@
 # Level 10 — Long Kernel ★
 
-*In Arc VI you wrote a shell that runs on Linux. Now Linux steps aside: your kernel
+*In Arc V you wrote a shell that runs on Linux. Now Linux steps aside: your kernel
 runs that shell.*
 
 ## The task
@@ -9,7 +9,8 @@ The kernel gets a **filesystem image** (`/bin` with Tiny Shell as `/bin/sh` and 
 small programs: echo, cat, wc, head1, yes, true, false, pwd…; `/work` with the test's files;
 `/tmp`) and a **script** on its console. It starts `/bin/sh` in `/work`, and the shell runs
 the script: commands, `$?`, pipelines, `<` and `>`, `cd`, crashing programs. The tests are
-level 111's own. When the shell exits, the kernel says:
+level 111's own. When the shell (pid 1) exits, the kernel says so, with its exit status
+(or 128 + the signal, if it was killed), and halts:
 
 ```
 shell exited with status 0
@@ -19,6 +20,7 @@ The starter has the whole arc (long mode, interrupts, address spaces, the ELF lo
 task switching) and the plumbing: a frame of every register for each system call,
 dispatch through `calls`, `schedule`/`block`/`wake_all`, task creation, the filesystem
 with path resolution, fd tables, `make_stack` with arguments. Yours is the Unix model:
+these system calls, plus `do_exit` and `copy_space`.
 
 | | |
 |---|---|
@@ -55,7 +57,8 @@ end of its input, and a writer with no reader left gets -EPIPE.
 Nothing here needs a timer. A process that can't go on (an empty pipe, a full one, no
 zombie child yet) **blocks**: it stops being ready, and `schedule` runs someone else.
 Whatever could change things (a write, a read, a close, an exit) wakes the waiters, and
-each looks again. If everyone is waiting for everyone, the kernel says `deadlock`.
+each looks again. If everyone is waiting for everyone, the starter's `schedule` says
+`deadlock: every task is waiting`.
 
 ## Gate
 

@@ -15,10 +15,13 @@ time it works. The program never notices.
 Two functions are yours:
 
 - `lazy_fault`: called by the page fault handler with rax = CR2 and rdx = the error code.
-  If the fault is a missing page in the lazy region, map one and set CF (the handler then
-  returns to retry). Otherwise clear CF, and the handler reports it as in level 24.
+  If the fault is a missing page in the lazy region, map a fresh frame there and set CF
+  (the handler then returns to retry). Otherwise clear CF, and the handler reports it as
+  in level 24. The handler has saved rax, rcx, rdx, rsi and rdi; keep everything else.
 - `map_page(rdi = virtual page, rsi = physical frame)`: map one 4 KiB page, writable,
   kernel-only, creating the PDPT, PD and PT on the way if they don't exist yet.
+
+`alloc_frame` (given) hands out frames already zeroed.
 
 The game's test reads and writes all over the region, with some pages close together
 and some gigabytes apart. It checks every value: fresh memory reads as 0, and written
@@ -43,8 +46,10 @@ address outside every region, is a bug, and gets reported.
 ## Lesson: building tables as you go
 
 The walk is the same one the CPU does (level 26), except that where an entry isn't
-present, you make the table: take a frame, zero it (a table full of junk would map junk),
-and store frame | present | writable in the entry. Then go down into it.
+present, you make the table: take a zeroed frame (a table full of junk would map junk)
+and store frame | present | writable in the entry. Then go down into it. RAM is below
+1 GiB here, and the identity map covers it, so a table's physical address is also a
+pointer you can use.
 
 ![map_page: walk down, creating what's missing](demand.svg)
 

@@ -32,7 +32,7 @@ and the **direct map**. The kernel's first 4 MiB also stay mapped in the low hal
 supervisor-only, because this kernel still uses a few low addresses.
 
 The low half is the program's now, so the kernel can't assume physical address x is
-mapped at x anymore. The **direct map** is how it reaches physical memory from now on:
+mapped at x any more. The **direct map** is how it reaches physical memory from now on:
 physical x is at DIRECT + x (0xFFFF800000000000 + x) in every space. Page tables are made
 of frames, so every table the kernel reads or writes goes through it.
 
@@ -40,8 +40,9 @@ of frames, so every table the kernel reads or writes goes through it.
 
 An address space owns its pages and its tables. Freeing it means walking the low half
 the way the CPU does: the PML4's entries 0-255, each PDPT, PD and PT, giving back the
-pages, then each table. Skip what's shared: the kernel's two PD entries are in every space,
-so freeing them would hand out the kernel's own memory. Do it with CR3 pointing somewhere
+pages, then each table. Skip what's shared: the kernel's first 4 MiB (PD entries 0 and 1,
+under PDPT entry 0, under PML4 entry 0) are in every space, so freeing them would hand
+out the kernel's own memory. Do it with CR3 pointing somewhere
 else: the loop switches back to the kernel's PML4 first.
 
 ## Gate

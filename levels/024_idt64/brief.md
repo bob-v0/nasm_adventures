@@ -67,7 +67,8 @@ pointers:
 | 102 | I/O permission map offset: 104 (none) |
 
 Its descriptor in the GDT is 16 bytes (type 0x89, limit 103, a 64-bit base). The
-starter leaves room for it at selector 0x18. Load it with `ltr`.
+starter leaves room for it (`gdt_tss`) at selector 0x18. Fill that in, then load it with
+`ltr`.
 
 ## Gate
 

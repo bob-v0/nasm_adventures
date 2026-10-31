@@ -7,7 +7,8 @@ few thousand.*
 ## Symptoms
 
 Level 20's kernel has grown two things real kernels have. The **APIC timer** interrupts
-every `period` counts, and its handler counts ticks in the per-CPU data, through gs.
+every `period` counts (`period=N` on the command line), and its handler counts ticks in
+the per-CPU data, through gs.
 And **system calls re-enable interrupts** once they're on the kernel stack, so a long
 system call doesn't hold off the timer. Linux does the same.
 

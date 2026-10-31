@@ -8,9 +8,9 @@ concepts = ["task states: ready, asleep, done", "blocking: a task that waits use
 introduces = ["nanosleep", "setpriority", "the idle loop"]
 
 hints = [
-  "nanosleep: check the pointer (16 bytes inside [USER, USER_END)) and that nanoseconds < 10^9. ticks = seconds * HZ + nanoseconds / (10^9 / HZ) rounded up, + 1 (the current tick is partly over). T_WAKE = [ticks] + that, T_STATE = 3, then the same as a yield (jmp .yield). 0 ticks: just yield.",
+  "nanosleep: check the pointer (16 bytes inside [USER, USER_END), else -EFAULT) and that nanoseconds < 10^9 (else -EINVAL). ticks = seconds * HZ + nanoseconds / (10^9 / HZ) rounded up, + 1 (the current tick is partly over). T_WAKE = [ticks] + that, T_STATE = 3, then the same as a yield (jmp .yield). 0 ticks: just yield.",
   "schedule: one pass over all TASKS starting after [current] (wrapping), keeping the ready one with the lowest T_NICE (strictly lower replaces, so among equals the first in turn order wins), and counting the sleepers. None ready but sleepers: sti, hlt, cli, look again: the timer interrupts the hlt, runs wake_sleepers, and returns into your loop.",
-  "The timer handler knows when it interrupted your idle loop (cs in its frame has ring 0) and then only wakes sleepers and returns; no schedule. setpriority(rdi = 0, rsi = 0, rdx = nice): anything else -EINVAL; clamp nice to -20..19 and store it in the current task's T_NICE.",
+  "wake_sleepers: every task with T_STATE 3 and T_WAKE <= [ticks] becomes ready (1). setpriority(rdi = 0, rsi = 0, rdx = nice): anything else -EINVAL; clamp nice to -20..19 (signed compares), store it in the current task's T_NICE, return 0. (The given timer handler already knows when it interrupted your idle loop, ring 0 in its saved cs, and then only wakes sleepers and returns.)",
 ]
 
 [random]
