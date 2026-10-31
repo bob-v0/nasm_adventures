@@ -91,6 +91,7 @@ long_mode:
 higher_half:
     mov rsp, HIGH + stack_top
     call init_idt
+    call silence_pic             ; (the legacy PIC's IRQs would land on the exception vectors)
     ; the game's test: the first module, copied to MODULE and called
     mov ebx, [boot_info]
     mov esi, [rbx + 24]
@@ -151,6 +152,27 @@ decimal:
     add al, '0'
     call putc
     loop .o
+    ret
+
+; the 8259s: remapped off the exception vectors, and masked (level 34)
+silence_pic:
+    mov al, 0x11
+    out 0x20, al
+    out 0xA0, al
+    mov al, 0x20
+    out 0x21, al
+    mov al, 0x28
+    out 0xA1, al
+    mov al, 0x04
+    out 0x21, al
+    mov al, 0x02
+    out 0xA1, al
+    mov al, 0x01
+    out 0x21, al
+    out 0xA1, al
+    mov al, 0xFF
+    out 0x21, al
+    out 0xA1, al
     ret
 
 ; ---- the IDT ------------------------------------------------------------------------

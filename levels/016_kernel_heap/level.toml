@@ -1,0 +1,17 @@
+level = 16
+slug = "kernel_heap"
+title = "Kernel Heap"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["why a kernel needs a heap on top of frames", "size classes: rounding up to a power of two", "slabs: a frame of same-sized objects", "free lists threaded through the free objects themselves", "finding an object's slab from its address", "giving empty slabs back"]
+introduces = ["slab allocation", "intrusive free lists"]
+
+hints = [
+  "Size classes 16, 32, ..., 2048: round the request up to the class. A slab is one frame (from alloc_frame, already zeroed) holding a small header and as many objects of one class as fit. Keep, per class, a list of its slabs (the header's first qword can link them).",
+  "Free objects make their own free list: a free object's first 8 bytes hold the address of the next free one in the same slab; the header holds the first. kmalloc takes the head, kfree pushes back on. A new slab's objects are chained once, when it's made. Start them at offset 32 (16-aligned, after the header).",
+  "kfree only gets a pointer: its slab is the frame it's in, `and rax, ~0xFFF`, and the header there says the class and counts the objects in use. When that count drops to 0, unlink the slab and free_frame it, except the last slab of its class, which you keep to avoid freeing and reallocating it over and over.",
+]
+
+[random]
+count = 2

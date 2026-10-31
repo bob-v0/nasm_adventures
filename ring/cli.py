@@ -334,6 +334,10 @@ def cmd_check_levels(args, prog: Progress) -> int:
         print(f"  {OK if not problems else FAIL} {number:>3} {lv.title}")
         for p in problems:
             print(f"        {p}")
+        if problems and os.environ.get("GITHUB_ACTIONS"):
+            # an annotation: readable through the API even where the logs aren't
+            text = "\n".join(problems)[:3000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            print(f"::error title=level {number} ({lv.title})::{text}")
         failures += bool(problems)
     return 1 if failures else 0
 

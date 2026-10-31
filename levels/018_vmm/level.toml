@@ -1,0 +1,17 @@
+level = 18
+slug = "vmm"
+title = "Virtual Memory Manager"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["an address space per process: a PML4 of its own", "the shared kernel half", "loading a program into its own space", "memory on demand for programs", "tearing an address space down: every frame back", "the direct map: reaching physical memory once the low half is the program's"]
+introduces = ["per-process page tables", "mov cr3 as a context switch for memory", "the direct map"]
+
+hints = [
+  "new_space: alloc_frame a PML4 (zeroed) and copy entries 256-511 from the kernel's pml4: through the direct map, every table is at DIRECT + its physical address. Then a PDPT for entry 0 and a PD for its entry 0, both with P | W | U, and copy the kernel's PD entries 0 and 1 (its first 4 MiB) into that PD: supervisor-only, so the program can't touch them.",
+  "map_user is level 22's map_page, with two changes: start from CR3 (the current space), and read and write every table through DIRECT + its physical address; every entry gets P | W | U (4). user_fault: only a not-present fault (bit 0 clear) from user mode (bit 2 set) at USER <= cr2 < USER_END; then alloc_frame, map_user, stc.",
+  "free_space walks the low half (PML4 entries 0-255), recursively: a table's present entries are tables one level down, or at the PT level the pages; free those frames, then the table. Skip PD entries 0 and 1 under PDPT entry 0 under PML4 entry 0: they're the kernel's, shared by every space. Then free the PML4. A leak shows up as out of memory a few programs later.",
+]
+
+[random]
+count = 1

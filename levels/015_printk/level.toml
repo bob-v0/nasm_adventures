@@ -1,0 +1,17 @@
+level = 15
+slug = "printk"
+title = "printk"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["variadic functions in the C calling convention: registers, then the stack", "a format string as a tiny program", "itoa in any base, signed and unsigned", "padding: width, zeros, left alignment", "hexdump -C"]
+introduces = ["printk", "varargs"]
+
+hints = [
+  "The arguments: the format in rdi, then rsi, rdx, rcx, r8, r9, then the stack ([rsp + 8] at entry, [rsp + 16], ...). Make them one array: push r9, r8, rcx, rdx, rsi in that order right after `push rbp` / `mov rbp, rsp`, and argument k is at [rbp - 40 + 8k] for k < 5, at [rbp + 16 + 8(k - 5)] after that.",
+  "Numbers: divide by the base (10 or 16) until 0, writing the remainders' digits backwards into a small buffer; %d first takes the sign off a negative number (neg). Then padding: width minus the length (sign included); '-' puts the spaces after, '0' puts zeros between the sign and the digits, otherwise spaces go first. %p is always 0x and 16 digits. %s of 0 prints (null).",
+  "Count every character you print (rax at the end). hexdump: per 16 bytes, the address as 16 hex digits, two spaces, the bytes as two hex digits each with a space between and one more after the 8th, blanks where the last line runs out, two spaces, then |, the bytes as characters (32-126, else '.'), |.",
+]
+
+[random]
+count = 4

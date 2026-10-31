@@ -1,0 +1,22 @@
+level = 17
+slug = "bug_stale_tlb"
+title = "Stale TLB"
+arc = "XIII"
+bug = 3
+mode = "multiboot"
+link = "elf64"
+witness = true
+concepts = ["the TLB: the CPU's cache of translations", "changing a present mapping needs invalidation", "invlpg takes a virtual address", "reloading CR3 flushes everything (but the global pages)"]
+introduces = ["the TLB"]
+
+hints = [
+  "The first record shown is always right. Show two different ones: what does the window show the second time? Where does the second record's text really live, and what does the CPU think WINDOW is?",
+  "The CPU doesn't walk the page tables on every access: it caches translations in the TLB. Writing a new entry into a PT changes memory, not that cache: until the old translation is dropped, WINDOW still means the old frame.",
+  "invlpg drops the translation of a *virtual* address: the one the program uses, WINDOW. The starter passes the frame's physical address instead, which drops some unrelated (or nonexistent) translation. `mov rax, WINDOW`, `invlpg [rax]`.",
+]
+
+[constraints]
+max_changed_lines = 3
+
+[random]
+count = 3
