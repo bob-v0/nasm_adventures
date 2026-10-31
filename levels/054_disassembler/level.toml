@@ -1,0 +1,19 @@
+level = 54
+slug = "disassembler"
+title = "Disassembler"
+arc = "X"
+mode = "program"
+concepts = ["decoding into fields, then printing", "operand formatting: registers, memory, immediates", "signed displacements and immediates", "relative branch targets become absolute addresses", "rip-relative addressing needs the next instruction's address", "size keywords only where nothing else says the size"]
+introduces = ["a table-driven decoder", "formatting [base+index*scale+disp]", "rel8 / rel32 targets", "rip-relative operands"]
+
+hints = [
+  "Decode first, print second: read REX, the opcode, ModRM, SIB, displacement and immediate into variables, so that the end of the instruction is known. A rip-relative operand ([rel 0x...]) and every branch target are relative to the END of the instruction, and immediates come after the displacement.",
+  "ModRM: mod = 3 is a register (r/m plus REX.B). Otherwise r/m = 4 means SIB (index plus REX.X; index 4 without X means none; base plus REX.B; base 5 with mod 0 means no base and a disp32), r/m = 5 with mod 0 means rip + disp32, and mod 1 / 2 add a disp8 / disp32 (both signed). Memory registers are always 64-bit names.",
+  "Formatting: names from tables of strings. Hex without leading zeros (shift right by 60, 56, ... and skip zero nibbles until the first non-zero one). Signed values: a '-' and the negated value. B8+r immediates are unsigned; every other immediate and displacement is signed.",
+]
+
+[constraints]
+max_steps = 2000000
+
+[random]
+count = 6

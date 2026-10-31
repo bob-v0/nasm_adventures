@@ -1,0 +1,22 @@
+level = 52
+slug = "bug_stale_code"
+title = "Stale Code"
+arc = "X"
+bug = 3
+mode = "program"
+witness = true
+concepts = ["cross-modifying code: one thread changes code another is running", "patching an instruction atomically: one aligned store", "a thread can still be inside the old code after the patch", "safepoints and quiescence before reusing code memory", "store buffers delay a patch too (mfence)", "serializing the executing CPU, on real hardware"]
+introduces = ["patchable jumps (trampolines)", "safepoints", "quiescence / epochs", "cross-modifying code"]
+
+hints = [
+  "Try witnesses 1, 2, 3, ...: the report names failing schedules too. Two different things go wrong: sometimes the worker jumps to an address that was never a version (where would a half-patched rel32 point?), sometimes it computes a wrong value or crashes inside buffer 0 (who else might be in buffer 0 when version 3 is copied there?).",
+  "The patch: the four bytes of the rel32 are stored one at a time, and the worker can run the jmp between two of them. A single 4-byte store is seen whole or not at all (x86 guarantees it for aligned stores; the trampoline is placed at offset 3 so its rel32 is aligned).",
+  "The reuse: after installing version 2, the worker may still be inside version 1 (it called before the patch, and was interrupted). Before overwriting buffer 0, wait for a safepoint: remember epoch, and spin (with pause) until it changes, or the worker is done. And put mfence after the patch: otherwise the patch can still be in the compiler's store buffer while it reads epoch (level 83).",
+]
+
+[constraints]
+max_changed_lines = 20
+max_steps = 2000000
+
+[random]
+count = 1

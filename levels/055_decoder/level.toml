@@ -1,0 +1,20 @@
+level = 55
+slug = "decoder"
+title = "Decoder"
+arc = "X"
+mode = "function"
+entry = "ring_insn_length"
+concepts = ["instruction-length decoding: the first thing every x86 core does", "prefixes, REX, opcode maps", "what an opcode implies: ModRM? immediate? which size?", "ModRM and SIB decide the displacement", "operand-size effects on immediates", "decoding with tables"]
+introduces = ["opcode property tables", "0F, 0F 38, 0F 3A maps", "imm16/imm32/imm64 rules", "group opcodes that change length"]
+
+hints = [
+  "Structure: skip legacy prefixes (remember if one was 66), then a REX if the byte is 40-4F (remember W), then the opcode: 0F means a second byte follows (and 0F 38 / 0F 3A a third). Then, by opcode: ModRM? then SIB and displacement? then which immediate? A 256-byte table of flags per map (db lines in .rodata) beats a chain of compares.",
+  "After ModRM: mod = 3 means no memory: nothing more. Otherwise r/m = 4 means a SIB byte; then mod = 1 adds 1 byte, mod = 2 adds 4, and mod = 0 adds 4 only for r/m = 5 (rip-relative) or, with a SIB, base = 5.",
+  "Immediates: 'iz' opcodes (05, 69, 81, C7, A9, 68, E8, ...) have 4 bytes, 2 with a 66 prefix, but 4 again with REX.W, and E8/E9 always 4. B8+r: 4, 2 with 66, 8 with REX.W. F6/F7 have an immediate only when the ModRM reg field is 0 or 1 (test). C2 (ret imm16): 2.",
+]
+
+[constraints]
+max_steps = 2000
+
+[random]
+count = 80

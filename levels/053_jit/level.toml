@@ -1,0 +1,21 @@
+level = 53
+slug = "jit"
+title = "JIT"
+arc = "X"
+mode = "function"
+entry = "ring_run"
+perf = true
+concepts = ["a JIT: generating machine code at run time", "memory for code: mmap, then mprotect to executable", "W^X: never writable and executable at once", "templates: a piece of machine code per bytecode op", "patching in immediates and branch offsets", "two passes for forward jumps", "why a JIT beats an interpreter: no dispatch"]
+introduces = ["mmap / mprotect / munmap", "PROT_READ | PROT_WRITE → PROT_READ | PROT_EXEC", "code templates", "rel32 fix-ups", "call through a register"]
+
+hints = [
+  "Plan the generated code first, as a function: rdi = a VM stack (32 qwords, from your stack frame), a register for the depth, and per op a few instructions: ADD is mov rax, [rdi+r9*8−8] / add [rdi+r9*8−16], rax / dec r9. Write them in .rodata between labels, assembled by NASM, and copy them: you never encode by hand what NASM can encode for you (level 57 was enough).",
+  "Checks the interpreter did per op become code in front of each op: cmp r9, need / jb under (0F 82 rel32) and cmp r9, 32 / jae over. Put the error exits (and HALT's) once, at the start of the buffer, and make every rel32 = target − (address of the end of the jump). JNZ is dec r9 / cmp qword [rdi+r9*8], 0 / jne rel32 to the code of the target op.",
+  "A JNZ can jump forward, to code not generated yet. Since every op's code has a fixed size (always rel32), run the generator twice: pass 1 records where each bytecode position's code starts, pass 2 emits the same bytes with the right targets. Then mprotect the buffer to PROT_READ | PROT_EXEC and call it: lea rax, [buffer + entry] / call rax.",
+]
+
+[constraints]
+max_steps = 2000000
+
+[random]
+count = 2

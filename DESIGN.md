@@ -387,7 +387,7 @@ Runner: emu: SSE on Unicorn; AVX, AVX2, FMA and AVX-512 on the game's vector uni
 
 ### Arc X — Machine Code (Levels 57–51)
 
-Runner: native. 7 levels, 1 of them bug levels.
+Runner: emu: your bytes are decoded and compared instruction by instruction; code written at run time runs too (JIT pages, W^X, patching under running threads). 7 levels, 1 of them bug levels.
 
 | Level | Title | Concepts | Gate |
 |---|---|---|---|

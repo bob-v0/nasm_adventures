@@ -1,0 +1,28 @@
+; Level 57 — Encoding I (reference)
+;
+; The machine code, byte by byte.
+
+    db 0xB8, 0x01, 0x00, 0x00, 0x00         ; mov eax, 1
+    db 0xB9, 0x78, 0x56, 0x34, 0x12         ; mov ecx, 0x12345678
+    db 0x01, 0xC8                           ; add eax, ecx
+    db 0x83, 0xE8, 0x05                     ; sub eax, 5
+    db 0x31, 0xD2                           ; xor edx, edx
+    db 0x89, 0xC3                           ; mov ebx, eax
+    db 0xFF, 0xC1                           ; inc ecx
+    db 0xC1, 0xE0, 0x04                     ; shl eax, 4
+    db 0x89, 0x44, 0x24, 0xF8               ; mov [rsp-8], eax
+    db 0x8B, 0x74, 0x24, 0xF8               ; mov esi, [rsp-8]
+    db 0x8D, 0x7C, 0x48, 0x10               ; lea edi, [rax+rcx*2+16]
+    db 0x6B, 0xC1, 0x03                     ; imul eax, ecx, 3
+    db 0x39, 0xD8                           ; cmp eax, ebx
+    db 0x24, 0x0F                           ; and al, 0x0F
+    db 0xC6, 0x44, 0x24, 0xFF, 0x41         ; mov byte [rsp-1], 0x41
+    db 0x0F, 0xB6, 0x54, 0x24, 0xFF         ; movzx edx, byte [rsp-1]
+    db 0xF7, 0xDB                           ; neg ebx
+    db 0x85, 0xC0                           ; test eax, eax
+    db 0x0F, 0x94, 0xC1                     ; sete cl
+    db 0xBA, 0x05, 0x00, 0x00, 0x00         ; mov edx, 5
+.again:
+    db 0x01, 0xD0                           ; add eax, edx
+    db 0xFF, 0xCA                           ; dec edx
+    db 0x75, 0xFA                           ; jnz again

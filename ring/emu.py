@@ -153,6 +153,7 @@ class Machine:
         self._bad_access: int | None = None
         self._pending_fault: tuple | None = None # (signal, text, address) for the next stop
         self._kinds: dict[int, object] = {}      # addr -> what's special about the instruction
+        self._code_pages: set[int] = set()       # pages whose instructions are cached (decoded)
         self.vector = None                        # the vector unit (ring/simd.py)
         self._checked_mapped = 0
         self.exit_code: int | None = None
@@ -319,6 +320,9 @@ class Machine:
                 self.tso.on_store(self.thread.tid, addr, size, int.from_bytes(data, "little"))
         if self._checked_mapped and K.CHECKED_HEAP <= addr < K.CHECKED_HEAP + (1 << 28):
             self._on_heap_access(self.uc, 17 if kind == "w" else 16, addr, size, 0, None)
+        if kind == "w" and ((addr >> 12) in self._code_pages
+                            or ((addr + size - 1) >> 12) in self._code_pages):
+            self.code_changed(addr, size)
 
     def vector_fault(self, kind: str, addr: int, message: str = "") -> None:
         """An emulated instruction faults (the hook then reports #UD to Unicorn, and
@@ -346,6 +350,24 @@ class Machine:
                                                   for op in d.ops)):
             return ("align", d, mems[0])
         return None
+
+    def _on_code_write(self, _uc, _access, addr: int, size: int, _value, _user) -> None:
+        self.code_changed(addr, size)
+
+    def code_changed(self, addr: int, size: int) -> None:
+        """Bytes in a page of already-decoded code were written (a JIT, a patch): forget
+        every cached decoding near them (instructions are up to 15 bytes long)."""
+        lo, hi = addr - 15, addr + size
+        caches = [self._kinds]
+        if self.vector is not None:
+            caches.append(self.vector.cache)
+        if self.perf is not None:
+            caches += [core.decoded for core in self.cores.values()]
+        if self.tso is not None:
+            caches.append(self._tso_kinds)
+        for cache in caches:
+            for a in [a for a in cache if lo <= a < hi]:
+                del cache[a]
 
     def _do_special(self, addr: int, kind) -> None:
         if kind[0] == "vector":                   # the game's vector unit runs it, not Unicorn
@@ -419,6 +441,8 @@ class Machine:
         if self._frame is not None:
             self._frame.writes.append((addr, self.read(addr, len(data))))
         self.write(addr, data)
+        if (addr >> 12) in self._code_pages or ((addr + len(data) - 1) >> 12) in self._code_pages:
+            self.code_changed(addr, len(data))
 
     def map_region(self, start: int, length: int, prot: int, data: bytes = b"") -> None:
         self.uc.mem_map(start, length, UC_PROT_READ | UC_PROT_WRITE)
@@ -706,6 +730,7 @@ class Machine:
         self.argv, self.env = e.argv, e.env
         self._end_history("execve")
         self._kinds.clear()
+        self._code_pages.clear()
         if self.vector is not None:
             self.set_cpu(self.vector.profile)
         self._new_cpu()
@@ -736,6 +761,11 @@ class Machine:
         special = self._kinds.get(addr, _UNSEEN)
         if special is _UNSEEN:
             special = self._kinds[addr] = self._special(addr)
+            page = addr >> 12
+            if page not in self._code_pages:      # watch it: code that changes is re-decoded
+                self._code_pages.add(page)
+                self.uc.hook_add(UC_HOOK_MEM_WRITE, self._on_code_write, None, page << 12,
+                                 (page << 12) + PAGE - 1)
         if self.trace is not None:
             self.trace.append(addr)
         if self.tso is not None:

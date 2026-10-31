@@ -1,0 +1,16 @@
+level = 56
+slug = "encoding_ii"
+title = "Encoding II"
+arc = "X"
+mode = "fragment"
+concepts = ["REX: W for 64-bit operands, R, X, B for registers 8-15", "the default operand size is 32 bits; 64 needs REX.W", "spl, bpl, sil, dil need a REX", "legacy prefixes: 66 (16-bit), F0 (lock), F2/F3", "SSE: a mandatory prefix picks the instruction", "the order: prefixes, REX, opcode", "VEX: two and three bytes, inverted register bits"]
+introduces = ["REX (0x40-0x4F)", "66 / F0 / F2 / F3 prefixes", "mandatory prefixes", "VEX (C5, C4)", "imm64"]
+
+hints = [
+  "REX = 0100 W R X B: W = 64-bit operand, R extends ModRM.reg, X extends SIB.index, B extends ModRM.r/m (or SIB.base, or the register in the opcode). mov r9, rax is 89 /r with r/m = r9 (1 + B) and reg = rax: REX = 0x49 (W and B), ModRM 11 000 001.",
+  "Prefixes come first, then REX, then the opcode: lock xadd [rsp−16], r12d is F0, then REX.R (0x44: r12 is reg 4 + R), then 0F C1 /r. SSE instructions are a prefix + 0F + opcode: 66 for packed integers and pd, F3 for ss and movdqu, F2 for sd; the prefix is part of the opcode, and REX still comes after it (F2 49 0F 2A CC).",
+  "VEX replaces REX and the prefix: C5 [R̄ v̄v̄v̄v̄ L pp] opcode, where R̄ and vvvv are stored INVERTED, vvvv is the extra source register, L = 1 for 256 bits, pp = 0/1/2/3 for none/66/F3/F2. The 3-byte form C4 [R̄ X̄ B̄ mmmmm] [W v̄v̄v̄v̄ L pp] is needed when X or B are set (registers 8-15 in r/m) or the map isn't 0F.",
+]
+
+[constraints]
+max_steps = 1000

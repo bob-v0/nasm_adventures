@@ -197,15 +197,15 @@ levels = [
 [[arc]]
 id = "X"
 name = "Machine Code"
-runner = "native"
+runner = "emu: your bytes are decoded and compared instruction by instruction; code written at run time runs too (JIT pages, W^X, patching under running threads)"
 levels = [
-  { title = "Encoding I", concepts = "opcode, ModRM, SIB, displacement, immediate", gate = "Hand-encode 20 instructions with `db`" },
-  { title = "Encoding II", concepts = "REX, prefixes, VEX", gate = "Hand-encode 64-bit and SSE instructions" },
-  { title = "Decoder", concepts = "instruction-length decoding", gate = "Length decoder for a subset" },
-  { title = "Disassembler", concepts = "operand formatting, relative targets", gate = "Disassemble a blob to NASM syntax" },
-  { title = "JIT", concepts = "`mmap`, W^X, `mprotect`", gate = "JIT-compile the Arc III bytecode" },
-  { title = "Stale Code", bug = 3, concepts = "cross-modifying code: another thread runs old instructions; serialization", gate = "Fix a JIT that patches code under a running thread" },
-  { title = "Assembler", boss = true, concepts = "everything in the arc", gate = "Two-pass assembler for an x86 subset" },
+  { title = "Encoding I", dir = "encoding", concepts = "opcode, ModRM, SIB, displacement, immediate", gate = "Hand-encode 20 instructions with `db`" },
+  { title = "Encoding II", dir = "encoding_ii", concepts = "REX, prefixes, VEX", gate = "Hand-encode 64-bit and SSE instructions" },
+  { title = "Decoder", dir = "decoder", concepts = "instruction-length decoding", gate = "Length decoder for a subset" },
+  { title = "Disassembler", dir = "disassembler", concepts = "operand formatting, relative targets", gate = "Disassemble a blob to NASM syntax" },
+  { title = "JIT", dir = "jit", concepts = "`mmap`, W^X, `mprotect`", gate = "JIT-compile the Arc III bytecode" },
+  { title = "Stale Code", dir = "bug_stale_code", bug = 3, concepts = "cross-modifying code: another thread runs old instructions; serialization", gate = "Fix a JIT that patches code under a running thread" },
+  { title = "Assembler", dir = "assembler", boss = true, concepts = "everything in the arc", gate = "Two-pass assembler for an x86 subset" },
 ]
 
 [[arc]]

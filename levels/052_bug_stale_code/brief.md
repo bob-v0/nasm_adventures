@@ -1,0 +1,48 @@
+# Level 52 — Bug: Stale Code ◆◆◆
+
+*Every JIT recompiles hot code while it runs. The old version doesn't disappear when you
+install the new one: someone may still be in it.*
+
+## Symptoms
+
+A tiered JIT in miniature. The worker thread calls `hot(x) = 3x + 1` three hundred
+times through a **trampoline**, a `jmp rel32` in code memory, and adds the results.
+The compiler thread writes version 2 into buffer 1 and points the trampoline at it,
+then writes version 3 into buffer 0, where version 1 was, and points the trampoline
+there. Every version computes the same thing. The total should be 134 850. Under some
+schedules it's a few short; under others the worker crashes somewhere in code memory.
+
+## Background: patching live code
+
+Code is data, and another thread may be executing it while you write it.
+**Cross-modifying code** has three problems:
+
+1. **Torn patches.** An instruction is several bytes. If they're written by several
+   stores, the other thread can run a mix of old and new. x86 guarantees that an aligned
+   store of up to 8 bytes is seen whole, so patch sites are laid out so that the part to
+   change (here the rel32) can be written by **one** store. Linux's `text_poke` goes
+   further: it first writes an `int3` over the instruction, so nobody can run it
+   half-patched.
+2. **Threads inside the old code.** A thread that entered the old version before the
+   patch keeps running it. Its memory can't be reused until every such thread has
+   left: wait for a **safepoint**, a point where each thread is known not to be in
+   generated code, and that it reports (here: the worker bumps `epoch` after every call
+   returns). JVMs, V8 and the kernel's RCU all wait for this **quiescence**.
+3. **The patching thread's own store buffer.** Until the patch leaves it, nobody else
+   sees it, even after "installing". Check the epoch only after `mfence` (level 83).
+
+On real hardware there's a fourth: the executing CPU may already have fetched and
+decoded the old bytes. Intel's rule for cross-modifying code is that the executing
+thread performs a **serializing** instruction (`cpuid`) after it learns of the change
+(Linux's `membarrier(SYNC_CORE)` makes every thread do that). The game's CPU doesn't
+prefetch instructions, so it can't show that one, but the safepoint is the natural place
+for it.
+
+The code memory here is writable and executable at once: patching code in place is why
+some JITs can't follow level 53's W^X (others map the same memory twice, once writable,
+once executable).
+
+## Gate
+
+Find a schedule that breaks the original (`;! witness schedule = N`), then fix both
+problems so that every schedule prints `sum 134850`. At most 20 changed lines.
