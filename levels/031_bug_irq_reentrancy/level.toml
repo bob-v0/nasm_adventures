@@ -1,0 +1,21 @@
+level = 31
+slug = "bug_irq_reentrancy"
+title = "Interrupt Reentrancy"
+arc = "XII"
+bug = 3
+mode = "multiboot"
+witness = true
+concepts = ["an interrupt can land between any two instructions of the main code", "read-modify-write on data a handler also changes", "critical sections: cli / sti around a few instructions", "single-instruction updates are atomic on one CPU", "one writer per variable: the lock-free single-producer single-consumer buffer"]
+introduces = ["critical sections with cli / sti", "interrupt-safe updates", "SPSC rings"]
+
+hints = [
+  "Which variables do both the handler and the main loop write? For each, find where the main loop reads it and where it writes it back: what if the timer interrupts in between? Try witnesses from the list of periods the test report shows failing.",
+  "count is read near the top of the loop and written back, decremented, near the bottom. Any item the handler adds in between is forgotten when the old value minus one is stored. The handler also reads first to find the free slot: first and count change in two steps, and the handler can see one without the other.",
+  "Two fixes work. A critical section: cli before the main loop changes first and count, sti after, and decrement count in memory rather than storing a stale copy. Or redesign: separate indexes, head written only by the handler and tail only by the main loop (level 32's ring buffer), and nothing shared to decrement.",
+]
+
+[constraints]
+max_changed_lines = 12
+
+[random]
+count = 4

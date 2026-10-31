@@ -23,7 +23,8 @@ def test_briefs_and_hints_render_for_both_interfaces(number):
 @pytest.mark.parametrize("number", sorted(LEVELS, reverse=True))
 def test_starters_do_not_assume_a_terminal(number):
     """Starters open in the browser editor too; they mustn't tell you to run `ring ...`."""
-    assert not re.search(r"\bring [a-z]", LEVELS[number].starter.read_text())
+    commands = "status|list|brief|start|test|submit|hint|docs|listing|debug|dap|ui|library|check-levels"
+    assert not re.search(rf"\bring ({commands})\b", LEVELS[number].starter.read_text())
 
 
 @pytest.mark.parametrize("number", sorted(LEVELS, reverse=True))

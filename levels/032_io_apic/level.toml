@@ -1,0 +1,19 @@
+level = 32
+slug = "io_apic"
+title = "I/O APIC"
+arc = "XII"
+mode = "multiboot"
+concepts = ["the I/O APIC: devices' interrupts, routed to any core and vector", "indirect registers: IOREGSEL and IOWIN", "redirection entries: vector, delivery, polarity, trigger, mask, destination", "ISA IRQs and global system interrupts", "a ring buffer between an interrupt handler and the main loop", "EOI to the Local APIC"]
+introduces = ["0xFEC00000", "IOREGSEL / IOWIN", "redirection table entries", "a single-producer, single-consumer ring buffer"]
+
+hints = [
+  "The I/O APIC has two memory-mapped registers: IOREGSEL at 0xFEC00000 (write a register number) and IOWIN at 0xFEC00010 (then read or write that register). Redirection entry n is registers 0x10 + 2n (low dword) and 0x11 + 2n (high dword); the keyboard is ISA IRQ 1, so 0x12 and 0x13.",
+  "Low dword: the vector in bits 0-7, and all other bits 0: fixed delivery, physical destination, active high, edge triggered, and bit 16 (mask) clear. High dword: the destination Local APIC's ID in bits 24-31 (0, the only CPU). The Local APIC must be enabled (level 33's SVR write), and the legacy PIC masked (level 34), or IRQ 1 also arrives as vector 9.",
+  "The handler: in al, 0x60, then buffer[head % 16] = al and head + 1 (only if head − tail < 16), then write 0 to the Local APIC's EOI register and iret. The main loop: cli; if tail == head, sti then hlt (together: level 30) and try again; else take buffer[tail % 16], tail + 1, sti, and handle the scancode like level 43.",
+]
+
+[constraints]
+max_instructions = 250
+
+[random]
+count = 2
