@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 175" width="760" height="175" role="img">
+<title>Demand paging: a fault in the lazy region walks the tables, creating the missing ones, and maps a fresh frame</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555555"/></marker></defs>
+<rect x="0" y="0" width="760" height="175" fill="#ffffff"/>
+<text x="20" y="28" font-family="sans-serif" font-size="14" font-weight="bold" fill="#222222">#PF at 0xffffc009cf86d290: not present, in the lazy region</text>
+<rect x="20" y="50" width="100" height="54" rx="5" fill="#eeeeee" stroke="#888888" stroke-width="1.5"/>
+<text x="70.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">CR3</text>
+<path d="M122,77.0 L142,77.0" stroke="#555555" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="144" y="50" width="100" height="54" rx="5" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="194.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PML4</text>
+<text x="194.0" y="90" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#555555">entry 384</text>
+<path d="M246,77.0 L266,77.0" stroke="#555555" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="268" y="50" width="100" height="54" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="318.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PDPT</text>
+<text x="318.0" y="90" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#555555">made if missing</text>
+<path d="M370,77.0 L390,77.0" stroke="#555555" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="392" y="50" width="100" height="54" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="442.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PD</text>
+<text x="442.0" y="90" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#555555">made if missing</text>
+<path d="M494,77.0 L514,77.0" stroke="#555555" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="516" y="50" width="100" height="54" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="566.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">PT</text>
+<text x="566.0" y="90" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#555555">made if missing</text>
+<path d="M618,77.0 L638,77.0" stroke="#555555" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="640" y="50" width="100" height="54" rx="5" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+<text x="690.0" y="73" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#222222">page</text>
+<text x="690.0" y="90" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#555555">fresh, zeroed</text>
+<text x="20" y="138" font-family="sans-serif" font-size="12" fill="#555555">Dashed: tables that may not exist yet. Each is a frame from alloc_frame, zeroed, stored as frame | 3 in the entry above it.</text>
+<text x="20" y="158" font-family="sans-serif" font-size="12" fill="#555555">Then invlpg, iretq: the faulting instruction runs again, and this time the page is there.</text>
+</svg>

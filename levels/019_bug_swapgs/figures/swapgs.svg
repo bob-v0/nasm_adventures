@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 250" width="740" height="250" role="img">
+<title>From ring 3 the timer must swapgs to reach the kernel data; from inside a system call it must not</title>
+<rect x="0" y="0" width="740" height="250" fill="#ffffff"/>
+<text x="20" y="62" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">timer in ring 3</text>
+<rect x="200" y="30" width="160" height="52" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+<text x="280" y="52" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">gs = program's</text>
+<text x="280" y="70" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">when it arrives</text>
+<rect x="376" y="30" width="160" height="52" rx="5" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="456" y="52" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">swapgs</text>
+<text x="456" y="70" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">gs = kernel's</text>
+<rect x="552" y="30" width="160" height="52" rx="5" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="632" y="52" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">inc [gs:16]</text>
+<text x="632" y="70" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">the kernel's ticks ✓</text>
+<text x="20" y="142" font-family="sans-serif" font-size="13" font-weight="bold" fill="#222222">timer in a syscall</text>
+<rect x="200" y="110" width="160" height="52" rx="5" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="280" y="132" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">gs = kernel's</text>
+<text x="280" y="150" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">syscall already swapped</text>
+<rect x="376" y="110" width="160" height="52" rx="5" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.5"/>
+<text x="456" y="132" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">swapgs</text>
+<text x="456" y="150" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">gs = program's!</text>
+<rect x="552" y="110" width="160" height="52" rx="5" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.5"/>
+<text x="632" y="132" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#222222">inc [gs:16]</text>
+<text x="632" y="150" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#555555">the program's data ✗</text>
+<text x="20" y="210" font-family="sans-serif" font-size="12" fill="#555555">The fix: look at the interrupted cs, [rsp + 8]. Ring 3 (low bits 3): swapgs on the way in and on the way out.</text>
+<text x="20" y="228" font-family="sans-serif" font-size="12" fill="#555555">Ring 0: gs is the kernel's already; leave it.</text>
+</svg>

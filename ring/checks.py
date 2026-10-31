@@ -272,7 +272,9 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
                   if note else None, com2="com2" in inj,
-                  extra_args=["-cpu", inj["cpu"]] if "cpu" in inj else None) as run:
+                  extra_args=["-cpu", inj["cpu"]] if "cpu" in inj else None,
+                  fill=[(f["addr"], _junk(f["size"], f.get("seed", 0))) for f in inj.get("fill", [])]
+                  ) as run:
         run.symbols = build.symbols
         run.samples = {}
         if "ready" in inj:                    # wait until the program says it's listening
@@ -354,6 +356,12 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
         if problems and serial and "serial" not in exp:
             problems.append(f"serial output: {_show(serial)}")
     return TestResult(test.name, test.hidden, not problems, problems, 0)
+
+
+def _junk(size: int, seed: int) -> bytes:
+    """Garbage for RAM that a kernel must not assume is zero."""
+    import random
+    return random.Random(seed).randbytes(size)
 
 
 def _compare_text(what: str, want: bytes, got: bytes) -> str:

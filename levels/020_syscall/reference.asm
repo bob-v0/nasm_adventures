@@ -1,0 +1,434 @@
+; Level 20 — syscall/sysret (reference)
+
+bits 32
+
+MB_FLAGS equ 1 << 0 | 1 << 1
+P        equ 1 << 0
+W        equ 1 << 1
+PS       equ 1 << 7
+NX_HIGH  equ 1 << 31
+HIGH     equ 0xFFFFFFFF80000000     ; the higher half: virtual HIGH + x = physical x
+EFER     equ 0xC0000080
+USER     equ 0x400000           ; the user program: a 2 MiB page user mode may use
+USER_TOP equ 0x600000           ; (its stack grows down from the top)
+U        equ 1 << 2             ; user: in an entry, at every level of the walk
+KERNEL_CS equ 0x08
+KERNEL_DS equ 0x10
+USER_DS  equ 0x18
+USER_CS  equ 0x20
+TSS_SEL  equ 0x28
+STAR     equ 0xC0000081
+LSTAR    equ 0xC0000082
+SFMASK   equ 0xC0000084
+GS_BASE  equ 0xC0000101
+KERNEL_GS_BASE equ 0xC0000102
+EFAULT   equ 14
+ENOSYS   equ 38
+EINVAL   equ 22
+
+section .multiboot
+align 4
+    dd 0x1BADB002, MB_FLAGS, -(0x1BADB002 + MB_FLAGS)
+
+section .text
+global _start
+_start:
+    mov esp, stack_top
+    mov [boot_info], ebx
+    ; One PD maps the first 1 GiB, and all three regions share it:
+    ;   PML4[0]   -> pdpt_low[0]    -> pd   identity
+    ;   PML4[511] -> pdpt_high[510] -> pd   0xFFFFFFFF80000000
+    ;   PML4[256] -> pdpt_low[0]    -> pd   0xFFFF800000000000, NX at the PML4 level
+    mov dword [pml4 + 0 * 8], pdpt_low + P + W + U   ; (U here and below: one
+    mov dword [pml4 + 256 * 8], pdpt_low + P + W
+    mov dword [pml4 + 256 * 8 + 4], NX_HIGH
+    mov dword [pml4 + 511 * 8], pdpt_high + P + W
+    mov dword [pdpt_low + 0 * 8], pd + P + W + U     ;  2 MiB page of it is user's)
+    mov dword [pdpt_high + 510 * 8], pd + P + W
+    ; the first 2 MiB through a page table, so its first 4 KiB can stay unmapped
+    mov dword [pd + 0 * 8], pt + P + W
+    mov ecx, 1
+.small:
+    mov eax, ecx
+    shl eax, 12
+    or eax, P + W
+    mov [pt + ecx * 8], eax
+    inc ecx
+    cmp ecx, 512
+    jb .small
+    ; the rest: 2 MiB pages
+    mov ecx, 1
+.large:
+    mov eax, ecx
+    shl eax, 21
+    or eax, P + W + PS
+    mov [pd + ecx * 8], eax
+    inc ecx
+    cmp ecx, 512
+    jb .large
+    ; the switch: PAE on, CR3 = the PML4, EFER.LME (and NXE: the direct map uses NX),
+    ; then paging on, which (with LME) activates long mode
+    or dword [pd + 2 * 8], U    ; 0x400000-0x5FFFFF: the user program's page
+    mov eax, cr4
+    or eax, 1 << 5              ; PAE
+    mov cr4, eax
+    mov eax, pml4
+    mov cr3, eax
+    mov ecx, EFER
+    rdmsr
+    or eax, 1 << 0 | 1 << 8 | 1 << 11  ; SCE (syscall), LME, NXE
+    wrmsr
+    mov eax, cr0
+    or eax, 1 << 31             ; PG
+    mov cr0, eax
+    ; still running 32-bit code ("compatibility mode") until CS is a 64-bit segment
+    lgdt [gdt_pointer]
+    jmp 0x08:long_mode
+
+bits 64
+long_mode:
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    xor ax, ax
+    mov fs, ax
+    mov gs, ax
+    mov rax, HIGH + higher_half     ; the same code, through the higher half's mapping
+    jmp rax
+higher_half:
+    mov rsp, HIGH + stack_top
+    call init_idt
+    ; the game's test: the first module, copied to MODULE and called
+    mov ebx, [boot_info]
+    mov esi, [rbx + 24]
+    mov ecx, [rsi + 4]
+    mov esi, [rsi]
+    sub ecx, esi
+    mov edi, USER
+    rep movsb
+    call init_syscall
+    ; to ring 3: iretq pops rip, cs, rflags, rsp, ss, so push a frame that says user mode
+    push USER_DS | 3                ; ss (RPL 3)
+    push USER_TOP                   ; rsp
+    push 0x202                      ; rflags: IF on
+    push USER_CS | 3                ; cs (RPL 3: the ring to return to)
+    push USER                       ; rip
+    iretq
+
+; ---- system calls ---------------------------------------------------------------------
+
+init_syscall:
+    mov ecx, STAR                   ; the selectors: syscall loads cs = 0x08, ss = 0x10;
+    xor eax, eax                    ; sysret loads cs = 0x10 + 16 = 0x20 and ss = 0x10 + 8
+    mov edx, KERNEL_DS << 16 | KERNEL_CS   ; = 0x18, both with RPL 3
+    wrmsr
+    mov ecx, LSTAR                  ; where syscall goes
+    mov rax, HIGH + syscall_entry
+    mov rdx, rax
+    shr rdx, 32
+    wrmsr
+    mov ecx, SFMASK                 ; rflags bits cleared on the way in: TF, IF, DF
+    mov eax, 0x700
+    xor edx, edx
+    wrmsr
+    mov ecx, GS_BASE                ; while the program runs, gs is its own (0 for now)...
+    xor eax, eax
+    xor edx, edx
+    wrmsr
+    mov ecx, KERNEL_GS_BASE         ; ...and swapgs brings in the kernel's: percpu
+    mov rax, HIGH + percpu
+    mov rdx, rax
+    shr rdx, 32
+    wrmsr
+    mov rax, HIGH + stack_top
+    mov [percpu + 0], rax           ; the kernel stack
+    ret
+
+; syscall: rcx = the program's rip, r11 = its rflags, rsp = still its stack. Interrupts
+; are off (SFMASK), so nothing can come between the swapgs and the stack switch.
+syscall_entry:
+    swapgs                          ; gs = percpu
+    mov [gs:8], rsp                 ; the program's rsp
+    mov rsp, [gs:0]                 ; the kernel's
+    push rcx
+    push r11
+    push rdi
+    push rsi
+    push rdx
+    push rbx
+    cmp rax, 1
+    je .write
+    cmp rax, 60
+    je .exit
+    cmp rax, 158
+    je .arch_prctl
+    mov rax, -ENOSYS
+.return:
+    pop rbx
+    pop rdx
+    pop rsi
+    pop rdi
+    pop r11
+    pop rcx
+    mov rsp, [gs:8]
+    swapgs                          ; gs = the program's again
+    o64 sysret
+
+.write:                             ; write(fd = rdi, buffer = rsi, count = rdx)
+    mov rax, -EFAULT                ; the buffer must be the program's memory
+    mov rbx, rsi
+    add rbx, rdx
+    jc .return                      ; (wraps around)
+    cmp rsi, USER
+    jb .return
+    cmp rbx, USER_TOP
+    ja .return
+    mov rcx, rdx
+    jrcxz .written
+.byte:
+    lodsb                           ; (DF is clear: SFMASK)
+    call putc
+    loop .byte
+.written:
+    mov rax, [rsp + 8]              ; the count
+    jmp .return
+
+.exit:
+    mov rsi, s_exit
+    call puts
+    mov rax, rdi
+    call decimal
+    mov rsi, crlf
+    call puts
+    cli
+    hlt
+
+.arch_prctl:                        ; (ARCH_SET_GS, address)
+    mov rax, -EINVAL
+    cmp rdi, 0x1001
+    jne .return
+    mov ecx, KERNEL_GS_BASE         ; after swapgs, the program's gs base is in here
+    mov rax, rsi
+    mov rdx, rsi
+    shr rdx, 32
+    wrmsr
+    xor eax, eax
+    jmp .return
+
+decimal:
+    mov rbx, 10
+    xor ecx, ecx
+.d:
+    xor edx, edx
+    div rbx
+    push rdx
+    inc ecx
+    test rax, rax
+    jnz .d
+.o:
+    pop rax
+    add al, '0'
+    call putc
+    loop .o
+    ret
+
+; ---- the IDT ------------------------------------------------------------------------
+
+init_idt:
+    ; the TSS: only IST1 matters here, a stack of its own for #DF
+    mov rax, HIGH + stack_top
+    mov [tss + 4], rax              ; RSP0: the kernel stack, for interrupts from ring 3
+    mov rax, HIGH + df_stack_top
+    mov [tss + 36], rax             ; IST1
+    mov word [tss + 102], 104       ; I/O map base: none
+    ; its descriptor: 16 bytes in the GDT
+    mov rax, tss
+    mov word [gdt_tss], 103         ; limit
+    mov [gdt_tss + 2], ax           ; base 0-15
+    shr rax, 16
+    mov [gdt_tss + 4], al           ; base 16-23
+    mov byte [gdt_tss + 5], 0x89    ; present, 64-bit TSS (available)
+    mov [gdt_tss + 7], ah           ; base 24-31
+    shr rax, 16
+    mov [gdt_tss + 8], eax          ; base 32-63
+    lgdt [gdt_pointer]
+    mov ax, TSS_SEL
+    ltr ax
+    ; 32 gates: stub n is at stubs + n * STUB
+    xor ecx, ecx
+.gate:
+    mov rax, HIGH + stubs
+    imul rdx, rcx, STUB
+    add rax, rdx
+    shl rcx, 4                      ; 16 bytes a gate
+    mov [idt + rcx], ax             ; offset 0-15
+    mov word [idt + rcx + 2], 0x08  ; code segment
+    mov byte [idt + rcx + 4], 0     ; IST: none...
+    mov byte [idt + rcx + 5], 0x8E  ; present, ring 0, interrupt gate
+    shr rax, 16
+    mov [idt + rcx + 6], ax         ; offset 16-31
+    shr rax, 16
+    mov [idt + rcx + 8], eax        ; offset 32-63
+    shr rcx, 4
+    inc ecx
+    cmp ecx, 32
+    jb .gate
+    mov byte [idt + 8 * 16 + 4], 1  ; ...except #DF: IST1
+    lidt [idt_pointer]
+    ret
+
+; one stub per vector, each STUB bytes: push a 0 where the CPU pushes no error code,
+; then the vector, then the common handler
+STUB equ 16
+%macro stub 1
+    align STUB
+%if %1 = 8 || (%1 >= 10 && %1 <= 14) || %1 = 17 || %1 = 21 || %1 = 29 || %1 = 30
+    nop
+    nop
+%else
+    push 0
+%endif
+    push %1
+    jmp exception
+%endmacro
+align STUB
+stubs:
+%assign n 0
+%rep 32
+    stub n
+%assign n n + 1
+%endrep
+
+; the frame: [rsp] vector, [rsp+8] error code, [rsp+16] rip, cs, rflags, rsp, ss
+exception:
+    push rax
+    push rcx
+    push rdx
+    push rsi
+    mov rcx, [rsp + 32]             ; the vector
+    lea rsi, [names + rcx * 4]
+    call puts
+    mov rsi, s_at
+    call puts
+    mov rax, [rsp + 48]
+    call hex64
+    mov rcx, [rsp + 32]
+    bt [has_error], ecx
+    jnc .no_error
+    mov rsi, s_error
+    call puts
+    mov rax, [rsp + 40]
+    call hex64
+.no_error:
+    mov rcx, [rsp + 32]             ; (hex64 used rcx)
+    cmp rcx, 14
+    jne .no_cr2
+    mov rsi, s_cr2
+    call puts
+    mov rax, cr2
+    call hex64
+.no_cr2:
+    mov rsi, crlf
+    call puts
+    cmp qword [rsp + 32], 3                      ; #BP is a trap: carry on after the int3
+    jne .stop
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
+    add rsp, 16                     ; the vector and the error code
+    iretq
+.stop:
+    cli
+    hlt
+    jmp .stop
+
+hex64:                              ; rax as 0x + 16 hex digits
+    push rax
+    mov rsi, s_0x
+    call puts
+    pop rdx
+    mov ecx, 16
+.digit:
+    rol rdx, 4
+    mov eax, edx
+    and eax, 15
+    mov al, [digits + rax]
+    call putc
+    loop .digit
+    ret
+
+putc:
+    push rdx
+    push rax
+    mov dx, 0x3FD
+.ready:
+    in al, dx
+    test al, 0x20
+    jz .ready
+    pop rax
+    mov dx, 0x3F8
+    out dx, al
+    pop rdx
+    ret
+
+puts:
+    lodsb
+    test al, al
+    jz .end
+    call putc
+    jmp puts
+.end:
+    ret
+
+section .data
+align 8
+gdt:
+    dq 0
+    dq 0x00209A0000000000           ; code: present, ring 0, L (64-bit)
+    dq 0x0000920000000000           ; data: present, writable
+    dq 0x0000F20000000000           ; 0x18 user data: DPL 3
+    dq 0x0020FA0000000000           ; 0x20 user code: DPL 3, L
+gdt_tss:
+    dq 0, 0                         ; the TSS (filled in by init_idt)
+gdt_end:
+gdt_pointer:
+    dw gdt_end - gdt - 1
+    dq gdt
+idt_pointer:
+    dw 32 * 16 - 1
+    dq idt
+has_error:  dd 1 << 8 | 1 << 10 | 1 << 11 | 1 << 12 | 1 << 13 | 1 << 14 | 1 << 17 | 1 << 21 | 1 << 29 | 1 << 30
+names:                              ; 4 bytes each
+    db "#DE", 0, "#DB", 0, "NMI", 0, "#BP", 0, "#OF", 0, "#BR", 0, "#UD", 0, "#NM", 0
+    db "#DF", 0, "#CS", 0, "#TS", 0, "#NP", 0, "#SS", 0, "#GP", 0, "#PF", 0, "#15", 0
+    db "#MF", 0, "#AC", 0, "#MC", 0, "#XM", 0, "#VE", 0, "#CP", 0, "#22", 0, "#23", 0
+    db "#24", 0, "#25", 0, "#26", 0, "#27", 0, "#HV", 0, "#VC", 0, "#SX", 0, "#31", 0
+s_at:    db " at ", 0
+s_error: db ", error code ", 0
+s_cr2:   db ", cr2 ", 0
+s_exit:  db "user program exited with status ", 0
+digits:  db "0123456789abcdef"
+s_0x:    db "0x", 0
+crlf:    db 13, 10, 0
+
+section .bss
+boot_info: resd 1
+alignb 8
+percpu:    resq 2                   ; [0] the kernel stack, [8] the program's rsp
+alignb 16
+idt:       resb 32 * 16
+tss:       resb 104
+alignb 16
+df_stack:  resb 4096
+df_stack_top:
+alignb 4096
+pml4:      resq 512
+pdpt_low:  resq 512
+pdpt_high: resq 512
+pd:        resq 512
+pt:        resq 512
+alignb 16
+stack:     resb 8192
+stack_top:

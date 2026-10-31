@@ -1,0 +1,22 @@
+level = 19
+slug = "bug_swapgs"
+title = "swapgs Confusion"
+arc = "XIII"
+bug = 4
+mode = "multiboot"
+link = "elf64"
+witness = true
+concepts = ["two gs bases, and which one is live", "an interrupt can arrive in ring 3 or in ring 0", "swapgs only when coming from ring 3: the saved cs says", "symmetry on the way out", "interrupts on inside system calls"]
+introduces = []
+
+hints = [
+  "Who changes the program's data? The program never writes to gs:16 itself. The timer does `inc qword [gs:16]`, meant for the kernel's per-CPU data. When does its gs point at the program's data instead?",
+  "swapgs exchanges the two gs bases; it doesn't know which one is live. From ring 3, gs is the program's, and the swap makes it the kernel's: right. But syscall_entry has already swapped, and turns interrupts back on: a timer interrupt during a system call swaps *back*, to the program's base, and counts there.",
+  "Swap only if the interrupt came from ring 3, and swap back only in that case. The CPU pushed the interrupted cs at [rsp + 8] (ss, rsp, rflags, cs, rip: rip at [rsp]); its low 2 bits are the ring. `test byte [rsp + 8], 3`, `jz` past the swapgs, in both places.",
+]
+
+[constraints]
+max_changed_lines = 8
+
+[random]
+count = 3

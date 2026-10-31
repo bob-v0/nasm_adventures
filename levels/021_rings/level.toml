@@ -1,0 +1,17 @@
+level = 21
+slug = "rings"
+title = "Privilege Rings"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["CPL: the ring the CPU runs in, the low 2 bits of cs", "DPL on segments and gates; RPL on selectors", "iretq to a lower ring: a frame that says user mode", "RSP0: the stack an interrupt from ring 3 lands on", "the U bit at every level of the page walk", "what ring 3 can't do: cli, hlt, kernel pages, ring-0 gates"]
+introduces = ["ring 3", "DPL 3 segments and gates", "TSS.RSP0", "the U bit", "int 0x80"]
+
+hints = [
+  "Two GDT entries for ring 3, the kernel's with DPL 3: user data at 0x18 = 0x0000F20000000000, user code at 0x20 = 0x0020FA0000000000 (DPL is bits 45-46 of a descriptor: 0x9A becomes 0xFA). To get there, push a frame and iretq: ss = 0x18 | 3, rsp = USER_TOP, rflags = 0x202, cs = 0x20 | 3, rip = USER. The 3 in the selectors (RPL) says which ring they're for.",
+  "The page walk checks U at every level: the user's page needs it in PML4 entry 0, PDPT entry 0 (pdpt_low) and PD entry 2 (the 2 MiB page at 0x400000). The rest of the PD stays without it, so everything else is the kernel's. An int from ring 3 switches to the stack in the TSS's RSP0 (offset 4): set it to the kernel stack (HIGH + stack_top), or the first int 0x80 has nowhere to push.",
+  "The int 0x80 gate: like the others, but type 0xEE (DPL 3), so ring 3 may call it; the IDT must then reach vector 0x80 (256 gates: limit 256 * 16 - 1). The handler: rax = 1: print rdx bytes from rsi, iretq; rax = 60: the exit line with rdi in decimal (`decimal` is there), cli, hlt.",
+]
+
+[random]
+count = 1

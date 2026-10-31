@@ -1,0 +1,17 @@
+level = 22
+slug = "page_faults"
+title = "Page Faults"
+arc = "XIII"
+mode = "multiboot"
+link = "elf64"
+concepts = ["the page fault error code: present, write, user, fetch", "CR2: the address that faulted", "demand paging: map on first touch, then retry", "building page tables on the fly", "zeroing fresh memory", "invlpg"]
+introduces = ["demand paging", "invlpg"]
+
+hints = [
+  "lazy_fault: the error code's bit 0 is 1 when the page was there (a protection fault): not yours. Otherwise, if LAZY <= cr2 < LAZY_END (compare as unsigned 64-bit, through a register: `mov rdi, LAZY`, `cmp rax, rdi`): alloc_frame, map_page(cr2 rounded down to 4096, the frame), stc, ret. alloc_frame's frames are already zeroed: fresh memory must read as 0, never as what was there before.",
+  "map_page walks down from CR3 (`mov rbx, cr3`, and ~0xFFF) through three tables: the index at each level is (va >> 39) & 511, then >> 30, then >> 21. If the entry's bit 0 is clear, alloc_frame a new (zeroed) table and store frame | 3 (present, writable) in the entry. The next table's address is the entry & 0x000FFFFFFFFFF000; RAM is below 1 GiB, so that physical address is also a usable pointer.",
+  "Three tables, then the page itself: after the PD comes the PT, and its entry (index (va >> 12) & 511) is the frame | 3, not another table. An off-by-one there maps the page onto a fresh table and still seems to work, until a test reads the slot holding the frame's address. Finish with `invlpg [rdi]`.",
+]
+
+[random]
+count = 2
