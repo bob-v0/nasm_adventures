@@ -9,7 +9,7 @@ import struct
 import re
 from dataclasses import dataclass, field
 
-from capstone import CS_ARCH_X86, CS_MODE_64, Cs
+from capstone import CS_ARCH_X86, CS_MODE_16, CS_MODE_64, Cs
 from elftools.elf.elffile import ELFFile
 
 from .build import Build
@@ -60,6 +60,19 @@ class Report:
 
 def disassemble(build: Build) -> list[tuple[int, str, str]]:
     """(address, mnemonic, operands) for the player's code."""
+    if build.mode == "boot":                # 16-bit code: the listing's instruction lines
+        md = Cs(CS_ARCH_X86, CS_MODE_16)
+        image = build.elf.read_bytes()
+        out = []
+        for m in re.finditer(r"^\s*\d+\s+([0-9A-F]{8})\s+[0-9A-F\[\]()]+-?\s+(?:[\w.]+:)?\s*(\w+)",
+                             build.listing, re.M):
+            offset, first = int(m.group(1), 16), m.group(2).lower()
+            if first in ("db", "dw", "dd", "dq", "times", "resb", "resw", "incbin"):
+                continue
+            ins = next(md.disasm(image[offset:offset + 15], 0x7C00 + offset), None)
+            if ins is not None:
+                out.append((ins.address, ins.mnemonic, ins.op_str))
+        return out
     if build.mode == "native":
         if build.player_object is None:   # a flat file written with `nasm -f bin`
             return []
@@ -210,7 +223,109 @@ def run_native_test(level: Level, build: Build, test: TestCase) -> TestResult:
     return TestResult(test.name, test.hidden, not problems, problems, 0)
 
 
+def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
+    """A test on the whole emulated PC (ring/qemu.py)."""
+    from . import qemu
+    image = build.elf.read_bytes()
+    exp, inj = test.expect, test.inject
+    if len(image) < 512 or image[510:512] != b"\x55\xAA":
+        got = image[510:512].hex(" ") if len(image) >= 512 else f"only {len(image)} bytes"
+        return TestResult(test.name, test.hidden, False, [
+            "the BIOS won't boot this: a boot sector is 512 bytes and ends with the bytes "
+            f"55 AA (dw 0xAA55); yours: {got}. End it with `times 510 - ($ - $$) db 0` and "
+            "`dw 0xAA55`"], 0)
+    if "max_size" in exp and len(image) > exp["max_size"]:
+        return TestResult(test.name, test.hidden, False, [
+            f"the image is {len(image)} bytes; at most {exp['max_size']}"], 0)
+    problems: list[str] = []
+    note = inj.get("note")                    # {"seg", "off", "text"}: left in memory for you
+    if "append" in inj:                       # the game's sectors after your boot sector
+        if len(image) > 512:
+            return TestResult(test.name, test.hidden, False, [
+                f"your image is {len(image)} bytes: this level's disk has the game's code from "
+                "sector 2 on, so yours must be exactly one sector (512 bytes)"], 0)
+        image = image + bytes.fromhex(inj["append"])
+    with qemu.Run(image, profile=inj.get("bios", "seabios"), disk_size=inj.get("disk_size", 0),
+                  memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
+                  note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
+                  if note else None) as run:
+        if "keys" in inj:
+            if "ready" in inj:                # wait until the program says it's listening
+                run.wait("serial", timeout=qemu.TIMEOUT_S, serial=inj["ready"].encode())
+            else:
+                run.wait("time", timeout=inj.get("key_delay", 0.5))
+            run.send_keys(inj["keys"])
+        until = exp.get("until", "halt")
+        why = run.wait(until, timeout=exp.get("timeout", qemu.TIMEOUT_S),
+                       serial=exp.get("serial_until", "").encode() or None)
+        regs = run.registers() if run.alive else None
+        screen = run.screen() if run.alive else []
+        serial = run.serial()
+        if why == "reset":
+            problems.append("the machine reset: a triple fault (an exception while the CPU "
+                            "couldn't deliver one, e.g. no valid interrupt table) or a jump "
+                            "to the reset vector" + _boot_where(build, run))
+        elif why == "timeout" and until == "halt":
+            where = f" (it's at {regs['cs']:04x}:{regs['eip']:04x}" + (
+                f", line {build.addr_to_line[regs['cs'] * 16 + regs['eip']]}"
+                if regs and regs["cs"] * 16 + regs["eip"] in build.addr_to_line else "") + ")" \
+                if regs else ""
+            problems.append(f"didn't halt within {exp.get('timeout', qemu.TIMEOUT_S):g} seconds"
+                            f"{where}: end with cli and hlt")
+        elif why == "exit" and "exit" not in exp:
+            problems.append(f"the program wrote {run.exit_code} to port 0xF4 (the game's exit "
+                            "port) before finishing")
+        elif until == "serial" and why != "serial":
+            problems.append(f"the serial port never said {exp['serial_until']!r} "
+                            f"({'it halted' if why == 'halt' else why} first)")
+        if not problems:
+            for name, want in exp.get("regs", {}).items():
+                got = regs[name] if regs else None
+                if got != want:
+                    problems.append(f"{name}: expected {want:#x}, got "
+                                    + (f"{got:#x}" if got is not None else "nothing"))
+            if "exit" in exp and run.exit_code != exp["exit"]:
+                problems.append(f"exit port 0xF4: expected {exp['exit']}, got {run.exit_code}")
+            if "serial" in exp:
+                want = exp["serial"].encode() if isinstance(exp["serial"], str) else exp["serial"]
+                if serial != want:
+                    problems.append(_compare("serial port", want, serial))
+            for text in exp.get("screen_contains", []):
+                if not any(text in row for row in screen):
+                    problems.append(f"the screen doesn't show {text!r}")
+            for spec in exp.get("mem", []):
+                want = bytes.fromhex(spec["hex"])
+                got = run.read(spec["addr"], len(want)) if run.alive else b""
+                if got != want:
+                    problems.append(f"memory at {spec['addr']:#x}: expected {want.hex(' ')}, "
+                                    f"got {got.hex(' ')}")
+            if exp.get("check"):
+                problems += level._gen_module().check(test, run, regs, screen, serial)
+        if problems and screen and exp.get("show_screen", True):
+            shown = [r for r in screen]
+            while shown and not shown[-1]:
+                shown.pop()
+            problems.append("the screen:\n" + "\n".join("    |" + r for r in shown[-12:]))
+        if problems and serial and "serial" not in exp:
+            problems.append(f"serial output: {_show(serial)}")
+    return TestResult(test.name, test.hidden, not problems, problems, 0)
+
+
+def _boot_where(build: Build, run) -> str:
+    log = (run.dir / "qemu.log").read_text(errors="replace") if (run.dir / "qemu.log").exists() else ""
+    dumps = log.split("CPU Reset")
+    if len(dumps) < 3:
+        return ""
+    from .qemu import parse_registers
+    r = parse_registers(dumps[-1])
+    addr = r.values.get("cs_base", 0) + r.values.get("eip", 0)
+    line = build.addr_to_line.get(addr)
+    return f"; last at {r['cs']:04x}:{r['eip']:04x}" + (f" (line {line})" if line else "")
+
+
 def run_test(level: Level, build: Build, test: TestCase) -> tuple[TestResult, Machine]:
+    if level.mode == "boot":
+        return run_boot_test(level, build, test), None
     if level.mode == "native":
         return run_native_test(level, build, test), None
     if "signal_sweep" in test.inject:

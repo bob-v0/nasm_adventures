@@ -1,6 +1,7 @@
 """Every level's reference passes and its starter fails; program-mode references
 behave identically in the emulator and on the real CPU."""
 
+import shutil
 import subprocess
 
 import pytest
@@ -30,6 +31,8 @@ def test_levels_match_the_curriculum():
 
 @pytest.mark.parametrize("ring", sorted(LEVELS, reverse=True))
 def test_level(ring, tmp_path):
+    if LEVELS[ring].mode == "boot" and not shutil.which("qemu-system-x86_64"):
+        pytest.skip("boot levels need qemu-system-x86_64")
     assert check_level(LEVELS[ring], CTX, tmp_path) == []
 
 

@@ -108,6 +108,17 @@ def _link_errors(stderr: str, gen_name: str, player_name: str, offset: int, text
     return msg
 
 
+def _boot_lines(listing: str) -> tuple[dict[int, int], dict[int, int]]:
+    """Source lines of a boot image's code by address, assuming it runs at 0x7C00 (the
+    listing gives offsets in the file)."""
+    addr_to_line, line_to_addr = {}, {}
+    for m in re.finditer(r"^\s*(\d+)\s+([0-9A-F]{8})\s+[0-9A-F]", listing, re.M):
+        line, offset = int(m.group(1)), int(m.group(2), 16)
+        addr_to_line.setdefault(0x7C00 + offset, line)
+        line_to_addr.setdefault(line, 0x7C00 + offset)
+    return addr_to_line, line_to_addr
+
+
 def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
           prelude: Path | None = None, defines: dict[str, str] | None = None,
           helpers: list[Path] = (), entry: str | None = None,
@@ -136,7 +147,7 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
         asm_input, line_offset = source, 0
 
     obj, elf, lst = out_dir / "solution.o", out_dir / "solution", out_dir / "solution.lst"
-    if link == "bin":    # no linker: NASM's output is the executable, headers and all
+    if link == "bin" or mode == "boot":    # no linker: NASM's output is the file
         cmd = ["nasm", "-f", "bin", "-l", str(lst), "-o", str(elf)]
     else:
         cmd = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-l", str(lst), "-o", str(obj)]
@@ -151,6 +162,14 @@ def build(source: Path, out_dir: Path, mode: str, include_dirs: list[Path] = (),
     if r.returncode != 0:
         raise BuildError(msgs)
 
+    if mode == "boot":
+        # A disk image for QEMU (Arcs XI-XIV): sector 0 is what the BIOS loads at 0x7C00.
+        b = Build(elf=elf, source=source, mode=mode, entry=0x7C00, symbols={}, sections={},
+                  code_range=(0x7C00, 0x7C00 + elf.stat().st_size))
+        b.warnings = msgs
+        b.listing = lst.read_text()
+        b.addr_to_line, b.line_to_addr = _boot_lines(b.listing)
+        return b
     if mode == "native":
         # Linked by gcc with the C library (and the level's C harness, if any).
         if link == "bin":

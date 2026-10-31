@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -218,6 +219,8 @@ def cmd_debug(args, prog: Progress) -> int:
         s = Session(b)
     else:
         lv = get_level(args.level, prog)
+        if lv.mode == "boot":
+            return _debug_boot(lv, prog, Path(args.file) if args.file else None)
         if lv.mode == "native":
             raise CliError("this level runs natively with the C library, which `ring debug` can't "
                            "emulate. Use gdb: `gdb ./solution` in the level folder (after `ring test`).")
@@ -229,6 +232,42 @@ def cmd_debug(args, prog: Progress) -> int:
         if s.test.name != "debug":
             print(c("2", f"(running with the inputs of test {s.test.name!r}; --test NAME picks another)"))
     TerminalDebugger(s, color=COLOR).loop()
+    return 0
+
+
+def _debug_boot(lv, prog: Progress, file: Path | None) -> int:
+    """A boot level under gdb: QEMU waits at the reset vector with its gdb stub open."""
+    import subprocess
+    import tempfile
+    from .game import build_solution
+    from . import qemu
+    src = file or solution_path(lv)
+    try:
+        b = build_solution(lv, src)
+    except BuildError as e:
+        show_build_error(e)
+        return 1
+    if not qemu.available() or not shutil.which("gdb"):
+        raise CliError("this needs qemu-system-x86_64 and gdb (both are in the game's Docker image)")
+    d = Path(tempfile.mkdtemp(prefix="ring-gdb-"))
+    disk = d / "disk.img"
+    disk.write_bytes(b.elf.read_bytes().ljust(64 * 512, b"\0"))
+    q = subprocess.Popen(["qemu-system-x86_64", "-machine", "pc", "-m", qemu.MEMORY, "-display", "none",
+                          "-drive", f"file={disk},format=raw,if=ide,index=0", "-serial", f"file:{d / 'serial.txt'}",
+                          "-no-reboot", "-S", "-gdb", "tcp:127.0.0.1:1234"])
+    script = d / "gdbinit"
+    script.write_text("set architecture i8086\ntarget remote 127.0.0.1:1234\n"
+                      "set disassembly-flavor intel\nbreak *0x7c00\n"
+                      "display/i $cs*16 + $pc\n"
+                      "echo \\nStopped at the reset vector, F000:FFF0. `continue` runs the BIOS up to your boot sector;\\n"
+                      "echo `si` steps one instruction, `info registers`, `x/16xb 0x7c00`. The serial port goes to "
+                      f"{d / 'serial.txt'}.\\n\\n\n")
+    print(c("2", "QEMU is waiting at the reset vector; gdb is attached (quit with `quit`)."))
+    try:
+        subprocess.call(["gdb", "-q", "-x", str(script)])
+    finally:
+        q.kill()
+        q.wait()
     return 0
 
 

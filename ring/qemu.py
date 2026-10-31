@@ -1,0 +1,367 @@
+"""The bare-metal runner (Arcs XI-XIV): the player's `nasm -f bin` image boots in
+qemu-system-x86_64, a whole PC with a BIOS (SeaBIOS), VGA, serial port, keyboard
+controller, PIT and PIC.
+
+QEMU runs with -icount (instruction counting, no real-time sleeping), so a run is
+deterministic: the same image and the same keys give the same result. The game talks to
+it over QMP: it reads registers and memory, the VGA text screen, and the serial port
+(a file), sends keys, and stops it.
+
+A run ends when the CPU halts with interrupts off (`cli` / `hlt`: nothing can wake it),
+when the guest writes to the isa-debug-exit port (0xF4), when the machine resets (a
+triple fault: QEMU runs with -no-reboot), or at the time limit.
+
+Some tests boot the player's disk through a small chain loader of the game's (a
+"BIOS profile") that hands over with the registers another BIOS might use, or with the
+A20 line off.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import tempfile
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .build import BuildError
+
+TIMEOUT_S = 4.0
+MEMORY = "32M"
+SECTOR = 512
+
+# Hand-over states for the chain loader (see STUB): segment registers, sp, cs:ip, A20.
+PROFILES = {
+    # SeaBIOS (QEMU's own): cs:ip = 0000:7C00, ds = es = ss = 0, dl = boot drive
+    "seabios": None,
+    # SeaBIOS's state, through the chain loader (to leave a note in memory, say)
+    "plain": {"CS_IP": "0x0000:0x7C00", "DS": "0", "ES": "0", "SS": "0", "SP": "0x7C00",
+              "A20": 1},
+    # Another BIOS: jumps to 07C0:0000 and leaves junk in the segment registers
+    "odd": {"CS_IP": "0x07C0:0x0000", "DS": "0x1234", "ES": "0x5678", "SS": "0x0030",
+            "SP": "0x0100", "A20": 1},
+    # A BIOS that leaves the A20 line off (memory above 1 MiB wraps around)
+    "a20off": {"CS_IP": "0x0000:0x7C00", "DS": "0", "ES": "0", "SS": "0", "SP": "0x7C00",
+               "A20": 0},
+}
+
+STUB = r"""
+; The game's chain loader: booted from a floppy, it loads sector 0 of the hard disk
+; (the player's) to 0000:7C00 and jumps there in the state of a %PROFILE% BIOS.
+bits 16
+org 0x0600
+    cli
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    mov sp, 0x7C00
+    mov si, 0x7C00              ; move out of the way first: copy 512 bytes to 0x0600
+    mov di, 0x0600
+    mov cx, 256
+    cld
+    rep movsw
+    jmp 0:relocated
+relocated:
+    mov ax, 0x0201              ; read 1 sector: cylinder 0, head 0, sector 1 of drive 0x80
+    mov cx, 0x0001
+    mov dx, 0x0080
+    mov bx, 0x7C00
+    int 0x13
+%if A20 == 0
+    in al, 0x92                 ; turn A20 off (the "fast A20" bit of port 0x92)
+    and al, 0xFD
+    out 0x92, al
+%endif
+    mov cx, [note_len]          ; a note for the player: copied to note_seg:note_off,
+    jcxz .no_note               ; with a far pointer to it at 0000:0500
+    mov ax, [note_seg]
+    mov es, ax
+    mov di, [note_off]
+    mov [0x0502], ax
+    mov [0x0500], di
+    mov si, note_text
+    rep movsb
+.no_note:
+    mov ax, DS_VALUE
+    mov ds, ax
+    mov ax, ES_VALUE
+    mov es, ax
+    mov ax, SS_VALUE
+    mov ss, ax
+    mov sp, SP_VALUE
+    xor ax, ax
+    xor bx, bx
+    mov cx, 0x5A5A
+    xor si, si
+    xor di, di
+    mov dx, 0x0080              ; dl = the boot drive, as every BIOS does
+    sti
+    jmp CS_IP
+note_seg: dw NOTE_SEG
+note_off: dw NOTE_OFF
+note_len: dw NOTE_LEN
+note_text: NOTE_TEXT
+times 510 - ($ - $$) db 0
+dw 0xAA55
+"""
+
+
+def available() -> bool:
+    return shutil.which("qemu-system-x86_64") is not None
+
+
+def _stub(profile: str, workdir: Path, note: tuple | None = None) -> Path:
+    p = PROFILES[profile]
+    src = workdir / "stub.asm"
+    text = STUB.replace("%PROFILE%", profile)
+    seg, off, data = note or (0, 0, b"")
+    if len(data) > 200:
+        raise ValueError("a note is at most 200 bytes")
+    text = text.replace("NOTE_TEXT", "db " + ", ".join(str(b) for b in data) if data else "")
+    defines = {"A20": p["A20"], "DS_VALUE": p["DS"], "ES_VALUE": p["ES"], "SS_VALUE": p["SS"],
+               "SP_VALUE": p["SP"], "NOTE_SEG": seg, "NOTE_OFF": off, "NOTE_LEN": len(data)}
+    text = "\n".join(f"%define {k} {v}" for k, v in defines.items()) + "\n" + \
+        text.replace("jmp CS_IP", f"jmp {p['CS_IP'].replace(':', ':')}")
+    src.write_text(text)
+    out = workdir / "stub.img"
+    r = subprocess.run(["nasm", "-f", "bin", "-o", str(out), str(src)], capture_output=True,
+                       text=True)
+    if r.returncode:
+        raise BuildError(f"the game's chain loader failed to assemble:\n{r.stderr}")
+    out.write_bytes(out.read_bytes() + bytes(1474560 - SECTOR))     # a 1.44 MB floppy
+    return out
+
+
+@dataclass
+class Registers:
+    values: dict = field(default_factory=dict)      # eax, ..., eip, eflags, cs, ds, ..., cr0
+    halted: bool = False
+    a20: bool = True
+
+    def __getitem__(self, name: str) -> int:
+        n = name.lower()
+        if n in self.values:
+            return self.values[n]
+        sixteen = {"ax": "eax", "bx": "ebx", "cx": "ecx", "dx": "edx", "si": "esi", "di": "edi",
+                   "bp": "ebp", "sp": "esp", "ip": "eip", "flags": "eflags"}
+        if n in sixteen:
+            return self.values[sixteen[n]] & 0xFFFF
+        if n in ("al", "bl", "cl", "dl"):
+            return self.values["e" + n[0] + "x"] & 0xFF
+        if n in ("ah", "bh", "ch", "dh"):
+            return self.values["e" + n[0] + "x"] >> 8 & 0xFF
+        raise KeyError(name)
+
+
+def parse_registers(text: str) -> Registers:
+    r = Registers()
+    for name, value in re.findall(r"\b(EAX|EBX|ECX|EDX|ESI|EDI|EBP|ESP|EIP|EFL|CR0|CR2|CR3|CR4)"
+                                  r"=([0-9a-f]+)", text, re.I):
+        r.values["eflags" if name == "EFL" else name.lower()] = int(value, 16)
+    for seg, sel, base in re.findall(r"^(ES|CS|SS|DS|FS|GS) =([0-9a-f]{4}) ([0-9a-f]+)", text,
+                                     re.I | re.M):
+        r.values[seg.lower()] = int(sel, 16)
+        r.values[seg.lower() + "_base"] = int(base, 16)
+    for name, base, limit in re.findall(r"^(GDT|IDT)=\s+([0-9a-f]+) ([0-9a-f]+)", text, re.M):
+        r.values[name.lower() + "_base"] = int(base, 16)
+        r.values[name.lower() + "_limit"] = int(limit, 16)
+    r.halted = "HLT=1" in text
+    r.a20 = "A20=1" in text
+    return r
+
+
+class Run:
+    """One boot of the player's image."""
+
+    def __init__(self, image: bytes, profile: str = "seabios", disk_size: int = 0,
+                 memory: str = MEMORY, extra_args: list[str] | None = None,
+                 note: tuple | None = None, rtc: str = "2025-01-01T00:00:00"):
+        if not available():
+            raise BuildError("this level runs on a whole emulated PC: qemu-system-x86_64 must be "
+                             "installed (it is in the game's Docker image).")
+        self.dir = Path(tempfile.mkdtemp(prefix="ring-qemu-"))
+        disk = self.dir / "disk.img"
+        size = max(disk_size, len(image), 64 * SECTOR)
+        size = (size + SECTOR - 1) // SECTOR * SECTOR
+        disk.write_bytes(image + bytes(size - len(image)))
+        self.serial_path = self.dir / "serial.txt"
+        self.sock = self.dir / "qmp.sock"
+        args = ["qemu-system-x86_64", "-machine", "pc", "-m", memory, "-display", "none",
+                "-vga", "std", "-no-reboot", "-monitor", "none", "-nodefaults",
+                "-drive", f"file={disk},format=raw,if=ide,index=0,media=disk",
+                "-serial", f"file:{self.serial_path}",
+                "-qmp", f"unix:{self.sock},server=on,wait=off",
+                "-icount", "shift=3,sleep=off", "-rtc", f"base={rtc},clock=vm",
+                "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+                "-d", "cpu_reset,guest_errors", "-D", str(self.dir / "qemu.log")]
+        if note and profile == "seabios":
+            profile = "plain"
+        if profile != "seabios":
+            stub = _stub(profile, self.dir, note)
+            args += ["-drive", f"file={stub},format=raw,if=floppy,index=0", "-boot", "order=a"]
+        else:
+            args += ["-boot", "order=c"]
+        args += extra_args or []
+        self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+        self.started = time.monotonic()
+        self.exit_code: int | None = None       # what the guest wrote to port 0xF4
+        self.reset = False                      # the machine reset (triple fault)
+        self._qmp = None
+        self._connect()
+
+    # ---- QMP ---------------------------------------------------------------------------
+
+    def _connect(self) -> None:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if self.proc.poll() is not None:
+                raise BuildError("QEMU didn't start: " + self.proc.stderr.read().decode()[-500:])
+            if self.sock.exists():
+                try:
+                    s = socket.socket(socket.AF_UNIX)
+                    s.connect(str(self.sock))
+                    self._qmp = s.makefile("rw")
+                    json.loads(self._qmp.readline())            # the greeting
+                    self.command("qmp_capabilities")
+                    return
+                except OSError:
+                    time.sleep(0.01)
+                    continue
+            time.sleep(0.01)
+        raise BuildError("QEMU didn't open its control socket")
+
+    def command(self, name: str, **args):
+        if self._qmp is None:
+            return None
+        try:
+            self._qmp.write(json.dumps({"execute": name, **({"arguments": args} if args else {})})
+                            + "\n")
+            self._qmp.flush()
+            while True:
+                line = self._qmp.readline()
+                if not line:
+                    self._qmp = None
+                    return None
+                r = json.loads(line)
+                if "return" in r:
+                    return r["return"]
+                if "error" in r:
+                    raise RuntimeError(r["error"].get("desc", str(r["error"])))
+        except (OSError, ValueError):
+            self._qmp = None
+            return None
+
+    def hmp(self, line: str) -> str:
+        return self.command("human-monitor-command", **{"command-line": line}) or ""
+
+    @property
+    def alive(self) -> bool:
+        return self.proc.poll() is None and self._qmp is not None
+
+    # ---- what's inside ------------------------------------------------------------------
+
+    def registers(self) -> Registers:
+        return parse_registers(self.hmp("info registers"))
+
+    def read(self, addr: int, size: int) -> bytes:
+        """Physical memory."""
+        out = self.dir / f"mem-{addr:x}-{size}.bin"
+        self.command("pmemsave", val=addr, size=size, filename=str(out))
+        for _ in range(100):
+            if out.exists() and out.stat().st_size == size:
+                return out.read_bytes()
+            time.sleep(0.005)
+        return out.read_bytes() if out.exists() else b""
+
+    def screen(self) -> list[str]:
+        """The 80×25 VGA text screen, one string per row (trailing spaces removed)."""
+        raw = self.read(0xB8000, 80 * 25 * 2)
+        rows = []
+        for y in range(25):
+            row = raw[y * 160:(y + 1) * 160:2]
+            rows.append("".join(chr(c) if 32 <= c < 127 else " " if c in (0, 32) else
+                                _CP437.get(c, "?") for c in row).rstrip())
+        return rows
+
+    def attributes(self) -> list[bytes]:
+        raw = self.read(0xB8000, 80 * 25 * 2)
+        return [raw[y * 160 + 1:(y + 1) * 160:2] for y in range(25)]
+
+    def serial(self) -> bytes:
+        try:
+            return self.serial_path.read_bytes()
+        except OSError:
+            return b""
+
+    def send_keys(self, keys: list[str], hold_ms: int = 30) -> None:
+        """QEMU key names ("a", "ret", "shift-a", "backspace", "esc", "spc", ...)."""
+        for k in keys:
+            parts = k.split("-") if len(k) > 1 and "-" in k else [k]
+            self.command("send-key", keys=[{"type": "qcode", "data": p} for p in parts],
+                         **{"hold-time": hold_ms})
+            time.sleep(0.03)
+
+    # ---- running -------------------------------------------------------------------------
+
+    def wait(self, until: str = "halt", timeout: float = TIMEOUT_S, serial: bytes | None = None) -> str:
+        """Run until: "halt" (hlt with interrupts off), "serial" (the serial output contains
+        `serial`), or "time" (just run for `timeout` seconds). Returns why it stopped:
+        halt, exit, reset, serial, timeout."""
+        deadline = time.monotonic() + timeout
+        while True:
+            if self.proc.poll() is not None:
+                return self._ended()
+            if until == "serial" and serial is not None and serial in self.serial():
+                return "serial"
+            if until == "halt":
+                r = self.registers()
+                if r.halted and not r.values.get("eflags", 0) & 0x200:
+                    return "halt"
+            if time.monotonic() > deadline:
+                return "timeout" if until != "time" else "time"
+            time.sleep(0.02)
+
+    def _ended(self) -> str:
+        self._qmp = None
+        code = self.proc.returncode
+        log = (self.dir / "qemu.log").read_text(errors="replace") if (self.dir / "qemu.log").exists() else ""
+        if code and code & 1:                     # isa-debug-exit: (value << 1) | 1
+            self.exit_code = code >> 1
+            return "exit"
+        if "Triple fault" in log or "reset" in log.lower() or code == 0:
+            self.reset = True
+            return "reset"
+        return "exit"
+
+    def pause(self) -> None:
+        self.command("stop")
+
+    def close(self) -> None:
+        if self.proc.poll() is None:
+            try:
+                self.command("quit")
+                self.proc.wait(timeout=2)
+            except Exception:
+                self.proc.kill()
+                self.proc.wait()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+# the box-drawing and block characters of code page 437 that games and boxes use
+_CP437 = {0xB0: "░", 0xB1: "▒", 0xB2: "▓", 0xDB: "█", 0xDC: "▄", 0xDF: "▀", 0xC4: "─", 0xB3: "│",
+          0xDA: "┌", 0xBF: "┐", 0xC0: "└", 0xD9: "┘", 0xCD: "═", 0xBA: "║", 0xC9: "╔", 0xBB: "╗",
+          0xC8: "╚", 0xBC: "╝", 0x01: "☺", 0x02: "☻", 0x03: "♥", 0x04: "♦", 0x05: "♣", 0x06: "♠",
+          0xFE: "■", 0x07: "•", 0x10: "►", 0x11: "◄", 0x1E: "▲", 0x1F: "▼", 0xF9: "·"}

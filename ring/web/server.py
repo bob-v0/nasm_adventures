@@ -159,6 +159,8 @@ class Server:
         lv = self.level(int(body["level"]), prog)
         sol = self.save_text(lv, prog, body.get("text"))
         binary = body.get("binary")
+        if lv.mode == "boot" and not binary:
+            raise ApiError(400, "This level runs on a whole emulated PC (QEMU), not the game's debugger. In the Terminal tab: `ring debug` starts it under gdb, stopped at the boot sector (0x7C00); `qemu-system-x86_64 -drive format=raw,file=solution.img -display curses` just boots it (quit: Esc, then 2, then `quit`).")
         if lv.mode == "native" and not binary:
             raise ApiError(400, "This level runs natively with the C library, which the game's debugger can't emulate. Debug it with gdb in the Terminal tab: `gdb ./solution` (after Test), `break main`, `run`.")
         if binary:

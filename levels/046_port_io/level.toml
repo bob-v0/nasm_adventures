@@ -1,0 +1,19 @@
+level = 46
+slug = "port_io"
+title = "Port I/O"
+arc = "XI"
+mode = "boot"
+concepts = ["I/O ports: a second address space, 65536 ports", "in and out (and dx for ports above 255)", "a UART: the 16550's registers", "polling a status bit before writing", "the CMOS real-time clock: index and data ports, BCD"]
+introduces = ["in / out", "port 0x3F8 (COM1)", "LSR bit 5", "DLAB and the divisor", "ports 0x70 / 0x71", "BCD"]
+
+hints = [
+  "out dx, al writes al to port dx (ports below 256 can be immediates: out 0x70, al); in al, dx reads. COM1's data register is 0x3F8; its line status register, 0x3FD, has bit 5 set when it can take another byte: loop on in / test al, 0x20 / jz before each out.",
+  "Setting the UART up: 0x3F9 (interrupt enable) = 0; 0x3FB (line control) = 0x80 to reach the divisor latch, then 0x3F8 / 0x3F9 = the divisor (1 for 115200 baud, low byte first); then 0x3FB = 0x03: 8 data bits, no parity, 1 stop bit.",
+  "CMOS: write a register number to port 0x70, read it from 0x71. 0x32 is the century, 0x09 the year, 0x08 the month, 0x07 the day, each in BCD: 0x25 means 25, so the two digits are (al >> 4) + '0' and (al & 15) + '0'.",
+]
+
+[constraints]
+max_instructions = 100
+
+[random]
+count = 2

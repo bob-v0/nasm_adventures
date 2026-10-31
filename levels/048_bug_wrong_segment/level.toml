@@ -1,0 +1,18 @@
+level = 48
+slug = "bug_wrong_segment"
+title = "Wrong Segment"
+arc = "XI"
+bug = 2
+mode = "boot"
+witness = true
+concepts = ["what the BIOS promises: the sector at physical 0x7C00, dl = the drive; nothing else", "07C0:0000 and 0000:7C00 are the same byte, not the same offsets", "near jumps and calls through memory use cs; data uses ds", "never assume register state: set cs, ds, es, ss:sp yourself"]
+introduces = ["a far jump to normalize cs", "setting up ds, es, ss:sp", "BIOS compatibility"]
+
+hints = [
+  "With witness bios = \"odd\" the game's chain loader jumps to 07C0:0000 instead of 0000:7C00, and leaves other values in ds, es and ss. Same physical address, but now ip counts from 0 and your labels (org 0x7C00) count from 0x7C00.",
+  "Which instructions use cs? Every near jump or call through memory: `call [printer]` loads an offset and jumps to cs:offset. Which use ds? lodsb, mov si, [entries + bx]. A jump to a label is relative (it works anywhere), but a pointer stored in memory isn't.",
+  "The standard first lines of a boot sector: a far jump to 0:next (cs = 0, ip = your org-based offsets), then ds = es = ss = 0 and sp somewhere safe (just below 0x7C00), with cli around the stack switch.",
+]
+
+[constraints]
+max_changed_lines = 12

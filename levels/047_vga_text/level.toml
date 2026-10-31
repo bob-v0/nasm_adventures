@@ -1,0 +1,16 @@
+level = 47
+slug = "vga_text"
+title = "VGA Text Mode"
+arc = "XI"
+mode = "boot"
+concepts = ["memory-mapped I/O: the screen is memory at B8000", "a cell: character byte, then attribute byte", "attributes: background and foreground colours", "rows of 160 bytes", "rep stosw", "code page 437 box drawing", "the cursor: CRTC registers through ports 0x3D4 / 0x3D5"]
+introduces = ["B800:0000", "attribute bytes", "rep stosw", "CP437", "cld"]
+
+hints = [
+  "es = 0xB800 makes es:di reach video memory; cell (row, column) is at di = row × 160 + column × 2. stosw stores ax at es:di and adds 2: with al = the character and ah = the attribute, one stosw draws one cell, and rep stosw draws cx of them (cld first, so di goes up).",
+  "The background is 2000 cells of 0x1720 (attribute 0x17, a space). Then the box row by row: top and bottom are a corner, 38 ═, a corner; the rows between are ║, 38 inside cells, ║.",
+  "Centering: the inside of the box is columns 21-58 (38 cells); the title is 15 characters, so it starts at 21 + (38 − 15) / 2 = 32. Let NASM compute such numbers: `equ` constants and `$ - label` lengths can go into expressions.",
+]
+
+[constraints]
+max_instructions = 120

@@ -1,0 +1,16 @@
+level = 50
+slug = "power_on"
+title = "Power On"
+arc = "XI"
+mode = "boot"
+concepts = ["what runs first: the reset vector at F000:FFF0", "the BIOS: tests the machine, finds a boot disk", "the boot sector: 512 bytes loaded at 0x7C00, ending in 55 AA", "real mode: 16-bit code, bits 16", "org: where NASM assumes the code will be", "halting a CPU: cli, hlt", "QEMU, and gdb attached to it"]
+introduces = ["bits 16", "org 0x7C00", "dw 0xAA55", "times ... db 0", "cli / hlt", "16-bit registers", "ring debug for boot levels"]
+
+hints = [
+  "The shape of every boot sector: `bits 16`, `org 0x7C00`, your code and data, then `times 510 - ($ - $$) db 0` (pad to 510 bytes: $ is here, $$ the start) and `dw 0xAA55` (the signature the BIOS checks).",
+  "org 0x7C00 tells NASM where the code will be loaded, so a label's value is its real address: mov bx, magic / mov ax, [bx] reads the word at magic. Without org the labels are offsets from 0 and you read the wrong memory. The BIOS leaves the boot drive in dl: don't touch it.",
+  "The reset vector is the 16 bytes at physical FFFF0, F000:FFF0 in real mode. Look at it in gdb (`ring debug`, then x/5xb 0xffff0) or from your code (a segment register of 0xF000, offset 0xFFF0). It's a far jump: EA, then the offset (2 bytes), then the segment (2 bytes).",
+]
+
+[constraints]
+max_instructions = 40

@@ -213,17 +213,17 @@ id = "XI"
 name = "Real Mode & Boot"
 runner = "qemu"
 levels = [
-  { title = "Power On", concepts = "reset vector, BIOS, MBR, `0x7C00`, `0xAA55`, `bits 16`, `org`; QEMU + gdb", gate = "Step from the reset vector; boot sector that halts" },
-  { title = "Segmentation", concepts = "segment:offset, far pointers", gate = "Print via `int 10h` with correct segments" },
-  { title = "Wrong Segment", bug = 2, concepts = "assuming BIOS register state; `org` vs segment mismatch", gate = "Fix a boot sector that works in one emulator and not another" },
-  { title = "VGA Text Mode", concepts = "`0xB8000`, attributes, cursor ports", gate = "Draw a colored box" },
-  { title = "Port I/O", concepts = "`in`, `out`, 16550 UART", gate = "Serial hello" },
-  { title = "Disk", concepts = "`int 13h` CHS/LBA", gate = "Load a stage-2 loader" },
-  { title = "Real-Mode Interrupts", concepts = "IVT, `int`, `iret`", gate = "Install an `int 0x80` handler" },
-  { title = "Keyboard", concepts = "PS/2 controller, scancodes", gate = "Line editor in a boot sector" },
-  { title = "PIT & PIC", concepts = "8254 timer, 8259 PIC, IRQ0", gate = "100 Hz clock" },
-  { title = "Memory Map & A20", concepts = "E820, A20", gate = "Print the memory map" },
-  { title = "Boot Sector Game", boss = true, concepts = "everything in the arc", gate = "A game in ≤ 512 bytes" },
+  { title = "Power On", dir = "power_on", concepts = "reset vector, BIOS, MBR, `0x7C00`, `0xAA55`, `bits 16`, `org`; QEMU + gdb", gate = "Step from the reset vector; boot sector that halts" },
+  { title = "Segmentation", dir = "segmentation", concepts = "segment:offset, far pointers", gate = "Print via `int 10h` with correct segments" },
+  { title = "Wrong Segment", dir = "bug_wrong_segment", bug = 2, concepts = "assuming BIOS register state; `org` vs segment mismatch", gate = "Fix a boot sector that works in one emulator and not another" },
+  { title = "VGA Text Mode", dir = "vga_text", concepts = "`0xB8000`, attributes, cursor ports", gate = "Draw a colored box" },
+  { title = "Port I/O", dir = "port_io", concepts = "`in`, `out`, 16550 UART", gate = "Serial hello" },
+  { title = "Disk", dir = "disk", concepts = "`int 13h` CHS/LBA", gate = "Load a stage-2 loader" },
+  { title = "Real-Mode Interrupts", dir = "interrupts", concepts = "IVT, `int`, `iret`", gate = "Install an `int 0x80` handler" },
+  { title = "Keyboard", dir = "keyboard", concepts = "PS/2 controller, scancodes", gate = "Line editor in a boot sector" },
+  { title = "PIT & PIC", dir = "pit_pic", concepts = "8254 timer, 8259 PIC, IRQ0", gate = "100 Hz clock" },
+  { title = "Memory Map & A20", dir = "memory_map", concepts = "E820, A20", gate = "Print the memory map" },
+  { title = "Boot Sector Game", dir = "boot_game", boss = true, concepts = "everything in the arc", gate = "A game in ≤ 512 bytes" },
 ]
 
 [[arc]]
