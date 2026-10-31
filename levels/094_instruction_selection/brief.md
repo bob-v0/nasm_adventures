@@ -5,7 +5,7 @@ longer than the alternative.*
 
 ## Lesson: what instructions really cost
 
-The decoders turn instructions into **uops** (micro-operations), the units the
+The decoders turn instructions into **uops** (micro-operations): the small units the
 out-of-order engine schedules. Most simple instructions are one uop with a latency of 1,
 but not all:
 
@@ -17,29 +17,33 @@ but not all:
 | `loop` | 7 uops (`dec` + `jnz`: 1, they fuse) |
 | `push` / `pop` | a store / a load |
 
-Real CPUs publish these numbers: Agner Fog's instruction tables and uops.info are the
-references.
+Real CPUs publish these numbers too: Agner Fog's instruction tables and uops.info are
+the references.
 
 ## Lesson: division by a constant
 
-Dividing by a constant never needs `div`: `x / 10` is `(x * m) >> s` for a well-chosen
-**magic number** `m`. For bytes, `(b * 205) >> 11` is exactly `b / 10` (205 / 2048 is
-just above 1/10, and the error never reaches the next integer for b < 1024). Compilers do
-this for every constant divisor; `x % 10` is then `x − 10·(x / 10)`, and `10q` is
-`(q + 4q) · 2`, two cheap instructions.
+Dividing by a constant never needs `div`. `x / 10` is `(x * m) >> s` for a well-chosen
+**magic number** `m`. For bytes, `(b * 205) >> 11` is exactly `b / 10`: 205 / 2048 is
+just above 1/10, and the error never reaches the next integer for b < 1024. For
+example, b = 237: 237 × 205 = 48585, and 48585 >> 11 = 23.
+
+Then `x % 10` is `x − 10·(x / 10)` (237 − 230 = 7), and `10q` is `(q + 4q) · 2`: two
+cheap instructions, an `lea` and an `add`. Compilers do all this for every constant
+divisor.
 
 ## Lesson: partial registers
 
-`mov al, [rdi]` writes 8 bits of `rax` and keeps the other 56, so the result depends on
+`mov al, [rdi]` writes 8 bits of `rax` and keeps the other 56. So the result depends on
 the **old** `rax`, whatever wrote it last. That's a **false dependency**: it chains every
-iteration to the previous one. `movzx eax, byte [rdi]` writes the whole register and
-depends only on the memory. (Writing a 32-bit register zeroes the upper half for exactly
-this reason.)
+iteration to the previous one, though the values have nothing to do with each other.
+`movzx eax, byte [rdi]` writes the whole register and depends only on the memory.
+(Writing a 32-bit register zeroes the upper half for exactly this reason.)
 
 ## Lesson: macro-fusion
 
-`cmp`/`test`/`add`/`sub`/`and`/`inc`/`dec` directly followed by a conditional jump are
-**fused** by the decoder into one uop. `loop` looks like a shortcut and isn't.
+When `cmp`/`test`/`add`/`sub`/`and`/`inc`/`dec` is directly followed by a conditional
+jump, the decoder **fuses** the pair into one uop. `loop` looks like a shortcut for
+`dec rcx` / `jnz`, and isn't: it's 7 uops against 1.
 
 ## Gate
 

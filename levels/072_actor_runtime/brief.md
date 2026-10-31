@@ -24,8 +24,15 @@ Use the game's checked allocator (`syscall` 0x1000 = `malloc(rdi)`, 0x1001 = `fr
 
 Four actors in a ring pass tokens around: a message with value `h > 0` makes the
 behavior send `h − 1` to the next actor. Two producer threads inject three tokens each,
-six hops long. Then the harness calls `rt_shutdown` and releases the actors. Under the
-plain schedule and many others, with x86 store buffers:
+six hops long, into actor 0. Each token is handled 7 times:
+
+```
+producer ──6──▶ actor 0 ──5──▶ actor 1 ──4──▶ actor 2 ──3──▶ actor 3
+         ──2──▶ actor 0 ──1──▶ actor 1 ──0──▶ actor 2    (0: the token stops)
+```
+
+Then the harness calls `rt_shutdown` and releases the actors. Under the plain schedule
+and many others, with x86 store buffers:
 
 - every one of the 42 messages is handled exactly once;
 - no actor ever runs on two workers at once;
@@ -39,9 +46,10 @@ plain schedule and many others, with x86 store buffers:
 - MPSC mailboxes, the scheduled flag and going idle safely: level 74;
 - reference counts: level 73. Who holds the references (the creator, and the run queue
   while an actor is queued or running) decides when an actor may be freed;
-- **quiescence** for shutdown: count the messages in flight (increment *before* a message
-  becomes visible, decrement after its behavior returns), and let the last decrement
-  wake `rt_shutdown`. Messages sent from inside behaviors keep the count above zero until
-  the whole ring has gone quiet.
+- **quiescence** for shutdown, meaning "nothing left to do and nothing on its way":
+  count the messages in flight. Increment *before* a message becomes visible, decrement
+  after its behavior returns, and let the last decrement wake `rt_shutdown`. Messages
+  sent from inside behaviors keep the count above zero until the whole ring has gone
+  quiet.
 
 Arc VIII cleared. Next: floating point and SIMD.

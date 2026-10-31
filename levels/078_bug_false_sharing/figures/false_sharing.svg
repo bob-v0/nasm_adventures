@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 346" width="720" height="346" font-family="sans-serif" font-size="13" fill="#222">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect x="0" y="0" width="720" height="346" fill="#ffffff"/>
+<text x="20" y="24" font-size="14" text-anchor="start" font-weight="bold" fill="#222">Counters 8 bytes apart: four counters in one 64-byte line</text>
+<rect x="90" y="38" width="110" height="30" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="145" y="58" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 0</text>
+<rect x="230" y="38" width="110" height="30" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="285" y="58" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 1</text>
+<rect x="370" y="38" width="110" height="30" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="425" y="58" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 2</text>
+<rect x="510" y="38" width="110" height="30" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="565" y="58" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 3</text>
+<rect x="80" y="104" width="70" height="30" rx="0" fill="#f6d0cc" stroke="#888" stroke-width="0.8"/>
+<text x="115.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c0</text>
+<rect x="150" y="104" width="70" height="30" rx="0" fill="#f6d0cc" stroke="#888" stroke-width="0.8"/>
+<text x="185.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c1</text>
+<rect x="220" y="104" width="70" height="30" rx="0" fill="#f6d0cc" stroke="#888" stroke-width="0.8"/>
+<text x="255.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c2</text>
+<rect x="290" y="104" width="70" height="30" rx="0" fill="#f6d0cc" stroke="#888" stroke-width="0.8"/>
+<text x="325.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c3</text>
+<rect x="360" y="104" width="70" height="30" rx="0" fill="#ffffff" stroke="#888" stroke-width="0.8"/>
+<text x="395.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace"></text>
+<rect x="430" y="104" width="70" height="30" rx="0" fill="#ffffff" stroke="#888" stroke-width="0.8"/>
+<text x="465.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace"></text>
+<rect x="500" y="104" width="70" height="30" rx="0" fill="#ffffff" stroke="#888" stroke-width="0.8"/>
+<text x="535.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace"></text>
+<rect x="570" y="104" width="70" height="30" rx="0" fill="#ffffff" stroke="#888" stroke-width="0.8"/>
+<text x="605.0" y="124" font-size="13" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace"></text>
+<rect x="80" y="104" width="560" height="30" rx="0" fill="none" stroke="#b8322a" stroke-width="2.2"/>
+<line x1="145" y1="68" x2="115.0" y2="102" stroke="#b8322a" stroke-width="1.4" marker-end="url(#arrow)"/>
+<line x1="285" y1="68" x2="185.0" y2="102" stroke="#b8322a" stroke-width="1.4" marker-end="url(#arrow)"/>
+<line x1="425" y1="68" x2="255.0" y2="102" stroke="#b8322a" stroke-width="1.4" marker-end="url(#arrow)"/>
+<line x1="565" y1="68" x2="325.0" y2="102" stroke="#b8322a" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="80" y="154" font-size="12" text-anchor="start" font-weight="normal" fill="#666">To write c0, core 0 must own the whole line, so it pulls it away from the others.</text>
+<text x="80" y="170" font-size="12" text-anchor="start" font-weight="normal" fill="#666">A moment later core 1 pulls it back for c1. Every increment moves the line (~70 cycles).</text>
+<text x="20" y="214" font-size="14" text-anchor="start" font-weight="bold" fill="#222">Padded: each counter in a line of its own</text>
+<rect x="60" y="228" width="100" height="28" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="110" y="247" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 0</text>
+<line x1="110" y1="256" x2="110" y2="282" stroke="#2a5f9e" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="30" y="284" width="160" height="26" rx="0" fill="#ffffff" stroke="#2a5f9e" stroke-width="2.0"/>
+<rect x="30" y="284" width="20" height="26" rx="0" fill="#d3e4f5" stroke="#888" stroke-width="0.8"/>
+<text x="40" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c0</text>
+<text x="120" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">line 0</text>
+<rect x="232" y="228" width="100" height="28" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="282" y="247" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 1</text>
+<line x1="282" y1="256" x2="282" y2="282" stroke="#2a5f9e" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="202" y="284" width="160" height="26" rx="0" fill="#ffffff" stroke="#2a5f9e" stroke-width="2.0"/>
+<rect x="202" y="284" width="20" height="26" rx="0" fill="#d3e4f5" stroke="#888" stroke-width="0.8"/>
+<text x="212" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c1</text>
+<text x="292" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">line 1</text>
+<rect x="404" y="228" width="100" height="28" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="454" y="247" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 2</text>
+<line x1="454" y1="256" x2="454" y2="282" stroke="#2a5f9e" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="374" y="284" width="160" height="26" rx="0" fill="#ffffff" stroke="#2a5f9e" stroke-width="2.0"/>
+<rect x="374" y="284" width="20" height="26" rx="0" fill="#d3e4f5" stroke="#888" stroke-width="0.8"/>
+<text x="384" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c2</text>
+<text x="464" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">line 2</text>
+<rect x="576" y="228" width="100" height="28" rx="3" fill="#eeeeee" stroke="#555" stroke-width="1.2"/>
+<text x="626" y="247" font-size="13" text-anchor="middle" font-weight="normal" fill="#222">core 3</text>
+<line x1="626" y1="256" x2="626" y2="282" stroke="#2a5f9e" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="546" y="284" width="160" height="26" rx="0" fill="#ffffff" stroke="#2a5f9e" stroke-width="2.0"/>
+<rect x="546" y="284" width="20" height="26" rx="0" fill="#d3e4f5" stroke="#888" stroke-width="0.8"/>
+<text x="556" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">c3</text>
+<text x="636" y="302" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">line 3</text>
+<text x="30" y="334" font-size="12" text-anchor="start" font-weight="normal" fill="#666">Each core keeps its line in its own L1. Nothing moves; the cores run in parallel.</text>
+</svg>
