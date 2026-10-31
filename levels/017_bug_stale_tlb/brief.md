@@ -42,5 +42,5 @@ Changing or removing one does.
 
 ## Gate
 
-Find an order of records that shows the wrong text (`;! witness show = "0,1"`), and fix
+Find an order of records that shows the wrong text (`;! witness show = "..."`, record numbers separated by commas), and fix
 the kernel: every order right. At most 3 changed lines.

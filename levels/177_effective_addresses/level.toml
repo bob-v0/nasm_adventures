@@ -9,7 +9,17 @@ introduces = ["[base + index*scale + disp]", "lea"]
 hints = [
   "Element [row][col] of an 8x8 qword grid is at grid + (row*8 + col)*8. An address can contain only one index*scale, and the scale can only be 1, 2, 4 or 8.",
   "Compute row*8 + col into a spare register with one lea: lea rdx, [rsi + rdi*8]. Then use it as the index with scale 8. The element below is 64 bytes further on.",
-  "lea rdx, [rsi + rdi*8] / lea rbx, [grid + rdx*8] / mov rax, [rbx] / mov rcx, [rbx + 64] / lea r8, [rdi + rdi*4 + 3]",
+  """Build it in two steps: first the element's number, then its address. Everything after that reads through the address.
+
+```
+lea rdx, [rsi + rdi*8]      ; element number: row*8 + col (lea only computes, it reads nothing)
+lea rbx, [grid + rdx*8]     ; its address: 8 bytes per element (that's rbx done)
+mov rax, [rbx]              ; the element itself
+mov rcx, [rbx + 64]         ; the one below: a whole row (8 x 8 bytes) further on
+lea r8, [rdi + rdi*4 + 3]   ; row + row*4 + 3 = row*5 + 3, in one lea
+```
+
+rdx is only a scratch register, so rdi and rsi stay as they were. That's five instructions: the stretch goal too.""",
 ]
 
 [constraints]
