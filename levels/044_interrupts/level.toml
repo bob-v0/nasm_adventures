@@ -1,0 +1,19 @@
+level = 44
+slug = "interrupts"
+title = "Real-Mode Interrupts"
+arc = "XI"
+mode = "boot"
+concepts = ["the interrupt vector table: 256 far pointers at 0000:0000", "int n: push flags, cs, ip; clear IF; jump through the table", "iret: pop them back", "software interrupts as system calls", "returning status in the caller's flags", "preserving registers in a handler"]
+introduces = ["the IVT", "int / iret", "the interrupt stack frame", "setting CF on the stacked flags"]
+
+hints = [
+  "The table entry for vector n is at n × 4: a word with the offset, then the segment. With ds = 0: mov word [0x80 * 4], handler / mov word [0x80 * 4 + 2], 0 (set it with interrupts off, so nothing uses half an entry).",
+  "int pushes flags, cs and ip; iret pops all three. So a handler can't just stc before iret: iret restores the caller's flags. Change the copy on the stack instead: push bp / mov bp, sp makes [bp + 6] the stacked flags (bp itself is at [bp], ip at [bp + 2], cs at [bp + 4]); or byte [bp + 6], 1 sets CF, and byte [bp + 6], 0xFE clears it.",
+  "Inside the handler ds is whatever the caller had: for puts that's the string's segment, which is right for lodsb, but don't read your own variables through ds there (use a cs: override, or push ds, set it, pop it). Save every register you use that isn't a result.",
+]
+
+[constraints]
+max_instructions = 80
+
+[random]
+count = 2

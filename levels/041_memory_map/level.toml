@@ -1,0 +1,19 @@
+level = 41
+slug = "memory_map"
+title = "Memory Map & A20"
+arc = "XI"
+mode = "boot"
+concepts = ["what memory exists: the BIOS's E820 map", "reserved regions: the BIOS, video memory, ACPI tables", "calling a BIOS service in a loop with a continuation value", "32-bit registers in real mode", "the A20 line: why addresses above 1 MiB wrapped around", "turning A20 on, and checking that it worked"]
+introduces = ["int 15h, eax = E820h", "'SMAP'", "the E820 entry (base, length, type)", "port 0x92 (fast A20)", "FFFF:0010 = 0x100000"]
+
+hints = [
+  "E820: eax = 0xE820, edx = 0x534D4150 ('SMAP'), ecx = 24, es:di = a buffer, ebx = 0 the first time. It fills the buffer (base: 8 bytes, length: 8, type: 4) and returns ebx = the value for the next call; ebx = 0 means that was the last entry. Real mode can use eax, ebx, ... and their 32-bit operations; only addresses are 16-bit.",
+  "Printing a 64-bit value as 16 hex digits: the high dword (at +4) then the low dword, each 8 digits: rol eax, 4 brings the top nibble to the bottom, and al & 15 is a digit (0-9, then a-f).",
+  "A20: in al, 0x92 / or al, 2 / out 0x92, al (keep bit 0 clear: it resets the machine). To check: with a segment of 0xFFFF, offset 0x0510 is physical 0x100500, which is 0x000500 when A20 is off. Write different bytes to both and see whether the first changed.",
+]
+
+[constraints]
+max_instructions = 100
+
+[random]
+count = 2

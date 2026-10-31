@@ -48,7 +48,8 @@ Compilers use `lea` as a fast "add and multiply by 2, 3, 4, 5, 8 or 9" all the t
 ## Gate
 
 The game provides `grid`: 8 rows × 8 columns of qwords. On entry `rdi` = row (0–6) and
-`rsi` = column (0–7). When your code finishes:
+`rsi` = column (0–7). (The row stops at 6 because `rcx` below asks for the element in
+the next row, and row 7 has none.) When your code finishes:
 
 | Register | Must hold |
 |---|---|

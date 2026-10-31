@@ -1,0 +1,19 @@
+level = 43
+slug = "keyboard"
+title = "Keyboard"
+arc = "XI"
+mode = "boot"
+concepts = ["the PS/2 keyboard controller (the 8042): status port 0x64, data port 0x60", "scancodes: key down, key up (bit 7)", "scancode set 1 and a translation table", "modifier state: Shift", "polling vs the BIOS's keyboard interrupt", "an editable line: insert, backspace"]
+introduces = ["ports 0x60 / 0x64", "scancode set 1", "make and break codes", "keymaps"]
+
+hints = [
+  "Wait for a byte: in al, 0x64 / test al, 1 / jz wait; then in al, 0x60 is the scancode. Turn interrupts off (cli) for the whole program: with them on, the BIOS's own keyboard handler (IRQ 1) reads port 0x60 first and you never see the key.",
+  "Set 1 scancodes: the key's number when pressed, the same plus 0x80 when released. 0x1E is A, 0x10 is Q, 0x02 is 1 ... 0x0B is 0, 0x39 space, 0x0E backspace, 0x1C enter, 0x2A / 0x36 the Shift keys (0xAA / 0xB6 released). A table indexed by the scancode (db \"1234567890\" at the right offsets) turns them into characters.",
+  "Keep the line in a buffer with its length in a register. Shift is a flag set on 0x2A/0x36 and cleared on 0xAA/0xB6. For the screen, write the characters into video memory (level 47) at a fixed row.",
+]
+
+[constraints]
+max_instructions = 120
+
+[random]
+count = 2

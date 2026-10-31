@@ -1,0 +1,19 @@
+level = 42
+slug = "pit_pic"
+title = "PIT & PIC"
+arc = "XI"
+mode = "boot"
+concepts = ["hardware interrupts: a device asks, the CPU answers between instructions", "the 8259 PIC: IRQ lines, masks, end of interrupt", "the 8254 PIT: a 1.193182 MHz clock divided by a counter", "programming a device through command and data ports", "an interrupt handler that preserves everything", "hlt: sleep until the next interrupt"]
+introduces = ["IRQ 0 / vector 8", "port 0x43 (PIT command)", "port 0x40 (channel 0)", "EOI: out 0x20, 0x20", "the PIC mask (port 0x21)"]
+
+hints = [
+  "The PIT counts down from a value you choose at 1 193 182 Hz and interrupts each time it wraps: divisor = 1193182 / 100 ≈ 11932. Write the command 0x36 (channel 0, low byte then high byte, mode 3) to port 0x43, then the divisor's low byte and high byte to port 0x40.",
+  "IRQ 0 arrives as int 8 (the BIOS programmed the PIC that way). Point vector 8 (address 8 × 4) at your handler, with interrupts off while you change it. The BIOS has IRQ 0 unmasked already; the mask is port 0x21, bit 0.",
+  "The handler: inc dword [cs:0x500] (cs: because ds belongs to whoever was interrupted), then send the PIC an end-of-interrupt, out 0x20 with 0x20, or it never interrupts again, and iret. Save every register you touch (al for the out).",
+]
+
+[constraints]
+max_instructions = 60
+
+[random]
+count = 1

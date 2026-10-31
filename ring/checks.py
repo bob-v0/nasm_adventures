@@ -289,7 +289,7 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
             if "serial" in exp:
                 want = exp["serial"].encode() if isinstance(exp["serial"], str) else exp["serial"]
                 if serial != want:
-                    problems.append(_compare("serial port", want, serial))
+                    problems.append(_compare_text("serial port", want, serial))
             for text in exp.get("screen_contains", []):
                 if not any(text in row for row in screen):
                     problems.append(f"the screen doesn't show {text!r}")
@@ -309,6 +309,17 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
         if problems and serial and "serial" not in exp:
             problems.append(f"serial output: {_show(serial)}")
     return TestResult(test.name, test.hidden, not problems, problems, 0)
+
+
+def _compare_text(what: str, want: bytes, got: bytes) -> str:
+    """Like _compare, for text with line breaks: show both as text."""
+    w, g = want.decode("latin-1"), got.decode("latin-1")
+    k = next((i for i, (x, y) in enumerate(zip(w, g)) if x != y), min(len(w), len(g)))
+    line = w[:k].count("\n") + 1
+    if len(w) + len(g) > 400:             # long: just the lines around the difference
+        start = max(w.rfind("\n", 0, k), 0)
+        w, g = w[start:start + 120], g[start:start + 120]
+    return f"{what}: expected {w!r}, got {g!r} (they differ from character {k}, on line {line})"
 
 
 def _boot_where(build: Build, run) -> str:

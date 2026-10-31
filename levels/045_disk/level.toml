@@ -1,0 +1,19 @@
+level = 45
+slug = "disk"
+title = "Disk"
+arc = "XI"
+mode = "boot"
+concepts = ["512 bytes isn't enough: boot loaders load more", "int 13h: the BIOS's disk services", "CHS addressing and its limits", "LBA addressing and the extensions (ah = 42h)", "the disk address packet", "checking the carry flag after BIOS calls", "a stage-2 loader"]
+introduces = ["int 13h", "ah = 02h (CHS)", "ah = 42h (LBA)", "the DAP", "LBA", "two-stage boot"]
+
+hints = [
+  "int 13h with ah = 0x42 reads sectors by number (LBA): dl = the drive, ds:si = a 16-byte disk address packet: db 16, 0 / dw count / dw offset, segment / dq first LBA. The boot sector is LBA 0; stage 2 starts at LBA 1. It returns with the carry flag set on errors.",
+  "You don't know stage 2's size before you've read its header: read 1 sector first, check the magic word at 0x8000, take the count from 0x8002, then read that many from LBA 1 again (overwriting the first one, harmlessly).",
+  "Keep dl (save it as soon as you start: other code may need dx), set your segments (level 48: the game also boots this with another BIOS), and enter stage 2 with a far jump to 0:0x8004.",
+]
+
+[constraints]
+max_instructions = 60
+
+[random]
+count = 2
