@@ -30,7 +30,19 @@ signal(cond):       atomic cond += 1
 ```
 
 The futex compares `cond` with `seq` atomically with going to sleep. If a signal arrived
-after the unlock, `cond` has changed and `futex_wait` returns at once: nothing is lost.
+after the unlock, `cond` has changed and `futex_wait` returns at once, so nothing is
+lost:
+
+```
+waiter                                 signaller
+seq = cond               ; 7
+unlock(mutex)
+                                       lock(mutex); put an item
+                                       cond += 1 (now 8); futex_wake: nobody asleep yet
+futex_wait(&cond, 7)     ; cond is 8, not 7: returns at once
+lock(mutex)              ; and finds the item
+```
+
 (glibc's real implementation is far more intricate, to be fair to waiters and to support
 broadcasts efficiently, but this is the core.)
 
@@ -47,14 +59,20 @@ unlock
 ```
 
 Between the signal and your getting the mutex back, another consumer may have taken the
-item. And POSIX allows **spurious wakeups** anyway. `if` instead of `while` is one of the
-most common concurrency bugs there is.
+item. And POSIX allows **spurious wakeups** (a wait that returns with no signal) anyway.
+Writing `if` instead of `while` is one of the most common concurrency bugs there is.
 
 ## Gate
 
-Write a bounded blocking queue: `queue_init`, `queue_put` (sleeps while full),
-`queue_get` (sleeps while empty; reports "closed" once closed and empty) and
-`queue_close` (wakes every sleeping getter). The harness provides `mutex_lock` /
-`mutex_unlock` and runs producer and consumer threads under many schedules. Every value
-must arrive exactly once, each producer's in order; producers really wait at capacity;
-nothing is stuck; nobody spins.
+Write a bounded blocking queue:
+
+| function | does |
+|---|---|
+| `queue_init(q, cap)` | `q`: 4096 zeroed bytes for your struct; `cap`: 1–64 |
+| `queue_put(q, value)` | adds a value; sleeps while the queue is full |
+| `queue_get(q)` | `rax` = the oldest value, `rdx` = 1; sleeps while empty; once closed and empty, `rdx` = 0 |
+| `queue_close(q)` | no more puts; wakes every sleeping getter |
+
+The harness provides `mutex_lock` / `mutex_unlock` (level 87's) and runs producer and
+consumer threads under many schedules. Every value must arrive exactly once, each
+producer's in order; producers really wait at capacity; nothing is stuck; nobody spins.

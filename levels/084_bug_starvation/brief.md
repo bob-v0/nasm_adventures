@@ -15,20 +15,20 @@ while the others get in ten, twenty times in a row.
 
 - **mutual exclusion**: never two holders;
 - **deadlock freedom**: if threads want the lock, *someone* gets it;
-- **starvation freedom** (**bounded waiting**): if *you* want it, you get it, after at
-  most N others.
+- **starvation freedom** (or **bounded waiting**): if *you* want it, you get it, after
+  at most N others.
 
 A test-and-set lock gives the first two, not the third. Nothing in it remembers who
 asked first: whoever happens to `xchg` at the right moment wins. The thread that just
-unlocked is running, so its next `xchg` is right there, while waiters only notice the
-lock is free when they next look (a cache-line round trip later, on real hardware). On
-real machines the fastest core, or the one sharing a cache with the holder, wins again
-and again.
+unlocked is still running, so its next `xchg` is right there, while the waiters only
+notice the lock is free when they next look (a cache-line round trip later, on real
+hardware). On real machines the fastest core, or the one sharing a cache with the
+holder, wins again and again.
 
 ## Background: ticket locks
 
-A **ticket lock** works like a deli counter: two counters, `next_ticket` and
-`now_serving`.
+A **ticket lock** works like a deli counter, with two counters, `next_ticket` and
+`now_serving`:
 
 ```
 lock:    my = fetch_add(next_ticket, 1)      ; take a number
@@ -36,10 +36,13 @@ lock:    my = fetch_add(next_ticket, 1)      ; take a number
 unlock:  now_serving += 1                    ; next, please
 ```
 
-Strictly first come, first served. The Linux kernel used ticket spinlocks for years.
-They're fair, but every waiter watches the same `now_serving` line, so each unlock
-makes it bounce between all their caches (queue locks like MCS fix that: one cache line
-per waiter).
+For example, with `next_ticket = 7` and `now_serving = 4`: ticket 4 holds the lock,
+tickets 5 and 6 are waiting, and a newcomer takes 7 and waits behind them. Strictly first
+come, first served.
+
+The Linux kernel used ticket spinlocks for years. They're fair, but every waiter watches
+the same `now_serving` line, so each unlock makes it bounce between all their caches
+(queue locks like MCS fix that: one cache line per waiter).
 
 ## Background: livelock
 

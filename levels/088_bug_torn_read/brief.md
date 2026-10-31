@@ -15,7 +15,17 @@ x86 guarantees that an **aligned** load or store of **up to 8 bytes** happens as
 indivisible access. Anything bigger, or anything that crosses a cache line, can be seen
 half-done by another core. A 16-byte record written with two `mov`s is two accesses,
 and so is a snapshot made with two loads. Between the two halves, the other side can
-complete an entire update. The reader gets the new `count` with the old `check`: a
+complete an entire update:
+
+```
+record     writer                    reader
+{4, 13}                              load count  -> 4
+{5, 13}    store count = 5
+{5, 16}    store check = 16
+{5, 16}                              load check  -> 16    ; {4, 16}: never written
+```
+
+The reader gets the old `count` with the new `check` (or the other way round): a
 **torn read**. (Aligned 16-byte SSE accesses are atomic on recent CPUs with AVX, as
 Intel and AMD documented in 2021, but older ones gave no such promise, and the game's
 model doesn't either.)
@@ -26,8 +36,9 @@ nanoseconds, a pointer plus its length, or a price plus its currency.
 ## Background: cmpxchg16b
 
 `lock cmpxchg16b [m]` (with `m` 16-byte aligned) is a compare-and-swap on 16 bytes:
-if the memory equals `rdx:rax` it stores `rcx:rbx` and sets ZF; otherwise it loads the
-memory into `rdx:rax` and clears ZF. Both cases are **one** atomic access, so it serves as:
+if the memory equals `rdx:rax`, it stores `rcx:rbx` and sets ZF; otherwise it loads the
+memory into `rdx:rax` and clears ZF. Both cases are **one** atomic access, so it can
+serve as:
 
 - an atomic **16-byte write**: loop until it succeeds;
 - an atomic **16-byte read**: compare against anything (say 0:0). On a mismatch you

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 314" width="720" height="314" font-family="sans-serif" font-size="13" fill="#222">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect x="0" y="0" width="720" height="314" fill="#ffffff"/>
+<rect x="14" y="8" width="168" height="254" rx="3" fill="#fafafa" stroke="#ccc" stroke-width="1.0"/>
+<text x="24" y="30" font-size="13" text-anchor="start" font-weight="bold" fill="#222">1. thread 1 reads</text>
+<text x="24" y="50" font-size="12" text-anchor="start" font-weight="normal" fill="#666">top = A, A.next = B</text>
+<text x="28" y="92" font-size="13" text-anchor="start" font-weight="bold" fill="#222" font-family="monospace">top</text>
+<line x1="60" y1="88" x2="84" y2="88" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="86" y="72" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="121" y="93" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">A</text>
+<line x1="121" y1="104" x2="121" y2="132" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="86" y="134" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="121" y="155" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">B</text>
+<line x1="121" y1="166" x2="121" y2="194" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="86" y="196" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="121" y="217" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">C</text>
+<text x="24" y="250" font-size="12" text-anchor="start" font-weight="normal" fill="#666">then it's preempted</text>
+<rect x="190" y="8" width="168" height="254" rx="3" fill="#fafafa" stroke="#ccc" stroke-width="1.0"/>
+<text x="200" y="30" font-size="13" text-anchor="start" font-weight="bold" fill="#222">2. thread 2 pops A, B</text>
+<text x="200" y="50" font-size="12" text-anchor="start" font-weight="normal" fill="#666">B is now in use</text>
+<text x="204" y="92" font-size="13" text-anchor="start" font-weight="bold" fill="#222" font-family="monospace">top</text>
+<line x1="236" y1="88" x2="260" y2="88" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="262" y="72" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="297" y="93" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">C</text>
+<text x="200" y="250" font-size="12" text-anchor="start" font-weight="normal" fill="#666">A and B are off the stack</text>
+<rect x="366" y="8" width="168" height="254" rx="3" fill="#fafafa" stroke="#ccc" stroke-width="1.0"/>
+<text x="376" y="30" font-size="13" text-anchor="start" font-weight="bold" fill="#222">3. thread 2 pushes A</text>
+<text x="376" y="50" font-size="12" text-anchor="start" font-weight="normal" fill="#666">A.next = C now</text>
+<text x="380" y="92" font-size="13" text-anchor="start" font-weight="bold" fill="#222" font-family="monospace">top</text>
+<line x1="412" y1="88" x2="436" y2="88" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="438" y="72" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="473" y="93" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">A</text>
+<line x1="473" y1="104" x2="473" y2="132" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="438" y="134" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="473" y="155" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">C</text>
+<text x="376" y="250" font-size="12" text-anchor="start" font-weight="normal" fill="#666">top is A again</text>
+<rect x="542" y="8" width="168" height="254" rx="3" fill="#fafafa" stroke="#ccc" stroke-width="1.0"/>
+<text x="552" y="30" font-size="13" text-anchor="start" font-weight="bold" fill="#222">4. thread 1 resumes</text>
+<text x="552" y="50" font-size="12" text-anchor="start" font-weight="normal" fill="#666">CAS(top, A→B) succeeds</text>
+<text x="556" y="92" font-size="13" text-anchor="start" font-weight="bold" fill="#222" font-family="monospace">top</text>
+<line x1="588" y1="88" x2="612" y2="88" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="614" y="72" width="70" height="32" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.6"/>
+<text x="649" y="93" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">B</text>
+<line x1="649" y1="104" x2="649" y2="132" stroke="#444" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="614" y="134" width="70" height="32" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.6"/>
+<text x="649" y="155" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">C</text>
+<text x="552" y="250" font-size="12" text-anchor="start" font-weight="normal" fill="#b8322a">top = B, which is in use!</text>
+<text x="14" y="286" font-size="12" text-anchor="start" font-weight="normal" fill="#666">The CAS only asks “is top still A?”. It is, though the stack changed underneath; A itself</text>
+<text x="14" y="302" font-size="12" text-anchor="start" font-weight="normal" fill="#666">dropped out, and B, which thread 2 owns, is back on the stack for anyone to pop.</text>
+</svg>

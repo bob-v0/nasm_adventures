@@ -18,25 +18,39 @@ modern x86 core, the same for everyone, every time. It's documented at the top o
 - the classic traps: store forwarding, 4K aliasing, denormals, split accesses.
 
 Real CPUs differ in detail, never in kind: what's slow here is slow there. When a test
-is too slow, the game tells you where the cycles went.
+is too slow, the game's report tells you where the cycles went.
 
 ## Lesson: the time-stamp counter
 
-`rdtsc` loads a cycle counter into `edx:eax` (`shl rdx, 32` / `or rax, rdx` makes one
-64-bit number). Read it before and after, subtract, done? Not quite:
+`rdtsc` loads a cycle counter into `edx:eax`. `shl rdx, 32` / `or rax, rdx` makes one
+64-bit number of it. So: read it before, read it after, subtract? Not quite. Four things
+get in the way.
 
-1. **Out-of-order execution.** `rdtsc` is an instruction like any other: it can run
-   *before* the instructions above it have finished, or *after* the ones below it have
-   started. `lfence` waits until everything before it has finished; `rdtscp` does the same
-   for the read itself. The usual pattern: `lfence; rdtsc; lfence` before, `rdtscp;
-   lfence` after.
-2. **Warm-up.** The first call pays for cold caches and an untrained branch predictor.
-   Unless that's what you want to measure, call it a few times first.
-3. **Noise.** Interrupts, other programs, frequency changes. Noise only ever *adds*
-   time, so repeat the measurement and keep the **minimum** (or a low percentile; never
-   the average).
-4. **Overhead.** The fences and the `call` cost cycles too. Measure an empty function
-   exactly the same way and subtract.
+**1. Out-of-order execution.** `rdtsc` is an instruction like any other. It can run
+*before* the instructions above it have finished, or *after* the ones below it have
+started, and then you time the wrong thing. Fences pin it in place: `lfence` waits until
+everything before it has finished, and `rdtscp` is an `rdtsc` that does the same for the
+read itself. The usual pattern:
+
+```
+lfence          ; everything before has finished
+rdtsc           ; start
+lfence          ; nothing after starts early
+call fn
+rdtscp          ; end: waits for fn to finish
+lfence          ; nothing after starts early
+```
+
+**2. Warm-up.** The first call pays for cold caches and an untrained branch predictor.
+Unless that's what you want to measure, call the function a few times first.
+
+**3. Noise.** Interrupts, other programs and frequency changes only ever *add* time. So
+repeat the measurement and keep the **minimum** (or a low percentile; never the
+average). Five runs of `512 509 1730 508 509` cycles mean 508: the 1730 is an interrupt,
+not your code.
+
+**4. Overhead.** The fences and the `call` cost cycles too. Measure an empty function
+exactly the same way, and subtract.
 
 ## Gate
 

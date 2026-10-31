@@ -9,9 +9,9 @@ concepts = ["uops: what instructions really cost", "division is slow; division b
 introduces = ["uops", "magic-number division", "movzx for loads", "macro-fusion", "loop vs dec/jnz"]
 
 hints = [
-  "div by 10 takes about 26 cycles and the divider can't start another for 24: that alone is most of the time. A division by a constant is a multiplication: for 0 <= b < 1024, b / 10 == (b * 205) >> 11. Then b % 10 = b - 10 * (b / 10), and 10q = (q + 4q) * 2 with lea and add.",
-  "mov al, [rdi] writes only the low byte of rax, so it depends on whatever rax held (a false dependency chaining the iterations together). movzx ecx, byte [rdi] writes the whole register and depends on nothing.",
-  "loop is several uops; dec rsi / jnz is one (dec and jnz fuse). And the push/pop rcx in the loop exist only because div needs ecx: without div, they can go too.",
+  "div by 10 takes about 26 cycles, and the divider can't start another for 24: that alone is most of the loop's time. A division by a constant is really a multiplication and a shift. Each of the other lessons in the brief (partial registers, loop) also points at a line of the starter.",
+  "For 0 <= b < 1024, b / 10 == (b * 205) >> 11. Then b % 10 = b - 10 * (b / 10), and 10q = (q + 4q) * 2: an lea and an add. Load the byte with movzx: mov al, [rdi] writes only the low byte of rax, so it depends on whatever rax held before (a false dependency chaining the iterations together).",
+  "Per byte: movzx eax, byte [rdi] / imul ecx, eax, 205 / shr ecx, 11 / lea ecx, [rcx + rcx*4] / add ecx, ecx / sub eax, ecx / add ebx, eax. Then replace loop (7 uops) by dec rsi / jnz (1 fused uop), and drop the push/pop rcx: they were only there because div needs ecx.",
 ]
 
 [constraints]

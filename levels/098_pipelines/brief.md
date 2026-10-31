@@ -7,11 +7,15 @@ wait for that one to finish.*
 
 Every instruction has two speeds:
 
-- **latency**: cycles from when its inputs are ready until its result is: `add` 1,
+- **latency**: the cycles from when its inputs are ready until its result is: `add` 1,
   `imul` 3, `addsd` 4, `divsd` 14;
 - **throughput**: how many can *start* per cycle when they don't depend on each other:
-  `add` 4 per cycle, `addsd` 2, `imul` 1. The units are **pipelined**: a new `addsd`
-  can start every half cycle even though each takes 4.
+  `add` 4 per cycle, `addsd` 2, `imul` 1.
+
+How can two `addsd` start every cycle when each takes 4? The units are **pipelined**,
+like an assembly line: an addition moves one stage further each cycle, and a new one can
+enter behind it. A unit with 4 stages can have 4 additions in progress at once, if they
+don't need each other's results.
 
 ## Lesson: dependency chains
 
@@ -20,13 +24,17 @@ Every instruction has two speeds:
 ```
 
 Each addition needs the sum from the one before, so they form a **chain**: one every 4
-cycles, no matter how many units sit idle. That's the starter: 4.5 cycles per value,
-under 1 instruction per cycle on a machine that can do 4.
+cycles, no matter how many units sit idle. That's the starter: about 4.5 cycles per
+value, under one instruction per cycle on a machine that can do four.
 
-The fix is to break the chain into **independent** ones: four sums (xmm0 gets values 0,
-4, 8…, xmm1 gets 1, 5, 9…, and so on), added together at the end. Now four additions
-are in flight at any time. Compilers do this for integers by themselves (`-O2`); for
-floats only if you allow it (`-ffast-math`), because…
+The fix is to break the chain into **independent** ones. Keep four sums: `xmm0` gets
+values 0, 4, 8…, `xmm1` gets 1, 5, 9…, and so on. Add the four together at the end. Now
+four additions are in flight at any time.
+
+![One sum versus four: the same additions, one chain or four overlapping chains](chains.svg)
+
+Compilers do this for integers by themselves (`-O2`), and for floats only if you allow
+it (`-ffast-math`), because…
 
 ## Lesson: floating point isn't associative
 

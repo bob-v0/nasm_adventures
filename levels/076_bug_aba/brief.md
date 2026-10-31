@@ -12,8 +12,8 @@ pops a node that another thread is still using: "double owners".
 
 ## Background: ABA
 
-`pop` does: read `top` (node A), read `A.next` (B), then `CAS(top, A → B)`. Between the
-reads and the CAS:
+`pop` reads `top` (node A), reads `A.next` (B), then does `CAS(top, A → B)`. A lot can
+happen between the reads and the CAS:
 
 ```
 thread 1: top = A, next = B ...          (preempted)
@@ -23,20 +23,22 @@ thread 2: push A back    -> top = A, A.next = C
 thread 1: CAS(top, A -> B)  succeeds: top is A!   -> top = B, which thread 2 owns
 ```
 
-The CAS checks that `top` *equals* A, but the question that matters is whether it
-*changed*. A went away and came back: **A → B → A**. With freed and reused memory it's
-worse: `B` may be garbage.
+![The ABA sequence, step by step: the stack after each of the four moments above](aba.svg)
 
-ABA needs reuse, which is why level 77 didn't have it, and every real free list, memory
+The CAS checks that `top` *equals* A, but the question that matters is whether it
+*changed*. A went away and came back: **A → B → A**, hence the name. With freed and
+reused memory it's worse: B may be garbage.
+
+ABA needs reuse, which is why level 77 didn't have it. Every real free list, memory
 pool and object cache does.
 
 ## Background: fixes
 
 - **Tagged pointers**: make the head `{ pointer, version }` and bump the version on every
   successful change. A CAS based on an old reading now fails even if the pointer came
-  back. On x86-64, `lock cmpxchg16b` swaps both 8-byte halves at once (rdx:rax expected,
-  rcx:rbx new). (Alternatives: steal unused pointer bits for a small counter; ARM's
-  LL/SC instructions, which fail on *any* intervening write.)
+  back. On x86-64, `lock cmpxchg16b` swaps both 8-byte halves at once (`rdx:rax`
+  expected, `rcx:rbx` new). (Alternatives: steal unused pointer bits for a small counter;
+  or ARM's LL/SC instructions, which fail on *any* intervening write.)
 - **Don't reuse while anyone might be looking**: safe memory reclamation (level 75).
 
 ## Gate

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 312" width="720" height="312" font-family="sans-serif" font-size="13" fill="#222">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect x="0" y="0" width="720" height="312" fill="#ffffff"/>
+<text x="20" y="26" font-size="14" text-anchor="start" font-weight="bold" fill="#222">One sum (the starter): every addsd waits for the one before it</text>
+<text x="138" y="54" font-size="13" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">xmm0</text>
+<rect x="151" y="38" width="125" height="22" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="214" y="54" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v0</text>
+<rect x="279" y="38" width="125" height="22" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="342" y="54" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v1</text>
+<rect x="407" y="38" width="125" height="22" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="470" y="54" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v2</text>
+<rect x="535" y="38" width="125" height="22" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="598" y="54" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v3</text>
+<text x="150" y="80" font-size="12" text-anchor="start" font-weight="normal" fill="#666">4 additions in 16 cycles: only one is ever in flight, while the FP units could take two per cycle.</text>
+<text x="20" y="118" font-size="14" text-anchor="start" font-weight="bold" fill="#222">Four sums: four independent chains, interleaved</text>
+<text x="138" y="146" font-size="13" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">xmm0</text>
+<rect x="151" y="130" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="214" y="146" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v0</text>
+<rect x="279" y="130" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="342" y="146" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v4</text>
+<rect x="407" y="130" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="470" y="146" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v8</text>
+<rect x="535" y="130" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="598" y="146" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v12</text>
+<text x="138" y="174" font-size="13" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">xmm1</text>
+<rect x="151" y="158" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="214" y="174" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v1</text>
+<rect x="279" y="158" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="342" y="174" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v5</text>
+<rect x="407" y="158" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="470" y="174" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v9</text>
+<rect x="535" y="158" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="598" y="174" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v13</text>
+<text x="138" y="202" font-size="13" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">xmm2</text>
+<rect x="183" y="186" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="246" y="202" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v2</text>
+<rect x="311" y="186" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="374" y="202" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v6</text>
+<rect x="439" y="186" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="502" y="202" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v10</text>
+<rect x="567" y="186" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="630" y="202" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v14</text>
+<text x="138" y="230" font-size="13" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">xmm3</text>
+<rect x="183" y="214" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="246" y="230" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v3</text>
+<rect x="311" y="214" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="374" y="230" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v7</text>
+<rect x="439" y="214" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="502" y="230" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v11</text>
+<rect x="567" y="214" width="125" height="22" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="630" y="230" font-size="12" text-anchor="middle" font-weight="normal" fill="#222" font-family="monospace">+ v15</text>
+<text x="150" y="258" font-size="12" text-anchor="start" font-weight="normal" fill="#666">16 additions in 17 cycles: four in flight at any moment.</text>
+<line x1="150" y1="280" x2="694" y2="280" stroke="#666" stroke-width="1.2"/>
+<line x1="150" y1="280" x2="150" y2="286" stroke="#666" stroke-width="1.2"/>
+<text x="150" y="300" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">0</text>
+<line x1="182" y1="280" x2="182" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="214" y1="280" x2="214" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="246" y1="280" x2="246" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="278" y1="280" x2="278" y2="286" stroke="#666" stroke-width="1.2"/>
+<text x="278" y="300" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">4</text>
+<line x1="310" y1="280" x2="310" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="342" y1="280" x2="342" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="374" y1="280" x2="374" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="406" y1="280" x2="406" y2="286" stroke="#666" stroke-width="1.2"/>
+<text x="406" y="300" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">8</text>
+<line x1="438" y1="280" x2="438" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="470" y1="280" x2="470" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="502" y1="280" x2="502" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="534" y1="280" x2="534" y2="286" stroke="#666" stroke-width="1.2"/>
+<text x="534" y="300" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">12</text>
+<line x1="566" y1="280" x2="566" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="598" y1="280" x2="598" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="630" y1="280" x2="630" y2="283" stroke="#666" stroke-width="1.2"/>
+<line x1="662" y1="280" x2="662" y2="286" stroke="#666" stroke-width="1.2"/>
+<text x="662" y="300" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">16</text>
+<line x1="694" y1="280" x2="694" y2="283" stroke="#666" stroke-width="1.2"/>
+<text x="138" y="300" font-size="12" text-anchor="end" font-weight="normal" fill="#666">cycle</text>
+</svg>

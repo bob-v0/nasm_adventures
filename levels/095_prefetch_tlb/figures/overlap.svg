@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 342" width="720" height="342" font-family="sans-serif" font-size="13" fill="#222">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect x="0" y="0" width="720" height="342" fill="#ffffff"/>
+<text x="20" y="24" font-size="14" text-anchor="start" font-weight="bold" fill="#222">One list: each load needs the address the previous one returns</text>
+<rect x="131.0" y="36" width="157.0" height="20" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="210.0" y="51" font-size="12" text-anchor="middle" font-weight="normal" fill="#222">node 1: 200 cycles</text>
+<rect x="291.0" y="36" width="157.0" height="20" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="370.0" y="51" font-size="12" text-anchor="middle" font-weight="normal" fill="#222">node 2: 200 cycles</text>
+<rect x="451.0" y="36" width="157.0" height="20" rx="3" fill="#f6d0cc" stroke="#b8322a" stroke-width="1.2"/>
+<text x="530.0" y="51" font-size="12" text-anchor="middle" font-weight="normal" fill="#222">node 3: 200 cycles</text>
+<text x="120" y="51" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 0</text>
+<text x="20" y="96" font-size="14" text-anchor="start" font-weight="bold" fill="#222">Eight lists, one node of each per round: the misses overlap</text>
+<text x="120" y="119" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 0</text>
+<rect x="131.0" y="106" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="316.6" y="106" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="502.20000000000005" y="106" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="138" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 1</text>
+<rect x="134.2" y="125" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="319.8" y="125" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="505.40000000000003" y="125" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="157" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 2</text>
+<rect x="137.4" y="144" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="323.0" y="144" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="508.6" y="144" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="176" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 3</text>
+<rect x="140.6" y="163" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="326.20000000000005" y="163" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="511.8" y="163" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="195" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 4</text>
+<rect x="143.8" y="182" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="329.4" y="182" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="515.0" y="182" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="214" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 5</text>
+<rect x="147.0" y="201" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="332.6" y="201" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="518.2" y="201" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="233" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 6</text>
+<rect x="150.2" y="220" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="335.8" y="220" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="521.4000000000001" y="220" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<text x="120" y="252" font-size="12" text-anchor="end" font-weight="normal" fill="#222" font-family="monospace">list 7</text>
+<rect x="153.4" y="239" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="339.0" y="239" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<rect x="524.6" y="239" width="157.0" height="16" rx="3" fill="#d3e4f5" stroke="#2a5f9e" stroke-width="1.2"/>
+<line x1="130" y1="270" x2="690.0" y2="270" stroke="#666" stroke-width="1.2"/>
+<line x1="130.0" y1="270" x2="130.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="130.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">0</text>
+<line x1="210.0" y1="270" x2="210.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="210.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">100</text>
+<line x1="290.0" y1="270" x2="290.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="290.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">200</text>
+<line x1="370.0" y1="270" x2="370.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="370.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">300</text>
+<line x1="450.0" y1="270" x2="450.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="450.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">400</text>
+<line x1="530.0" y1="270" x2="530.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="530.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">500</text>
+<line x1="610.0" y1="270" x2="610.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="610.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">600</text>
+<line x1="690.0" y1="270" x2="690.0" y2="275" stroke="#666" stroke-width="1.2"/>
+<text x="690.0" y="289" font-size="12" text-anchor="middle" font-weight="normal" fill="#666">700</text>
+<text x="120" y="289" font-size="12" text-anchor="end" font-weight="normal" fill="#666">cycle</text>
+<text x="20" y="314" font-size="12" text-anchor="start" font-weight="normal" fill="#666">Schematic. Top: 3 nodes in 600 cycles. Bottom: 24 nodes in under 700. (Memory sends one</text>
+<text x="20" y="330" font-size="12" text-anchor="start" font-weight="normal" fill="#666">line per 4 cycles, so each round's misses start a few cycles apart.)</text>
+</svg>

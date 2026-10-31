@@ -9,7 +9,7 @@ concepts = ["everything in the arc", "hash functions: every input bit should mat
 introduces = ["Fibonacci hashing", "load factor", "linear probing"]
 
 hints = [
-  "Look at the keys the tests use: counters and 4 KiB-aligned addresses. `key & 8191` keeps the low 13 bits. For aligned addresses those are always 0, so every key starts at slot 0 and probing becomes a long walk.",
+  "Look at the keys the tests use: counters and 4 KiB-aligned addresses. `key & 8191` keeps the low 13 bits. For 4 KiB-aligned addresses the low 12 of them are always 0, so every key starts at slot 0 or slot 4096, and probing becomes a long walk past every key inserted before.",
   "A good cheap hash mixes all bits into the ones you keep: multiply by an odd 64-bit constant (2^64 / golden ratio = 0x9E3779B97F4A7C15) and keep the TOP 13 bits (shr 51). Fibonacci hashing.",
   "Then the details: keep the table at most half full (8192 slots for 4096 keys), key and value side by side (one line per hit), compare against the key before testing for empty, and no call in the hot path.",
 ]
