@@ -5,6 +5,8 @@ once, writes down the answer as machine code, and runs that.*
 
 ## The bytecode (level 150)
 
+A reminder of the stack machine you're compiling:
+
 | Op | Bytes | Effect (stack top on the right) |
 |---|---|---|
 | 0 HALT | 1 | stop |
@@ -14,14 +16,17 @@ once, writes down the answer as machine code, and runs that.*
 | 8 OVER / 9 ROT | 1 | a b → a b a / a b c → b c a |
 | 10 JNZ off | 2 | pop v; if v ≠ 0, jump by off from the next op |
 
-Errors stop the program with rax = 0 and rdx = 1 (opcode > 10, when reached), 2 (not
-enough values) or 3 (more than 32). On HALT: rax = the top (0 if empty), rdx = 0.
-Always rcx = the depth. Jumps in the tests always land on the start of an op.
+- On HALT: rax = the top (0 if the stack is empty), rdx = 0.
+- Errors stop the program with rax = 0 and rdx = 1 (an opcode > 10, when it's reached),
+  2 (not enough values on the stack) or 3 (more than 32 values).
+- Always: rcx = the depth (how many values are on the stack).
+
+Jumps in the tests always land on the start of an op.
 
 ## Lesson: memory you can execute
 
 Code is just bytes, but the CPU only runs bytes in pages marked executable. A JIT asks
-the kernel for memory, writes code into it, and changes its protection:
+the kernel for memory, writes code into it, then changes its protection:
 
 ```
 mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)   ; rax = 9
@@ -31,16 +36,16 @@ call addr + entry
 munmap(addr, size)                                                         ; rax = 11
 ```
 
-**W^X** (write xor execute): memory is never writable and executable at the same time,
-so a bug that lets an attacker write memory doesn't also let them write code. Browsers,
-iOS and OpenBSD enforce it; the game checks it.
+Why two steps? **W^X** ("write xor execute"): memory is never writable and executable at
+the same time. Then a bug that lets an attacker write memory doesn't also let them write
+code. Browsers, iOS and OpenBSD enforce it, and so does the game.
 
 ## Lesson: templates
 
-The simplest JIT copies a fixed piece of machine code per op: a **template**. Let NASM
-encode them: write the instructions in `.rodata` between labels, and copy the bytes
-between two labels (`b_add_end - b_add` is a length NASM computes). The templates only
-need patching where a value goes in: PUSH's immediate, and branch offsets.
+The simplest JIT copies a fixed piece of machine code per op: a **template**. You don't
+have to encode the templates by hand. Write them as ordinary instructions in `.rodata`
+between labels, let NASM assemble them, and copy the bytes between two labels
+(`b_add_end - b_add` is a length NASM computes for you):
 
 ```
 b_add:  mov rax, [rdi + r9*8 - 8]       ; rdi = the VM stack, r9 = the depth
@@ -49,23 +54,31 @@ b_add:  mov rax, [rdi + r9*8 - 8]       ; rdi = the VM stack, r9 = the depth
 b_add_end:
 ```
 
-The interpreter's checks become code too: `cmp r9, 2` / `jb underflow` in front of ADD.
+Templates only need patching where a value goes in: PUSH's immediate, and branch
+offsets. The interpreter's checks become code too: `cmp r9, 2` / `jb underflow` in front
+of ADD.
 
 ## Lesson: forward jumps
 
 A rel32 is `target − (address after the rel32)`. A JNZ that jumps forward needs the
-address of code that doesn't exist yet. With rel32 everywhere every op's code has a fixed
-size, so: **pass 1** generates everything and records where each bytecode position's code
-starts, **pass 2** generates it again, now with every target known. (Real assemblers do
-the same, level 51.)
+address of code that doesn't exist yet.
+
+The fix: use rel32 everywhere, so every op's code has a fixed size. Then **pass 1**
+generates everything and records where each bytecode position's code starts, and
+**pass 2** generates it again, now with every target known. (Real assemblers do the
+same: level 51.)
 
 ## Why it's faster
 
-The interpreter pays per op: a load of the opcode, bounds and stack checks, and an
-indirect `jmp` the branch predictor keeps getting wrong. The compiled code is a
+The interpreter pays for every op: a load of the opcode, bounds and stack checks, and an
+indirect `jmp` that the branch predictor keeps getting wrong. The compiled code is a
 straight line of the work itself.
 
 ## Gate
 
-`ring_run(code)` compiles and runs the program, under **5 cycles per op** executed (plus
-the compile time), with W^X.
+`ring_run(code)` compiles the 64-byte program at code, runs it, and returns rax, rdx and
+rcx as above.
+
+- Budget: **5 cycles per op** executed, plus an allowance for the compile time.
+- W^X: no mmap or mprotect may ask for writable and executable at once, and the code
+  must run from memory you mprotect to PROT_EXEC.

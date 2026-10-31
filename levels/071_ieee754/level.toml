@@ -8,9 +8,9 @@ concepts = ["a double is 64 bits: sign, 11-bit exponent, 52-bit fraction", "the 
 introduces = ["IEEE 754 binary64", "exponent bias", "implicit bit", "denormals", "NaN", "integer indefinite (0x8000000000000000)"]
 
 hints = [
-  "Take the double apart: sign = bit 63, exponent field e = bits 62..52 (shr 52, and 0x7FF), fraction = the low 52 bits. For a normal number (e from 1 to 2046) the value is 1.fraction × 2^(e − 1023), so the integer bits are m = fraction | (1 << 52), shifted: left by (e − 1075) if that's positive, right by (1075 − e) otherwise.",
-  "If e − 1023 is negative the value is below 1 in magnitude (that includes zeros and denormals, e = 0): the answer is 0. If e − 1023 is 63 or more, the value doesn't fit (that includes infinities and NaNs, e = 2047): the answer is 0x8000000000000000. That one value also happens to be exactly right for −2^63.",
-  "Shift counts must be in cl. Negate at the end if the sign bit was set (neg rax).",
+  "Take the double apart first: sign = bit 63, exponent field e = bits 62..52 (shr 52, then and 0x7FF), fraction = the low 52 bits. Then deal with the easy cases, decided by e alone, before any real work.",
+  "The easy cases: if e − 1023 is negative, the value is below 1 in magnitude (zeros and denormals, e = 0, are in here too), so the answer is 0. If e − 1023 is 63 or more, it doesn't fit (infinities and NaNs, e = 2047, are in here too), so the answer is 0x8000000000000000. That value also happens to be exactly right for −2^63.",
+  "Everything else is a normal number: 1.fraction × 2^(e − 1023). The integer bits are m = fraction | (1 << 52), shifted left by (e − 1075) if that's positive, right by (1075 − e) otherwise. Variable shift counts must be in cl. Negate at the end if the sign bit was set (neg rax).",
 ]
 
 [constraints]

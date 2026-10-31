@@ -5,14 +5,15 @@ can do anything else it has to find out, 4 to 6 instructions per cycle.*
 
 ## Lesson: finding the length
 
-Level 57's shape, read from left to right:
+To find where an instruction ends, read level 57's shape from left to right. Each part
+tells you whether the next one is there:
 
-1. **Legacy prefixes**, any number: `66 67 F0 F2 F3 2E 3E 26 64 65 36`. Only 66 changes the
-   length (16-bit immediates).
-2. **REX** (40-4F) right before the opcode. Only W matters here (64-bit immediates for
-   B8+r).
+1. **Legacy prefixes**, any number of them: `66 67 F0 F2 F3 2E 3E 26 64 65 36`. Only 66
+   changes the length (it makes immediates 16-bit).
+2. **REX** (40–4F), right before the opcode. Only W matters here (it gives B8+r a 64-bit
+   immediate).
 3. **Opcode**: one byte, or `0F` + one, or `0F 38` / `0F 3A` + one.
-4. **ModRM**, if the opcode has one; then **SIB** and **displacement** as ModRM says:
+4. **ModRM**, if the opcode has one; then **SIB** and **displacement**, as ModRM says:
 
    | mod | r/m ≠ 4, 5 | r/m = 4 (SIB) | r/m = 5 |
    |---|---|---|---|
@@ -22,6 +23,19 @@ Level 57's shape, read from left to right:
    | 3 | — (registers) | — | — |
 
 5. **Immediate**, as the opcode says.
+
+Worked example, `add word [r12+8], 0x1234`:
+
+```
+66       prefix: immediates are 2 bytes now
+41       REX (B = 1), W = 0
+81       opcode: ModRM, then an iz immediate
+44       ModRM: mod = 1, r/m = 4 -> a SIB, then a disp8
+24       SIB
+08       disp8
+34 12    immediate: iz with 66 = 2 bytes
+         -> 8 bytes in all
+```
 
 ## The subset
 
@@ -47,13 +61,15 @@ Level 57's shape, read from left to right:
 | 0F 80-8F (jcc rel32) | | always 4 |
 | 0F 38 xx / 0F 3A xx | yes | — / ib |
 
-**iz** is 4 bytes, or 2 with a 66 prefix, or 4 again with REX.W (REX.W beats 66).
+**ib** is 1 byte. **iz** is 4 bytes, or 2 with a 66 prefix, or 4 again with REX.W
+(REX.W beats 66).
 
-Real decoders do exactly this, with tables. The CPU's own length decoder has another
-problem: 66 changing an immediate from 4 to 2 bytes (a **length-changing prefix**)
-stalls Intel's predecoder for several cycles.
+Real decoders do exactly this, with tables. The CPU's own length decoder has an extra
+problem: a 66 that changes an immediate from 4 to 2 bytes (a **length-changing
+prefix**) stalls Intel's predecoder for several cycles.
 
 ## Gate
 
-`ring_insn_length(code)` returns the length of the instruction at code, for 16 named
-instructions and 80 random ones from the subset.
+`ring_insn_length(code)` returns the length in bytes of the instruction at code. The
+tests use 16 named instructions and 80 random ones, all valid and all from the subset.
+The bytes after the instruction are the next instruction, or junk.

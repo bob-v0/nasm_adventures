@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" width="720" font-family="sans-serif" font-size="14">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect width="720" height="280" fill="#ffffff"/>
+<text x="360" y="22" font-size="15" text-anchor="middle" fill="#222" font-weight="bold">pshufb xmm0, xmm1: control byte i picks which old byte lands in byte i</text>
+<text x="120" y="46" font-size="12" text-anchor="end" fill="#555">byte</text>
+<text x="148.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">0</text>
+<text x="184.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">1</text>
+<text x="220.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">2</text>
+<text x="256.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">3</text>
+<text x="292.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">4</text>
+<text x="328.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">5</text>
+<text x="364.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">6</text>
+<text x="400.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">7</text>
+<text x="436.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">8</text>
+<text x="472.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">9</text>
+<text x="508.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">10</text>
+<text x="544.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">11</text>
+<text x="580.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">12</text>
+<text x="616.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">13</text>
+<text x="652.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">14</text>
+<text x="688.0" y="46" font-size="12" text-anchor="middle" fill="#555" font-family="monospace">15</text>
+<text x="120" y="75" font-size="13" text-anchor="end" fill="#222">xmm0 (old)</text>
+<rect x="130" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="148.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">A</text>
+<rect x="166" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="184.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">B</text>
+<rect x="202" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="220.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">C</text>
+<rect x="238" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="256.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">D</text>
+<rect x="274" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="292.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">E</text>
+<rect x="310" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="328.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">F</text>
+<rect x="346" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="364.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">G</text>
+<rect x="382" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="400.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">H</text>
+<rect x="418" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="436.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">I</text>
+<rect x="454" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="472.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">J</text>
+<rect x="490" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="508.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">K</text>
+<rect x="526" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="544.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">L</text>
+<rect x="562" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="580.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">M</text>
+<rect x="598" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="616.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">N</text>
+<rect x="634" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="652.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">O</text>
+<rect x="670" y="54" width="36" height="30" fill="#c9daf8" stroke="#222"/>
+<text x="688.0" y="74.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">P</text>
+<line x1="256.0" y1="86" x2="148.0" y2="146" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="220.0" y1="86" x2="184.0" y2="146" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="184.0" y1="86" x2="220.0" y2="146" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="148.0" y1="86" x2="256.0" y2="146" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+<text x="120" y="171" font-size="13" text-anchor="end" fill="#222">result</text>
+<rect x="130" y="150" width="36" height="30" fill="#d9ead3" stroke="#222"/>
+<text x="148.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">D</text>
+<rect x="166" y="150" width="36" height="30" fill="#d9ead3" stroke="#222"/>
+<text x="184.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">C</text>
+<rect x="202" y="150" width="36" height="30" fill="#d9ead3" stroke="#222"/>
+<text x="220.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">B</text>
+<rect x="238" y="150" width="36" height="30" fill="#d9ead3" stroke="#222"/>
+<text x="256.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">A</text>
+<rect x="274" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="292.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">H</text>
+<rect x="310" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="328.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">G</text>
+<rect x="346" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="364.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">F</text>
+<rect x="382" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="400.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">E</text>
+<rect x="418" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="436.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">L</text>
+<rect x="454" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="472.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">K</text>
+<rect x="490" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="508.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">J</text>
+<rect x="526" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="544.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">I</text>
+<rect x="562" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="580.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">P</text>
+<rect x="598" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="616.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">O</text>
+<rect x="634" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="652.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">N</text>
+<rect x="670" y="150" width="36" height="30" fill="#eeeeee" stroke="#222"/>
+<text x="688.0" y="170.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">M</text>
+<text x="120" y="207" font-size="13" text-anchor="end" fill="#222">xmm1 (control)</text>
+<rect x="130" y="186" width="36" height="30" fill="#fff2cc" stroke="#222"/>
+<text x="148.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">3</text>
+<rect x="166" y="186" width="36" height="30" fill="#fff2cc" stroke="#222"/>
+<text x="184.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">2</text>
+<rect x="202" y="186" width="36" height="30" fill="#fff2cc" stroke="#222"/>
+<text x="220.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">1</text>
+<rect x="238" y="186" width="36" height="30" fill="#fff2cc" stroke="#222"/>
+<text x="256.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">0</text>
+<rect x="274" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="292.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">7</text>
+<rect x="310" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="328.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">6</text>
+<rect x="346" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="364.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">5</text>
+<rect x="382" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="400.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">4</text>
+<rect x="418" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="436.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">11</text>
+<rect x="454" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="472.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">10</text>
+<rect x="490" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="508.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">9</text>
+<rect x="526" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="544.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">8</text>
+<rect x="562" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="580.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">15</text>
+<rect x="598" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="616.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">14</text>
+<rect x="634" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="652.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">13</text>
+<rect x="670" y="186" width="36" height="30" fill="#ffffff" stroke="#222"/>
+<text x="688.0" y="206.0" font-size="14" text-anchor="middle" fill="#222" font-family="monospace">12</text>
+<text x="360" y="244" font-size="13" text-anchor="middle" fill="#222">This control byte-swaps each dword (four bswaps at once). Bytes are shown in memory order, byte 0 first.</text>
+<text x="360" y="264" font-size="13" text-anchor="middle" fill="#222">A control byte with its top bit set (0x80) gives 0 instead.</text>
+</svg>
