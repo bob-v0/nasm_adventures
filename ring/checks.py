@@ -271,7 +271,7 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                   modules=[bytes.fromhex(m) for m in inj.get("modules", [])],
                   memory=inj.get("memory", qemu.MEMORY), rtc=inj.get("rtc", "2025-01-01T00:00:00"),
                   note=(note["seg"], note["off"], note["text"].encode("latin-1") + b"\0")
-                  if note else None) as run:
+                  if note else None, com2="com2" in inj) as run:
         run.symbols = build.symbols
         run.samples = {}
         if "ready" in inj:                    # wait until the program says it's listening
@@ -280,10 +280,19 @@ def run_boot_test(level: Level, build: Build, test: TestCase) -> TestResult:
                 if name in build.symbols:
                     run.samples[name] = int.from_bytes(run.read(build.symbols[name], 4), "little")
             run.samples["time"] = run.virtual_seconds()
+        typist = None
+        if "com2" in inj:                     # typed into COM2 while the keys are pressed
+            import threading
+            typist = threading.Thread(target=run.send_serial, daemon=True,
+                                      args=(inj["com2"].encode("latin-1"),
+                                            inj.get("com2_gap", 0.02)))
+            typist.start()
         if "keys" in inj:
             if "ready" not in inj:
                 run.wait("time", timeout=inj.get("key_delay", 0.5))
             run.send_keys(inj["keys"])
+        if typist is not None:
+            typist.join()
         until = exp.get("until", "halt")
         why = run.wait(until, timeout=exp.get("timeout", qemu.TIMEOUT_S),
                        serial=exp.get("serial_until", "").encode() or None)

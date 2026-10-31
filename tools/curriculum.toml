@@ -240,7 +240,7 @@ levels = [
   { title = "Local APIC", dir = "local_apic", concepts = "memory-mapped registers at 0xFEE00000, the spurious vector register, EOI, the APIC timer calibrated against the PIT", gate = "A 100 Hz APIC timer" },
   { title = "I/O APIC", dir = "io_apic", concepts = "the redirection table, routing an ISA IRQ to a vector, a ring buffer between handler and main loop", gate = "Keyboard input through the I/O APIC" },
   { title = "Interrupt Reentrancy", dir = "bug_irq_reentrancy", bug = 3, concepts = "an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC", gate = "Fix corruption; the grader moves the interrupts across every instruction" },
-  { title = "The sti;hlt Race", dir = "bug_sti_hlt", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through input" },
+  { title = "The sti;hlt Race", dir = "bug_sti_hlt", bug = 3, concepts = "lost wakeup between the check and `hlt`; the `sti` interrupt shadow", gate = "Fix an idle loop that sometimes sleeps through the interrupt it waits for" },
   { title = "Interrupt-Driven Console", dir = "interrupt_console", boss = true, concepts = "everything in the arc", gate = "Timer, keyboard and serial input on the APIC: a console that never loses or garbles input" },
 ]
 

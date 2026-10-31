@@ -1,0 +1,17 @@
+level = 29
+slug = "interrupt_console"
+title = "Interrupt-Driven Console"
+arc = "XII"
+boss = true
+mode = "multiboot"
+concepts = ["everything in the arc", "two input devices and a timer on the APIC at once", "handlers that only queue; the main loop does the work", "a UART's received-data interrupt"]
+introduces = ["COM2 and the UART's interrupt enable register", "one queue, several producers"]
+
+hints = [
+  "Bring up what levels 33 and 32 built: the Local APIC with its timer at 100 Hz (`ticks`, global), and two I/O APIC entries: pin 1 (keyboard) and pin 3 (COM2, port 0x2F8) to vectors of your choice. COM2 interrupts when a byte arrives once you set its IER (port 0x2F9) to 1 (and MCR, 0x2FC, to 0x08: OUT2, the line real PCs wire its interrupt through).",
+  "Keep the handlers short: read the byte (port 0x60, or 0x2F8 while bit 0 of the line status 0x2FD is set: there may be more than one), put it with its source into one ring buffer, EOI, iret. The main loop takes entries out with the level 30 idiom (cli; check; sti; hlt) and does everything else: turning scancodes into characters, editing, printing.",
+  "Give each source its own line: its text and length. The keyboard's Enter (0x1C) and COM2's carriage return (13) end a line; Backspace (scancode 0x0E) and COM2's DEL (0x7F) or BS (8) remove the last character. A finished line prints as `kbd: ...` or `com2: ...`. When both sources have sent the line `bye`, print `bye` and halt with interrupts off.",
+]
+
+[random]
+count = 3

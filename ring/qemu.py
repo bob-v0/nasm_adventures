@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import socket
+import threading
 import subprocess
 import tempfile
 import time
@@ -182,7 +183,8 @@ class Run:
     def __init__(self, image: bytes, profile: str = "seabios", disk_size: int = 0,
                  memory: str = MEMORY, extra_args: list[str] | None = None,
                  note: tuple | None = None, rtc: str = "2025-01-01T00:00:00",
-                 kernel: Path | None = None, cmdline: str = "", modules: list[bytes] = ()):
+                 kernel: Path | None = None, cmdline: str = "", modules: list[bytes] = (),
+                 com2: bool = False):
         if not available():
             raise BuildError("this level runs on a whole emulated PC: qemu-system-x86_64 must be "
                              "installed (it is in the game's Docker image).")
@@ -193,6 +195,8 @@ class Run:
         disk.write_bytes(image + bytes(size - len(image)))
         self.serial_path = self.dir / "serial.txt"
         self.sock = self.dir / "qmp.sock"
+        self.com2_sock = self.dir / "com2.sock"
+        self._com2 = None
         args = ["qemu-system-x86_64", "-machine", "pc", "-m", memory, "-display", "none",
                 "-vga", "std", "-no-reboot", "-monitor", "none", "-nodefaults",
                 "-drive", f"file={disk},format=raw,if=ide,index=0,media=disk",
@@ -223,6 +227,9 @@ class Run:
             args += ["-drive", f"file={stub},format=raw,if=floppy,index=0", "-boot", "order=a"]
         else:
             args += ["-boot", "order=c"]
+        if com2:                                  # a second serial line, for input: send_serial
+            args += ["-chardev", f"socket,id=com2,path={self.com2_sock},server=on,wait=off",
+                     "-serial", "chardev:com2"]
         args += extra_args or []
         self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, cwd=self.dir)
@@ -356,6 +363,28 @@ class Run:
                          **{"hold-time": hold_ms})
             time.sleep(0.03)
 
+    def send_serial(self, data: bytes, gap_s: float = 0.02) -> None:
+        """Type `data` into COM2, a byte every `gap_s` seconds (Run(com2=True))."""
+        if self._com2 is None:
+            c = socket.socket(socket.AF_UNIX)
+            c.connect(str(self.com2_sock))
+            self._com2 = c
+            threading.Thread(target=self._drain_com2, args=(c,), daemon=True).start()
+        for b in data:
+            try:
+                self._com2.sendall(bytes([b]))
+            except OSError:
+                return
+            time.sleep(gap_s)
+
+    @staticmethod
+    def _drain_com2(c) -> None:                   # whatever the guest writes to COM2
+        try:
+            while c.recv(4096):
+                pass
+        except OSError:
+            pass
+
     # ---- running -------------------------------------------------------------------------
 
     def wait(self, until: str = "halt", timeout: float = TIMEOUT_S, serial: bytes | None = None) -> str:
@@ -392,6 +421,11 @@ class Run:
         self.command("stop")
 
     def close(self) -> None:
+        if self._com2 is not None:
+            try:
+                self._com2.close()
+            except OSError:
+                pass
         if self.proc.poll() is None:
             try:
                 self.command("quit")

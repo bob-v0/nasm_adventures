@@ -1,0 +1,21 @@
+level = 30
+slug = "bug_sti_hlt"
+title = "The sti;hlt Race"
+arc = "XII"
+bug = 3
+mode = "multiboot"
+witness = true
+concepts = ["check-then-sleep: the lost wakeup, on one CPU", "hlt sleeps until the NEXT interrupt", "the interrupt shadow: sti takes effect one instruction late", "cli; check; sti; hlt as the idiom every idle loop uses"]
+introduces = ["the sti interrupt shadow", "lost wakeups with hlt"]
+
+hints = [
+  "Where is the CPU when it hangs? Not in the handler: in hlt, with the request completed and done already set. Which interrupt was supposed to wake it, and when did it arrive? Try witnesses from the list of failing delays in the test report.",
+  "If the completion interrupt arrives after `cmp byte [done], 0` but before `hlt`, the check already said 'not done', and hlt waits for the next interrupt, which never comes: there's only one per request. Level 79 had the same lost wakeup between threads.",
+  "Make the check and the sleep one unit: cli before the check, then `sti` immediately followed by `hlt`. sti enables interrupts only after the instruction that follows it, so an interrupt that is already pending is taken when hlt has started, and wakes it. Remember sti on the way out too.",
+]
+
+[constraints]
+max_changed_lines = 6
+
+[random]
+count = 4

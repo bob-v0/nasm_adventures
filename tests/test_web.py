@@ -128,3 +128,20 @@ def test_debugger_shows_vector_registers(ui):
     regs = {r["name"]: r for r in view["vregs"]}
     assert regs["xmm1"]["value"] == " ".join(["ffffffff"] * 4)
     assert regs["xmm2"]["value"] == " ".join(["fffffffe"] * 4) and regs["xmm2"]["changed"]
+
+
+def test_brief_figures_are_served(ui):
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener.open(f"{ui.base}/?token={ui.token}").read()
+    with opener.open(f"{ui.base}/figures/183/rotate.svg") as r:
+        assert r.headers["Content-Type"] == "image/svg+xml" and b"<svg" in r.read()
+    for bad in ("/figures/183/../brief.md", "/figures/183/nope.svg", "/figures/183/brief.md"):
+        with pytest.raises(urllib.error.HTTPError) as e:
+            opener.open(f"{ui.base}{bad}")
+        assert e.value.code == 404
+    from ring import briefs
+    from ring.level import all_levels
+    lv = all_levels()[183]
+    assert "](/figures/183/rotate.svg)" in briefs.render(lv.brief, "web", 183)
+    assert "[figure: " in briefs.render(lv.brief, "cli")

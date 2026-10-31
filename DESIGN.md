@@ -432,7 +432,7 @@ Runner: qemu: 32-bit protected mode as the bridge to long mode; interrupts on th
 | 33 | Local APIC | memory-mapped registers at 0xFEE00000, the spurious vector register, EOI, the APIC timer calibrated against the PIT | A 100 Hz APIC timer |
 | 32 | I/O APIC | the redirection table, routing an ISA IRQ to a vector, a ring buffer between handler and main loop | Keyboard input through the I/O APIC |
 | 31 | **Bug:** Interrupt Reentrancy ◆◆◆ | an IRQ handler and main code share a buffer; critical sections vs lock-free SPSC | Fix corruption; the grader moves the interrupts across every instruction |
-| 30 | **Bug:** The sti;hlt Race ◆◆◆ | lost wakeup between the check and `hlt`; the `sti` interrupt shadow | Fix an idle loop that sometimes sleeps through input |
+| 30 | **Bug:** The sti;hlt Race ◆◆◆ | lost wakeup between the check and `hlt`; the `sti` interrupt shadow | Fix an idle loop that sometimes sleeps through the interrupt it waits for |
 | 29 | Interrupt-Driven Console ★ | everything in the arc | Timer, keyboard and serial input on the APIC: a console that never loses or garbles input |
 
 ### Arc XIII — Long Mode (Levels 28–10)
